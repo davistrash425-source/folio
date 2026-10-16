@@ -6,12 +6,16 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test tests/images.test.ts tests/site.test.ts tests/zip.test.ts",
+    "test:smoke": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test tests/smoke.test.ts",
+    "backfill-photos": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/backfill-photos.ts"
   },
   "dependencies": {
     "next": "16.4.2",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
