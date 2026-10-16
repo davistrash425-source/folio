@@ -17,3 +17,8 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
+
+/* Photographer sites with "mixed" fonts: serif headings, sans-serif text. */
+[data-fonts="mixed"] :is(h1, h2, h3) {
+  font-family: var(--font-serif);
+}

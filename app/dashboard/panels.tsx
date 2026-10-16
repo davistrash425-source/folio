@@ -1,17 +1,8 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element -- user uploads are served by our own route */
 import { useActionState, useState, useTransition } from "react";
 import { deleteAccount, resendVerification, type FormState } from "@/app/actions/auth";
-import {
-  createAlbum,
-  deleteAlbum,
-  deleteInquiry,
-  renameAlbum,
-  setInquiryRead,
-  setPublished,
-  toggleAlbumPhoto,
-} from "@/app/actions/site";
+import { deleteInquiry, setInquiryRead, setPublished } from "@/app/actions/site";
 import { Button, Field, Input, Message } from "@/app/ui/form";
 import type { Inquiry } from "@/lib/db";
 
@@ -21,12 +12,15 @@ export function PublishToggle({ published }: { published: boolean }) {
     <button
       type="button"
       disabled={pending}
-      onClick={() => startTransition(() => setPublished(!published))}
+      onClick={() => {
+        if (published && !confirm("Take your site offline? Visitors will see a “doesn’t exist” page until you put it back online.")) return;
+        startTransition(() => setPublished(!published));
+      }}
       className={`rounded-full px-4 py-2 text-sm font-medium ring-1 disabled:opacity-50 ${
         published ? "ring-zinc-300 hover:bg-zinc-100" : "bg-green-700 text-white ring-green-700 hover:bg-green-800"
       }`}
     >
-      {pending ? "Saving…" : published ? "Unpublish" : "Publish site"}
+      {pending ? "Saving…" : published ? "Take offline" : "Put site online"}
     </button>
   );
 }
@@ -48,108 +42,6 @@ export function VerifyEmailBanner({ email }: { email: string }) {
         >
           {pending ? "Sending…" : "Resend email"}
         </button>
-      )}
-    </div>
-  );
-}
-
-type AlbumView = { id: string; slug: string; title: string; photoIds: string[]; url: string };
-
-export function AlbumManager({ albums, photos }: { albums: AlbumView[]; photos: { id: string; src: string }[] }) {
-  const [state, action, creating] = useActionState(createAlbum, {});
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
-
-  return (
-    <div className="space-y-4">
-      <form action={action} className="flex flex-wrap items-end gap-3">
-        <div className="min-w-48 flex-1">
-          <Field label="New album">
-            <Input name="title" required maxLength={60} placeholder="Weddings" key={state.ok} />
-          </Field>
-        </div>
-        <Button type="submit" disabled={creating}>{creating ? "Creating…" : "Create album"}</Button>
-        <Message error={state.error} ok={state.ok} />
-      </form>
-
-      {albums.length === 0 ? (
-        <p className="text-sm text-zinc-500">No albums yet. Albums with photos show up as pages on your site, like /weddings.</p>
-      ) : (
-        <ul className={`divide-y divide-zinc-200 rounded-xl ring-1 ring-zinc-200 ${pending ? "opacity-70" : ""}`}>
-          {albums.map((album) => (
-            <li key={album.id} className="p-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="flex-1">
-                  <p className="font-medium">{album.title}</p>
-                  <p className="text-sm text-zinc-500">
-                    {album.photoIds.length} photo{album.photoIds.length === 1 ? "" : "s"} ·{" "}
-                    {album.photoIds.length > 0 ? (
-                      <a href={album.url} target="_blank" rel="noopener noreferrer" className="underline">/{album.slug}</a>
-                    ) : (
-                      "add photos to show it on your site"
-                    )}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setOpenId(openId === album.id ? null : album.id)}
-                  aria-expanded={openId === album.id}
-                  className="rounded-full px-3 py-1.5 text-sm ring-1 ring-zinc-300 hover:bg-zinc-100"
-                >
-                  {openId === album.id ? "Done" : "Choose photos"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const title = prompt("Rename album", album.title);
-                    if (title) startTransition(() => renameAlbum(album.id, title));
-                  }}
-                  className="rounded-full px-3 py-1.5 text-sm hover:bg-zinc-100"
-                >
-                  Rename
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (confirm(`Delete the album “${album.title}”? The photos stay in your library.`)) {
-                      startTransition(() => deleteAlbum(album.id));
-                    }
-                  }}
-                  className="rounded-full px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
-                >
-                  Delete
-                </button>
-              </div>
-              {openId === album.id && (
-                photos.length === 0 ? (
-                  <p className="mt-3 text-sm text-zinc-500">Upload photos first.</p>
-                ) : (
-                  <ul className="mt-4 grid grid-cols-4 gap-2 sm:grid-cols-8">
-                    {photos.map((photo) => {
-                      const selected = album.photoIds.includes(photo.id);
-                      return (
-                        <li key={photo.id}>
-                          <button
-                            type="button"
-                            aria-pressed={selected}
-                            aria-label={selected ? "Remove from album" : "Add to album"}
-                            onClick={() => startTransition(() => toggleAlbumPhoto(album.id, photo.id))}
-                            className={`relative block w-full overflow-hidden rounded-md ring-offset-2 ${selected ? "ring-2 ring-black" : "opacity-50 hover:opacity-100"}`}
-                          >
-                            <img src={photo.src} alt="" className="aspect-square w-full object-cover" />
-                            {selected && (
-                              <span className="absolute right-1 top-1 rounded-full bg-black px-1.5 text-xs text-white">✓</span>
-                            )}
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )
-              )}
-            </li>
-          ))}
-        </ul>
       )}
     </div>
   );

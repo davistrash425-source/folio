@@ -4,6 +4,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
+import type { SiteDesign } from "./design";
 import type { TemplateId } from "./templates";
 
 export type SocialLinks = {
@@ -19,7 +20,9 @@ export type Photo = {
   // named "<id>.orig.<ext>" and kept private; the site serves the variants.
   file: string;
   createdAt: string;
-  alt?: string;
+  description?: string; // shown as a caption on the site
+  location?: string; // free text, e.g. "Lisbon, Portugal"
+  alt?: string; // for screen readers; falls back to the description
   // Set for photos processed by lib/images.ts. Older photos without them
   // fall back to the original file.
   width?: number;
@@ -31,7 +34,9 @@ export type Album = {
   id: string;
   slug: string;
   title: string;
-  photoIds: string[];
+  description?: string;
+  coverPhotoId?: string; // defaults to the album's first photo
+  photoIds: string[]; // in display order
 };
 
 export type Inquiry = {
@@ -50,7 +55,7 @@ export type User = {
   passwordHash: string;
   subdomain: string;
   createdAt: string;
-  template: TemplateId;
+  template: TemplateId; // the theme accounts started with; see design
   profile: {
     name: string;
     bio: string;
@@ -65,6 +70,12 @@ export type User = {
   emailVerified?: boolean;
   albums?: Album[];
   inquiries?: Inquiry[];
+  // How the site looks (lib/design.ts). `design` is what visitors see;
+  // `draftDesign` is what the photographer is editing until they publish.
+  // Missing on older accounts, which fall back to the preset for `template`.
+  design?: SiteDesign;
+  draftDesign?: SiteDesign;
+  designHistory?: SiteDesign[]; // earlier saved drafts, newest last, for undo
 };
 
 // One-time links for password resets and email verification. Only a hash of

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { loadSite } from "@/lib/public-site";
 import { siteMetadata } from "../metadata";
-import { SiteTemplate } from "../templates";
+import { SiteRenderer } from "../renderer";
 
 // name.yourapp.com/weddings → /sites/name/weddings
 export async function generateMetadata({ params }: PageProps<"/sites/[subdomain]/[album]">): Promise<Metadata> {
@@ -23,5 +23,5 @@ async function Album({ params }: { params: PageProps<"/sites/[subdomain]/[album]
   const { subdomain, album } = await params;
   const site = await loadSite(subdomain, album);
   if (!site) notFound();
-  return <SiteTemplate site={site} />;
+  return <SiteRenderer site={site} />;
 }

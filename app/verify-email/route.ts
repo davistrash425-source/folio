@@ -6,9 +6,9 @@ import { redeemToken } from "@/lib/tokens";
 export async function GET(request: Request) {
   const token = new URL(request.url).searchParams.get("token") ?? "";
   const userId = await redeemToken(token, "verify");
-  if (!userId) redirect("/dashboard?verified=expired");
+  if (!userId) redirect("/dashboard/manage/account?verified=expired");
   await updateUser(userId, (u) => {
     u.emailVerified = true;
   });
-  redirect("/dashboard?verified=1");
+  redirect("/dashboard/manage/account?verified=1");
 }

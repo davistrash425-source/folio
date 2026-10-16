@@ -95,11 +95,20 @@ export type PhotoSource = {
   width?: number;
   height?: number;
   alt: string;
+  description: string;
+  location: string;
 };
 
 // What an <img> needs to show a photo at the right size.
 export function photoSource(userId: string, photo: Photo): PhotoSource {
-  const base = { id: photo.id, width: photo.width, height: photo.height, alt: photo.alt ?? "" };
+  const base = {
+    id: photo.id,
+    width: photo.width,
+    height: photo.height,
+    alt: photo.alt || photo.description || "",
+    description: photo.description ?? "",
+    location: photo.location ?? "",
+  };
   if (!photo.variants?.length) return { ...base, src: photoUrl(userId, photo.file) };
   const urls = photo.variants.map((w) => [w, photoUrl(userId, variantName(baseName(photo.file), w))] as const);
   const fallback = urls.find(([w]) => w >= 1280) ?? urls[urls.length - 1];

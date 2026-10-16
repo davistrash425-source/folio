@@ -1,8 +1,10 @@
 # Folio — portfolio sites for photographers
 
 1. A photographer signs up and claims a site address.
-2. They upload photos (drag and drop), put them in order and describe them.
-3. They pick a style (Minimal, Gallery Dark, or Editorial) and can group photos into albums.
+2. They upload photos, then add a description and location to each one.
+3. They group photos into albums, and design the site in the Web design editor: theme, colors,
+   fonts, which photos and albums appear, section order, gallery layout and captions. Design
+   changes stay in a draft (with a live preview) until they publish them.
 4. They add their name, bio, contact details and social links.
 5. Their site is live at `name.<root domain>`, with album pages like `name.<root domain>/weddings`,
    a full-screen photo viewer, and a contact form that lands in their dashboard inbox.
@@ -34,12 +36,15 @@ Emails (password reset, email confirmation, new inquiries) are printed to the de
 | --- | --- |
 | Subdomain routing (`name.domain` → `/sites/name`) | `proxy.ts` |
 | Sign up / log in / log out | `app/(auth)`, `app/actions/auth.ts`, `lib/session.ts` |
-| Dashboard (photos, style, profile) | `app/dashboard`, `app/actions/site.ts` |
-| Public site and templates | `app/sites/[subdomain]` |
+| Dashboard: Manage website tab (side panel pages) | `app/dashboard/manage/*`, `app/dashboard/layout.tsx` |
+| Dashboard: Preview website tab | `app/dashboard/preview`, `app/site-preview` |
+| Site design model (what the editor edits) | `lib/design.ts`, `app/actions/design.ts` |
+| Web design editor | `app/dashboard/design-editor.tsx` |
+| Public site renderer | `app/sites/[subdomain]/renderer.tsx` |
 | Database (JSON file) | `lib/db.ts` |
 | Photo storage (local disk) | `lib/uploads.ts`, `app/api/uploads` |
 | Resizing and metadata stripping | `lib/images.ts` |
-| Albums, inquiries, publish toggle | `app/actions/site.ts`, `app/dashboard/panels.tsx` |
+| Photos, albums, inquiries, site online/offline | `app/actions/site.ts` |
 | Password reset, email confirmation, account deletion | `app/actions/auth.ts`, `lib/tokens.ts` |
 | Rate limiting | `lib/rate-limit.ts` |
 | Data export (.zip) | `app/api/export`, `lib/zip.ts` |
@@ -51,6 +56,15 @@ Emails (password reset, email confirmation, new inquiries) are printed to the de
 | --- | --- | --- |
 | `NEXT_PUBLIC_ROOT_DOMAIN` | Domain sites live under, e.g. `yourapp.com` | `localhost:3000` |
 | `SESSION_SECRET` | Signs login cookies. **Required in production.** | dev-only value |
+
+## How site design works
+
+Each account has a `SiteDesign` object (`lib/design.ts`): theme, colors, fonts, section order and visibility, header style, which photos and albums appear, gallery layout and captions. It's validated with a zod schema, and the renderer draws the site from it.
+
+- The editor saves to `draftDesign`. Publishing copies it to `design`, which is what visitors see. The last 20 saved drafts are kept for Undo.
+- The dashboard preview frames (`/site-preview`) show the draft. The editor sends unsaved changes to the frame with `postMessage`, so the preview updates instantly.
+- Accounts created before designs existed get the preset for their original template.
+- A future AI assistant only has to return a new `SiteDesign` that passes the schema; the placeholder box in the editor marks where it goes.
 
 ## How photos are stored
 

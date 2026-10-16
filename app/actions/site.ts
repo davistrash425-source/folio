@@ -8,10 +8,9 @@ import { sendEmail } from "@/lib/email";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { getSessionUserId } from "@/lib/session";
 import { appUrl, isPublished, slugify, validateSlug } from "@/lib/site";
-import { isTemplateId } from "@/lib/templates";
 import { deletePhotoFiles, savePhoto } from "@/lib/uploads";
 
-export type ActionState = { error?: string; ok?: string };
+export type ActionState = { error?: string; ok?: string; id?: string };
 
 // Every action re-checks the session itself rather than trusting the page.
 async function currentUserId() {
@@ -21,7 +20,7 @@ async function currentUserId() {
 }
 
 function done(message: string): ActionState {
-  revalidatePath("/dashboard");
+  revalidatePath("/dashboard", "layout");
   return { ok: message };
 }
 
@@ -65,7 +64,7 @@ export async function deletePhoto(photoId: string) {
     for (const album of u.albums ?? []) album.photoIds = album.photoIds.filter((id) => id !== photoId);
   });
   if (removed) await deletePhotoFiles(userId, removed);
-  revalidatePath("/dashboard");
+  revalidatePath("/dashboard", "layout");
 }
 
 // Saves a new photo order. The first photo is the cover image.
@@ -78,25 +77,29 @@ export async function reorderPhotos(photoIds: string[]) {
     const rest = u.photos.filter((p) => !photoIds.includes(p.id));
     u.photos = [...ordered, ...rest];
   });
-  revalidatePath("/dashboard");
+  revalidatePath("/dashboard", "layout");
 }
 
-export async function setPhotoAlt(photoId: string, alt: string) {
+// Saves the details edited in the All photos drawer.
+export async function updatePhoto(
+  photoId: string,
+  details: { description: string; location: string; alt: string; albumIds: string[] },
+) {
   const userId = await currentUserId();
   await updateUser(userId, (u) => {
     const photo = u.photos.find((p) => p.id === photoId);
-    if (photo) photo.alt = alt.trim().slice(0, 300);
+    if (!photo) return;
+    photo.description = details.description.trim().slice(0, 500);
+    photo.location = details.location.trim().slice(0, 120);
+    photo.alt = details.alt.trim().slice(0, 300);
+    for (const album of u.albums ?? []) {
+      const inAlbum = album.photoIds.includes(photoId);
+      const wanted = details.albumIds.includes(album.id);
+      if (wanted && !inAlbum) album.photoIds.push(photoId);
+      if (!wanted && inAlbum) album.photoIds = album.photoIds.filter((id) => id !== photoId);
+    }
   });
-  revalidatePath("/dashboard");
-}
-
-export async function chooseTemplate(templateId: string) {
-  const userId = await currentUserId();
-  if (!isTemplateId(templateId)) return;
-  await updateUser(userId, (u) => {
-    u.template = templateId;
-  });
-  revalidatePath("/dashboard");
+  revalidatePath("/dashboard", "layout");
 }
 
 export async function setPublished(published: boolean) {
@@ -104,7 +107,7 @@ export async function setPublished(published: boolean) {
   await updateUser(userId, (u) => {
     u.published = published;
   });
-  revalidatePath("/dashboard");
+  revalidatePath("/dashboard", "layout");
 }
 
 function cleanUrl(value: FormDataEntryValue | null) {
@@ -142,11 +145,13 @@ export async function saveProfile(_prev: ActionState, formData: FormData): Promi
 export async function createAlbum(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const userId = await currentUserId();
   const title = String(formData.get("title") ?? "").trim().slice(0, 60);
+  const description = String(formData.get("description") ?? "").trim().slice(0, 500);
   if (!title) return { error: "Give the album a name." };
   const slug = slugify(title);
   const slugError = validateSlug(slug);
   if (slugError) return { error: slugError };
 
+  const id = randomUUID();
   let taken = false;
   await updateUser(userId, (u) => {
     u.albums ??= [];
@@ -154,21 +159,51 @@ export async function createAlbum(_prev: ActionState, formData: FormData): Promi
       taken = true;
       return;
     }
-    u.albums.push({ id: randomUUID(), slug, title, photoIds: [] });
+    u.albums.push({ id, slug, title, description, photoIds: [] });
   });
   if (taken) return { error: "You already have an album with that name." };
-  return done(`Created “${title}”.`);
+  return { ...done(`Created “${title}”.`), id };
 }
 
-export async function renameAlbum(albumId: string, title: string) {
+export async function updateAlbum(
+  albumId: string,
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   const userId = await currentUserId();
-  const clean = title.trim().slice(0, 60);
-  if (!clean) return;
+  const title = String(formData.get("title") ?? "").trim().slice(0, 60);
+  const description = String(formData.get("description") ?? "").trim().slice(0, 500);
+  if (!title) return { error: "Give the album a name." };
   await updateUser(userId, (u) => {
     const album = u.albums?.find((a) => a.id === albumId);
-    if (album) album.title = clean; // the address stays the same so links keep working
+    if (!album) return;
+    album.title = title; // the address stays the same so links keep working
+    album.description = description;
   });
-  revalidatePath("/dashboard");
+  revalidatePath("/dashboard", "layout");
+  return { ok: "Saved." };
+}
+
+// Sets the album's photos and their order (also used to remove photos).
+export async function setAlbumPhotos(albumId: string, photoIds: string[]) {
+  const userId = await currentUserId();
+  await updateUser(userId, (u) => {
+    const album = u.albums?.find((a) => a.id === albumId);
+    if (!album) return;
+    const existing = new Set(u.photos.map((p) => p.id));
+    album.photoIds = [...new Set(photoIds)].filter((id) => existing.has(id));
+    if (album.coverPhotoId && !album.photoIds.includes(album.coverPhotoId)) album.coverPhotoId = undefined;
+  });
+  revalidatePath("/dashboard", "layout");
+}
+
+export async function setAlbumCover(albumId: string, photoId: string) {
+  const userId = await currentUserId();
+  await updateUser(userId, (u) => {
+    const album = u.albums?.find((a) => a.id === albumId);
+    if (album?.photoIds.includes(photoId)) album.coverPhotoId = photoId;
+  });
+  revalidatePath("/dashboard", "layout");
 }
 
 export async function deleteAlbum(albumId: string) {
@@ -176,19 +211,7 @@ export async function deleteAlbum(albumId: string) {
   await updateUser(userId, (u) => {
     u.albums = (u.albums ?? []).filter((a) => a.id !== albumId);
   });
-  revalidatePath("/dashboard");
-}
-
-export async function toggleAlbumPhoto(albumId: string, photoId: string) {
-  const userId = await currentUserId();
-  await updateUser(userId, (u) => {
-    const album = u.albums?.find((a) => a.id === albumId);
-    if (!album || !u.photos.some((p) => p.id === photoId)) return;
-    album.photoIds = album.photoIds.includes(photoId)
-      ? album.photoIds.filter((id) => id !== photoId)
-      : [...album.photoIds, photoId];
-  });
-  revalidatePath("/dashboard");
+  revalidatePath("/dashboard", "layout");
 }
 
 // ── Inquiries ───────────────────────────────────────────────────────────
@@ -236,7 +259,7 @@ export async function sendInquiry(
       to: owner.profile.contactEmail || owner.email,
       replyTo: email,
       subject: `New inquiry from ${name}`,
-      text: `${name} (${email}) sent you a message through your Folio site.\n\n${date ? `Date: ${date}\n\n` : ""}${message}\n\nSee all inquiries: ${appUrl("/dashboard#inquiries")}`,
+      text: `${name} (${email}) sent you a message through your Folio site.\n\n${date ? `Date: ${date}\n\n` : ""}${message}\n\nSee all inquiries: ${appUrl("/dashboard/manage/messages")}`,
     });
   } catch (err) {
     // The inquiry is saved in the dashboard even if the email fails.
@@ -251,7 +274,7 @@ export async function setInquiryRead(inquiryId: string, read: boolean) {
     const inquiry = u.inquiries?.find((i) => i.id === inquiryId);
     if (inquiry) inquiry.read = read;
   });
-  revalidatePath("/dashboard");
+  revalidatePath("/dashboard", "layout");
 }
 
 export async function deleteInquiry(inquiryId: string) {
@@ -259,5 +282,5 @@ export async function deleteInquiry(inquiryId: string) {
   await updateUser(userId, (u) => {
     u.inquiries = (u.inquiries ?? []).filter((i) => i.id !== inquiryId);
   });
-  revalidatePath("/dashboard");
+  revalidatePath("/dashboard", "layout");
 }

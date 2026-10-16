@@ -6,7 +6,15 @@ import type { PhotoSource } from "@/lib/uploads";
 
 // Wraps a gallery. Clicking any element with data-photo-index opens that
 // photo full screen; arrow keys / swipe move between photos, Esc closes.
-export function Lightbox({ photos, children }: { photos: PhotoSource[]; children: ReactNode }) {
+export function Lightbox({
+  photos,
+  captions = {},
+  children,
+}: {
+  photos: PhotoSource[];
+  captions?: Record<string, string>; // photo id → caption the design shows
+  children: ReactNode;
+}) {
   const [index, setIndex] = useState<number | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
@@ -104,7 +112,7 @@ export function Lightbox({ photos, children }: { photos: PhotoSource[]; children
             </>
           )}
           <p className="absolute bottom-3 left-0 right-0 text-center text-sm text-white/60">
-            {photo.alt && <span className="mr-3 text-white/80">{photo.alt}</span>}
+            {captions[photo.id] && <span className="mr-3 text-white/80">{captions[photo.id]}</span>}
             {index! + 1} / {photos.length}
           </p>
         </div>

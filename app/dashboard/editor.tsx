@@ -1,15 +1,9 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element -- user uploads are served by our own route */
-import { useActionState, useRef, useState, useTransition } from "react";
-import {
-  chooseTemplate,
-  deletePhoto,
-  reorderPhotos,
-  saveProfile,
-  setPhotoAlt,
-  uploadPhotos,
-} from "@/app/actions/site";
+import Link from "next/link";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
+import { deletePhoto, reorderPhotos, saveProfile, updatePhoto, uploadPhotos } from "@/app/actions/site";
 import { Button, Field, Input, Message, inputClass } from "@/app/ui/form";
 import type { User } from "@/lib/db";
 
@@ -117,22 +111,58 @@ export function PhotoUploader() {
   );
 }
 
-type GridPhoto = { id: string; src: string; srcSet?: string; alt: string };
+export type LibraryPhoto = {
+  id: string;
+  src: string;
+  srcSet?: string;
+  description: string;
+  location: string;
+  alt: string; // as entered; empty means "use the description"
+  albumIds: string[];
+};
 
-export function PhotoGrid({ photos }: { photos: GridPhoto[] }) {
-  // Start over from the server's list whenever it changes.
-  return <PhotoGridInner key={photos.map((p) => `${p.id}:${p.alt}`).join()} photos={photos} />;
-}
+type Filter = "all" | "no-album" | "no-description";
 
-function PhotoGridInner({ photos }: { photos: GridPhoto[] }) {
+const FILTERS: { id: Filter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "no-album", label: "Not in an album" },
+  { id: "no-description", label: "No description" },
+];
+
+export function PhotoLibrary({
+  photos,
+  albums,
+  initialFilter = "all",
+}: {
+  photos: LibraryPhoto[];
+  albums: { id: string; title: string }[];
+  initialFilter?: Filter;
+}) {
   const [order, setOrder] = useState(photos);
+  // Take the server's list whenever it changes (after any save).
+  const [serverPhotos, setServerPhotos] = useState(photos);
+  if (photos !== serverPhotos) {
+    setServerPhotos(photos);
+    setOrder(photos);
+  }
+  const [filter, setFilter] = useState<Filter>(initialFilter);
+  const [openId, setOpenId] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
-  const [editing, setEditing] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   if (photos.length === 0) {
-    return <p className="text-sm text-zinc-500">No photos yet — upload a few to fill your site.</p>;
+    return (
+      <p className="rounded-2xl bg-white p-6 text-sm text-zinc-500 ring-1 ring-zinc-200">
+        No photos yet. <Link href="/dashboard/manage/upload" className="underline">Upload some</Link> to fill your site.
+      </p>
+    );
   }
+
+  const visible = order.filter((p) =>
+    filter === "no-album" ? p.albumIds.length === 0 : filter === "no-description" ? !p.description : true,
+  );
+  const canReorder = filter === "all";
+  const openIndex = visible.findIndex((p) => p.id === openId);
 
   function moved(id: string, to: number) {
     const from = order.findIndex((p) => p.id === id);
@@ -151,173 +181,227 @@ function PhotoGridInner({ photos }: { photos: GridPhoto[] }) {
   }
 
   return (
-    <div className="space-y-2">
-      <p className="text-sm text-zinc-500">Drag photos to reorder them, or use the arrow buttons.</p>
-      <ul className={`grid grid-cols-2 gap-3 sm:grid-cols-4 ${pending ? "opacity-80" : ""}`}>
-        {order.map((photo, i) => (
-          <li
-            key={photo.id}
-            draggable={editing === null}
-            onDragStart={(e) => {
-              setDragId(photo.id);
-              e.dataTransfer.effectAllowed = "move";
-            }}
-            onDragOver={(e) => {
-              if (!dragId) return;
-              e.preventDefault();
-              const next = moved(dragId, i);
-              if (next) setOrder(next);
-            }}
-            onDrop={(e) => e.preventDefault()}
-            onDragEnd={() => {
-              if (dragId && order.some((p, j) => p.id !== photos[j].id)) {
-                startTransition(() => reorderPhotos(order.map((p) => p.id)));
-              }
-              setDragId(null);
-            }}
-            className={`group relative cursor-grab overflow-hidden rounded-lg bg-zinc-100 ${dragId === photo.id ? "opacity-40" : ""}`}
-          >
-            <img src={photo.src} srcSet={photo.srcSet} sizes="240px" alt={photo.alt} draggable={false} className="aspect-square w-full object-cover" />
-            {i === 0 && (
-              <span className="absolute left-2 top-2 rounded-full bg-black/70 px-2 py-0.5 text-xs text-white">Cover</span>
-            )}
-            {!photo.alt && (
-              <span
-                className="absolute right-2 top-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-900"
-                title="Add a description for screen readers and search engines"
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        {FILTERS.map((f) => {
+          const count = f.id === "all" ? order.length : order.filter((p) => (f.id === "no-album" ? p.albumIds.length === 0 : !p.description)).length;
+          return (
+            <button
+              key={f.id}
+              type="button"
+              aria-pressed={filter === f.id}
+              onClick={() => setFilter(f.id)}
+              className={`rounded-full px-3 py-1.5 text-sm ring-1 ${filter === f.id ? "bg-black text-white ring-black" : "bg-white ring-zinc-300 hover:bg-zinc-100"}`}
+            >
+              {f.label} <span className="opacity-60">{count}</span>
+            </button>
+          );
+        })}
+        <span className="ml-auto text-sm text-zinc-500">
+          {canReorder ? "Click a photo to edit it. Drag to reorder." : "Click a photo to edit it."}
+        </span>
+      </div>
+
+      {visible.length === 0 ? (
+        <p className="py-10 text-center text-sm text-zinc-500">Nothing here — nice work.</p>
+      ) : (
+        <ul className={`grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 ${pending ? "opacity-80" : ""}`}>
+          {visible.map((photo, i) => (
+            <li
+              key={photo.id}
+              draggable={canReorder}
+              onDragStart={(e) => {
+                setDragId(photo.id);
+                e.dataTransfer.effectAllowed = "move";
+              }}
+              onDragOver={(e) => {
+                if (!dragId) return;
+                e.preventDefault();
+                const next = moved(dragId, i);
+                if (next) setOrder(next);
+              }}
+              onDrop={(e) => e.preventDefault()}
+              onDragEnd={() => {
+                if (dragId && order.some((p, j) => p.id !== photos[j].id)) {
+                  startTransition(() => reorderPhotos(order.map((p) => p.id)));
+                }
+                setDragId(null);
+              }}
+              className={`group relative overflow-hidden rounded-lg bg-zinc-100 ${dragId === photo.id ? "opacity-40" : ""}`}
+            >
+              <button
+                type="button"
+                onClick={() => setOpenId(photo.id)}
+                aria-label={`Edit photo${photo.description ? `: ${photo.description}` : ` ${i + 1}`}`}
+                className="block w-full"
               >
-                No description
-              </span>
-            )}
-            <div className="absolute inset-x-0 bottom-0 flex flex-wrap justify-end gap-1 bg-gradient-to-t from-black/60 p-2 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
-              <SmallButton label="Move earlier" disabled={i === 0} onClick={() => moveAndSave(photo.id, i - 1)}>←</SmallButton>
-              <SmallButton label="Move later" disabled={i === order.length - 1} onClick={() => moveAndSave(photo.id, i + 1)}>→</SmallButton>
-              {i !== 0 && <SmallButton label="Make cover" onClick={() => moveAndSave(photo.id, 0)}>Cover</SmallButton>}
-              <SmallButton label="Describe photo" onClick={() => setEditing(photo.id)}>Alt</SmallButton>
-              <SmallButton
-                label="Delete photo"
-                danger
-                onClick={() => {
-                  if (confirm("Delete this photo?")) startTransition(() => deletePhoto(photo.id));
-                }}
-              >
-                Delete
-              </SmallButton>
-            </div>
-            {editing === photo.id && (
-              <form
-                className="absolute inset-0 flex flex-col gap-2 bg-white/95 p-2"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const alt = String(new FormData(e.currentTarget).get("alt") ?? "");
-                  setOrder((cur) => cur.map((p) => (p.id === photo.id ? { ...p, alt } : p)));
-                  setEditing(null);
-                  startTransition(() => setPhotoAlt(photo.id, alt));
-                }}
-              >
-                <label className="text-xs font-medium" htmlFor={`alt-${photo.id}`}>Describe this photo</label>
-                <textarea
-                  id={`alt-${photo.id}`}
-                  name="alt"
-                  autoFocus
-                  defaultValue={photo.alt}
-                  maxLength={300}
-                  placeholder="Couple on the beach at sunset"
-                  className={`${inputClass} flex-1 resize-none text-xs`}
-                />
-                <div className="flex justify-end gap-1">
-                  <button type="button" onClick={() => setEditing(null)} className="rounded-full px-2 py-1 text-xs">Cancel</button>
-                  <button type="submit" className="rounded-full bg-black px-3 py-1 text-xs text-white">Save</button>
+                <img src={photo.src} srcSet={photo.srcSet} sizes="240px" alt="" draggable={false} className="aspect-square w-full object-cover" />
+              </button>
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 px-2 pb-2 pt-6 text-xs text-white">
+                <p className="truncate">{photo.description || <span className="text-amber-200">No description</span>}</p>
+                {photo.location && <p className="truncate opacity-80">{photo.location}</p>}
+              </div>
+              {canReorder && (
+                <div className="absolute right-1 top-1 flex gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
+                  <SmallButton label="Move earlier" disabled={i === 0} onClick={() => moveAndSave(photo.id, i - 1)}>←</SmallButton>
+                  <SmallButton label="Move later" disabled={i === visible.length - 1} onClick={() => moveAndSave(photo.id, i + 1)}>→</SmallButton>
                 </div>
-              </form>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {openIndex !== -1 && (
+        <PhotoDrawer
+          key={visible[openIndex].id}
+          photo={visible[openIndex]}
+          albums={albums}
+          onClose={() => setOpenId(null)}
+          onPrev={openIndex > 0 ? () => setOpenId(visible[openIndex - 1].id) : undefined}
+          onNext={openIndex < visible.length - 1 ? () => setOpenId(visible[openIndex + 1].id) : undefined}
+        />
+      )}
+    </div>
+  );
+}
+
+// Side panel for one photo's details.
+function PhotoDrawer({ photo, albums, onClose, onPrev, onNext }: {
+  photo: LibraryPhoto;
+  albums: { id: string; title: string }[];
+  onClose: () => void;
+  onPrev?: () => void;
+  onNext?: () => void;
+}) {
+  const [description, setDescription] = useState(photo.description);
+  const [location, setLocation] = useState(photo.location);
+  const [alt, setAlt] = useState(photo.alt);
+  const [albumIds, setAlbumIds] = useState(photo.albumIds);
+  const [saved, setSaved] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const dirty =
+    description !== photo.description || location !== photo.location || alt !== photo.alt || albumIds.join() !== photo.albumIds.join();
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  function save(after?: () => void) {
+    startTransition(async () => {
+      await updatePhoto(photo.id, { description, location, alt, albumIds });
+      setSaved(true);
+      after?.();
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-40 flex justify-end bg-black/30" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div role="dialog" aria-modal="true" aria-label="Photo details" className="flex h-full w-full max-w-md flex-col overflow-y-auto bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-3">
+          <div className="flex gap-1">
+            <SmallButton label="Previous photo" disabled={!onPrev} onClick={() => (dirty ? save(onPrev) : onPrev?.())}>←</SmallButton>
+            <SmallButton label="Next photo" disabled={!onNext} onClick={() => (dirty ? save(onNext) : onNext?.())}>→</SmallButton>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close" className="rounded-full px-3 py-1 text-xl hover:bg-zinc-100">×</button>
+        </div>
+        <img src={photo.src} srcSet={photo.srcSet} sizes="448px" alt="" className="max-h-80 w-full bg-zinc-100 object-contain" />
+        <form
+          className="flex flex-1 flex-col gap-4 p-5"
+          onSubmit={(e) => {
+            e.preventDefault();
+            save();
+          }}
+        >
+          <Field label="Description" hint="Shown as a caption if your design turns captions on.">
+            <textarea
+              value={description}
+              onChange={(e) => { setDescription(e.target.value); setSaved(false); }}
+              rows={3}
+              maxLength={500}
+              placeholder="Couple on the beach at sunset"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Location">
+            <Input
+              value={location}
+              onChange={(e) => { setLocation(e.target.value); setSaved(false); }}
+              maxLength={120}
+              placeholder="Cascais, Portugal"
+            />
+          </Field>
+          <Field label="Alt text (for screen readers)" hint="Leave empty to use the description.">
+            <Input value={alt} onChange={(e) => { setAlt(e.target.value); setSaved(false); }} maxLength={300} placeholder={description} />
+          </Field>
+          <fieldset>
+            <legend className="text-sm font-medium text-zinc-800">Albums</legend>
+            {albums.length === 0 ? (
+              <p className="mt-1 text-sm text-zinc-500">
+                No albums yet. <Link href="/dashboard/manage/albums" className="underline">Create one</Link>.
+              </p>
+            ) : (
+              <ul className="mt-2 space-y-1">
+                {albums.map((a) => (
+                  <li key={a.id}>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={albumIds.includes(a.id)}
+                        onChange={(e) => {
+                          setAlbumIds(e.target.checked ? [...albumIds, a.id] : albumIds.filter((id) => id !== a.id));
+                          setSaved(false);
+                        }}
+                      />
+                      {a.title}
+                    </label>
+                  </li>
+                ))}
+              </ul>
             )}
-          </li>
-        ))}
-      </ul>
+          </fieldset>
+          <div className="mt-auto flex flex-wrap items-center gap-3 border-t border-zinc-200 pt-4">
+            <Button type="submit" disabled={pending || !dirty}>{pending ? "Saving…" : "Save"}</Button>
+            {saved && !dirty && <Message ok="Saved." />}
+            <button
+              type="button"
+              onClick={() => {
+                if (!confirm("Delete this photo? It will be removed from your site and albums.")) return;
+                startTransition(async () => {
+                  await deletePhoto(photo.id);
+                  onClose();
+                });
+              }}
+              className="ml-auto rounded-full px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+            >
+              Delete photo
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
 
 function SmallButton({
   label,
-  danger,
   children,
   ...props
-}: React.ComponentProps<"button"> & { label: string; danger?: boolean }) {
+}: React.ComponentProps<"button"> & { label: string }) {
   return (
     <button
       type="button"
       aria-label={label}
       title={label}
       {...props}
-      className={`rounded-full bg-white/90 px-2 py-1 text-xs font-medium disabled:opacity-40 ${danger ? "text-red-600" : ""}`}
+      className="rounded-full bg-white/90 px-2 py-1 text-xs font-medium shadow-sm ring-1 ring-zinc-200 disabled:opacity-40"
     >
       {children}
     </button>
-  );
-}
-
-export function TemplatePicker({
-  templates,
-  current,
-}: {
-  templates: { id: string; name: string; description: string }[];
-  current: string;
-}) {
-  const [pending, startTransition] = useTransition();
-
-  return (
-    <div className={`grid gap-3 sm:grid-cols-3 ${pending ? "opacity-60" : ""}`}>
-      {templates.map((t) => {
-        const active = t.id === current;
-        return (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => startTransition(() => chooseTemplate(t.id))}
-            aria-pressed={active}
-            className={`rounded-xl p-4 text-left ring-1 transition ${
-              active ? "ring-2 ring-black" : "ring-zinc-200 hover:ring-zinc-400"
-            }`}
-          >
-            <TemplateThumb id={t.id} />
-            <span className="mt-3 block font-medium">
-              {t.name} {active && <span className="text-xs text-zinc-500">· Selected</span>}
-            </span>
-            <span className="text-sm text-zinc-500">{t.description}</span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function TemplateThumb({ id }: { id: string }) {
-  if (id === "dark") {
-    return (
-      <div className="flex h-24 gap-1 rounded-lg bg-zinc-900 p-2">
-        <div className="flex flex-1 flex-col gap-1"><div className="h-10 rounded bg-zinc-600" /><div className="flex-1 rounded bg-zinc-700" /></div>
-        <div className="flex flex-1 flex-col gap-1"><div className="flex-1 rounded bg-zinc-700" /><div className="h-8 rounded bg-zinc-600" /></div>
-        <div className="flex flex-1 flex-col gap-1"><div className="h-6 rounded bg-zinc-600" /><div className="flex-1 rounded bg-zinc-700" /></div>
-      </div>
-    );
-  }
-  if (id === "editorial") {
-    return (
-      <div className="flex h-24 flex-col gap-1 rounded-lg bg-stone-100 p-2">
-        <div className="flex-1 rounded bg-stone-300" />
-        <div className="h-2 w-1/2 rounded bg-stone-400" />
-        <div className="flex h-6 gap-1"><div className="flex-1 rounded bg-stone-300" /><div className="flex-1 rounded bg-stone-300" /></div>
-      </div>
-    );
-  }
-  return (
-    <div className="flex h-24 flex-col gap-1 rounded-lg bg-white p-2 ring-1 ring-zinc-200">
-      <div className="h-2 w-1/3 rounded bg-zinc-300" />
-      <div className="grid flex-1 grid-cols-3 gap-1">
-        {Array.from({ length: 6 }, (_, i) => <div key={i} className="rounded bg-zinc-200" />)}
-      </div>
-    </div>
   );
 }
 

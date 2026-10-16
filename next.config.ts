@@ -11,6 +11,12 @@ const nextConfig: NextConfig = {
     proxyClientMaxBodySize: "25mb",
   },
   cacheComponents: true,
+  async redirects() {
+    return [
+      { source: "/dashboard", destination: "/dashboard/manage/photos", permanent: false },
+      { source: "/dashboard/manage", destination: "/dashboard/manage/photos", permanent: false },
+    ];
+  },
   partialPrefetching: true,
   turbopack: {
     rules: {

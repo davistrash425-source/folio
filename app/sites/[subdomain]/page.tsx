@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { loadSite } from "@/lib/public-site";
 import { siteMetadata } from "./metadata";
-import { SiteTemplate } from "./templates";
+import { SiteRenderer } from "./renderer";
 
 // Reached through the proxy: name.yourapp.com → /sites/name
 
@@ -23,5 +23,5 @@ export default function SitePage({ params }: PageProps<"/sites/[subdomain]">) {
 async function Site({ params }: { params: PageProps<"/sites/[subdomain]">["params"] }) {
   const site = await loadSite((await params).subdomain);
   if (!site) notFound();
-  return <SiteTemplate site={site} />;
+  return <SiteRenderer site={site} />;
 }
