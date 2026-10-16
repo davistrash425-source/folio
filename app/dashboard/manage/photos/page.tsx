@@ -14,7 +14,7 @@ export default function PhotosPage({ searchParams }: PageProps<"/dashboard/manag
         title="All photos"
         subtitle="Every photo you’ve uploaded. Add a description and location to each one."
         actions={
-          <Link href="/dashboard/manage/upload" className="rounded-full bg-black px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">
+          <Link href="/dashboard/manage/upload" className="bg-ink px-4 py-2 text-sm font-medium text-paper hover:bg-accent">
             Upload photos
           </Link>
         }

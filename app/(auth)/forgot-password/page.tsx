@@ -10,8 +10,8 @@ export default function ForgotPasswordPage() {
 
   return (
     <form action={action} className="space-y-4">
-      <h1 className="text-xl font-semibold">Reset your password</h1>
-      <p className="text-sm text-zinc-600">Enter your account email and we’ll send you a link to choose a new password.</p>
+      <h1 className="font-display text-3xl">Reset your password</h1>
+      <p className="text-sm text-ink-soft">Enter your account email and we’ll send you a link to choose a new password.</p>
       <Field label="Email">
         <Input name="email" type="email" required defaultValue={state.fields?.email} autoComplete="email" />
       </Field>
@@ -19,7 +19,7 @@ export default function ForgotPasswordPage() {
       <Button type="submit" disabled={pending} className="w-full">
         {pending ? "Sending…" : "Send reset link"}
       </Button>
-      <p className="text-center text-sm text-zinc-600">
+      <p className="text-center text-sm text-ink-soft">
         <Link href="/login" className="underline">Back to log in</Link>
       </p>
     </form>

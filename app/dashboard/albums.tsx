@@ -88,14 +88,14 @@ export function AlbumPhotos({
   return (
     <div className={`space-y-5 ${pending ? "opacity-80" : ""}`}>
       {inAlbum.length === 0 ? (
-        <p className="text-sm text-zinc-500">This album is empty. Add photos below — albums appear on your site once they have photos.</p>
+        <p className="text-sm text-ink-soft">This album is empty. Add photos below — albums appear on your site once they have photos.</p>
       ) : (
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {inAlbum.map((photo, i) => (
-            <li key={photo.id} className="group relative overflow-hidden rounded-lg bg-zinc-100">
+            <li key={photo.id} className="group relative overflow-hidden bg-ink/5">
               <img src={photo.src} srcSet={photo.srcSet} sizes="240px" alt="" className="aspect-square w-full object-cover" />
               {photo.id === cover && (
-                <span className="absolute left-2 top-2 rounded-full bg-black/70 px-2 py-0.5 text-xs text-white">Cover</span>
+                <span className="absolute left-2 top-2 bg-ink/80 px-2 py-0.5 text-xs text-paper">Cover</span>
               )}
               <div className="absolute inset-x-0 bottom-0 flex flex-wrap justify-end gap-1 bg-gradient-to-t from-black/60 p-2 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
                 <Small label="Move earlier" disabled={i === 0} onClick={() => move(i, i - 1)}>←</Small>
@@ -115,16 +115,16 @@ export function AlbumPhotos({
           type="button"
           onClick={() => setAdding(!adding)}
           aria-expanded={adding}
-          className="rounded-full px-4 py-2 text-sm font-medium ring-1 ring-zinc-300 hover:bg-zinc-100"
+          className="px-4 py-2 text-sm font-medium border border-rule hover:bg-ink/5"
         >
           {adding ? "Done adding" : `Add photos${notInAlbum.length ? ` (${notInAlbum.length} available)` : ""}`}
         </button>
         {adding && (
           notInAlbum.length === 0 ? (
-            <p className="mt-3 text-sm text-zinc-500">Every photo is already in this album.</p>
+            <p className="mt-3 text-sm text-ink-soft">Every photo is already in this album.</p>
           ) : (
             <>
-              <p className="mt-3 text-sm text-zinc-500">Click photos to add them to the end of the album.</p>
+              <p className="mt-3 text-sm text-ink-soft">Click photos to add them to the end of the album.</p>
               <ul className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-8">
                 {notInAlbum.map((photo) => (
                   <li key={photo.id}>
@@ -132,7 +132,7 @@ export function AlbumPhotos({
                       type="button"
                       onClick={() => save([...order, photo.id])}
                       aria-label={`Add ${photo.description || "photo"} to album`}
-                      className="block w-full overflow-hidden rounded-md opacity-80 ring-offset-2 hover:opacity-100 hover:ring-2 hover:ring-black"
+                      className="block w-full overflow-hidden opacity-80 ring-offset-2 ring-offset-paper hover:opacity-100 hover:ring-2 hover:ring-accent"
                     >
                       <img src={photo.src} srcSet={photo.srcSet} sizes="120px" alt="" className="aspect-square w-full object-cover" />
                     </button>
@@ -161,7 +161,7 @@ export function DeleteAlbumButton({ albumId, title }: { albumId: string; title: 
           router.push("/dashboard/manage/albums");
         });
       }}
-      className="rounded-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
+      className="px-4 py-2 text-sm text-accent hover:bg-accent-soft disabled:opacity-50"
     >
       {pending ? "Deleting…" : "Delete album"}
     </button>
@@ -175,7 +175,7 @@ function Small({ label, danger, children, ...props }: React.ComponentProps<"butt
       aria-label={label}
       title={label}
       {...props}
-      className={`rounded-full bg-white/90 px-2 py-1 text-xs font-medium disabled:opacity-40 ${danger ? "text-red-600" : ""}`}
+      className={`bg-paper/90 px-2 py-1 text-xs font-medium disabled:opacity-40 ${danger ? "text-accent" : ""}`}
     >
       {children}
     </button>

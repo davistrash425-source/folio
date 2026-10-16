@@ -9,7 +9,7 @@ export const metadata = { title: "Preview website — Folio" };
 
 export default function PreviewPage() {
   return (
-    <Suspense fallback={<p className="p-10 text-sm text-zinc-500">Loading preview…</p>}>
+    <Suspense fallback={<p className="p-10 text-sm text-ink-soft">Loading preview…</p>}>
       <Preview />
     </Suspense>
   );

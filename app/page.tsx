@@ -1,54 +1,66 @@
 import Link from "next/link";
+import { buttonClass } from "@/app/ui/form";
 import { ROOT_DOMAIN } from "@/lib/site";
 
+// Laid out like a strip of frames on a contact sheet.
 const steps = [
-  ["Sign up", "Create an account and claim your site address."],
-  ["Upload photos", "Drop in your best work — JPG, PNG, WebP and more."],
-  ["Pick a style", "Choose a template that fits your work."],
-  ["Add your info", "Name, bio, contact details and social links."],
-  ["Go live", `Your portfolio is online at yourname.${ROOT_DOMAIN}.`],
+  ["Claim your address", `Sign up and pick yourname.${ROOT_DOMAIN}.`],
+  ["Upload your work", "Photos are resized for the web and stripped of location data."],
+  ["Describe & sort", "Add captions and locations, and group photos into albums."],
+  ["Design your pages", "Home, galleries, about, contact — your theme, your layout."],
+  ["Publish", "Preview on desktop and phone, then put it live."],
 ];
 
 export default function Home() {
   return (
-    <div className="flex flex-1 flex-col bg-zinc-50">
-      <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-5">
-        <span className="text-lg font-semibold tracking-tight">Folio</span>
-        <nav className="flex gap-3 text-sm">
-          <Link href="/login" className="rounded-full px-4 py-2 hover:bg-zinc-200">
-            Log in
-          </Link>
-          <Link href="/signup" className="rounded-full bg-black px-4 py-2 text-white hover:bg-zinc-800">
-            Get started
-          </Link>
-        </nav>
+    <div className="flex flex-1 flex-col">
+      <header className="border-b border-ink">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
+          <span className="font-display text-2xl italic">Folio</span>
+          <nav className="flex items-center gap-6 text-sm">
+            <Link href="/login" className="text-ink-soft underline-offset-4 hover:text-ink hover:underline">
+              Log in
+            </Link>
+            <Link href="/signup" className={`${buttonClass} h-9 px-4`}>
+              Get started
+            </Link>
+          </nav>
+        </div>
       </header>
 
-      <main className="mx-auto w-full max-w-5xl flex-1 px-6 pb-24 pt-16">
-        <h1 className="max-w-2xl text-5xl font-semibold leading-tight tracking-tight">
-          A portfolio site for your photography, live in minutes.
-        </h1>
-        <p className="mt-6 max-w-xl text-lg text-zinc-600">
-          No code, no hosting to set up. Upload your photos, pick a style, and share
-          your own link.
-        </p>
-        <Link
-          href="/signup"
-          className="mt-10 inline-flex h-12 items-center rounded-full bg-black px-6 font-medium text-white hover:bg-zinc-800"
-        >
-          Create your site
-        </Link>
+      <main className="mx-auto w-full max-w-6xl flex-1 px-6 pb-24">
+        <section className="grid gap-10 py-16 sm:py-24 lg:grid-cols-[1fr_18rem] lg:items-end">
+          <div>
+            <p className="label text-accent">Portfolio sites for photographers</p>
+            <h1 className="mt-4 max-w-3xl font-display text-5xl leading-[1.05] tracking-tight sm:text-7xl">
+              Your work, on <em>your</em> own site — not lost in a feed.
+            </h1>
+          </div>
+          <div className="space-y-6 lg:pb-3">
+            <p className="text-ink-soft">
+              No code and no hosting to set up. Upload your photos, shape the pages, and share one link
+              with clients.
+            </p>
+            <Link href="/signup" className={`${buttonClass} h-12 px-6`}>
+              Create your site →
+            </Link>
+          </div>
+        </section>
 
-        <ol className="mt-20 grid gap-4 sm:grid-cols-5">
+        <ol className="grid border-t border-ink sm:grid-cols-5">
           {steps.map(([title, text], i) => (
-            <li key={title} className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-zinc-200">
-              <span className="text-sm text-zinc-400">{i + 1}</span>
-              <h2 className="mt-1 font-medium">{title}</h2>
-              <p className="mt-2 text-sm text-zinc-600">{text}</p>
+            <li key={title} className="border-b border-rule py-6 sm:border-b-0 sm:border-r sm:px-5 sm:first:pl-0 sm:last:border-r-0">
+              <span className="label text-ink-faint">Frame {String(i + 1).padStart(2, "0")}</span>
+              <h2 className="mt-3 font-display text-2xl leading-tight">{title}</h2>
+              <p className="mt-2 text-sm text-ink-soft">{text}</p>
             </li>
           ))}
         </ol>
       </main>
+
+      <footer className="border-t border-rule">
+        <p className="label mx-auto max-w-6xl px-6 py-6 text-ink-faint">Folio — made for people who make pictures</p>
+      </footer>
     </div>
   );
 }

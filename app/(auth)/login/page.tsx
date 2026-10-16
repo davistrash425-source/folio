@@ -10,7 +10,7 @@ export default function LoginPage() {
 
   return (
     <form action={action} className="space-y-4">
-      <h1 className="text-xl font-semibold">Log in</h1>
+      <h1 className="font-display text-3xl">Log in</h1>
       <Field label="Email">
         <Input name="email" type="email" required defaultValue={state.fields?.email} autoComplete="email" />
       </Field>
@@ -21,7 +21,7 @@ export default function LoginPage() {
       <Button type="submit" disabled={pending} className="w-full">
         {pending ? "Logging in…" : "Log in"}
       </Button>
-      <p className="text-center text-sm text-zinc-600">
+      <p className="text-center text-sm text-ink-soft">
         New here? <Link href="/signup" className="underline">Create your site</Link>
       </p>
     </form>

@@ -25,7 +25,7 @@ export default function AlbumsPage() {
 async function AlbumList() {
   const user = await requireUser();
   const albums = user.albums ?? [];
-  if (albums.length === 0) return <p className="text-sm text-zinc-500">No albums yet.</p>;
+  if (albums.length === 0) return <p className="text-sm text-ink-soft">No albums yet.</p>;
   const byId = new Map(user.photos.map((p) => [p.id, p]));
   return (
     <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -36,19 +36,19 @@ async function AlbumList() {
           <li key={album.id}>
             <Link
               href={`/dashboard/manage/albums/${album.id}`}
-              className="block overflow-hidden rounded-2xl bg-white ring-1 ring-zinc-200 transition hover:ring-zinc-400"
+              className="block overflow-hidden bg-card border border-rule transition hover:border-ink"
             >
               {cover ? (
                 <img src={cover.src} srcSet={cover.srcSet} sizes="400px" alt="" className="aspect-[4/3] w-full object-cover" />
               ) : (
-                <div className="flex aspect-[4/3] items-center justify-center bg-zinc-100 text-sm text-zinc-400">No photos yet</div>
+                <div className="flex aspect-[4/3] items-center justify-center bg-ink/5 text-sm text-ink-faint">No photos yet</div>
               )}
               <div className="p-4">
                 <p className="font-medium">{album.title}</p>
-                <p className="text-sm text-zinc-500">
+                <p className="text-sm text-ink-soft">
                   {album.photoIds.length} photo{album.photoIds.length === 1 ? "" : "s"}
                 </p>
-                {album.description && <p className="mt-2 line-clamp-2 text-sm text-zinc-600">{album.description}</p>}
+                {album.description && <p className="mt-2 line-clamp-2 text-sm text-ink-soft">{album.description}</p>}
               </div>
             </Link>
           </li>

@@ -12,7 +12,7 @@ export const metadata = { title: "Album — Folio" };
 export default function AlbumPage({ params }: PageProps<"/dashboard/manage/albums/[id]">) {
   return (
     <>
-      <Link href="/dashboard/manage/albums" className="text-sm text-zinc-500 hover:text-black">← All albums</Link>
+      <Link href="/dashboard/manage/albums" className="text-sm text-ink-soft hover:text-ink">← All albums</Link>
       <Suspense fallback={<Loading />}>
         <Album params={params} />
       </Suspense>
@@ -35,7 +35,7 @@ async function Album({ params }: { params: PageProps<"/dashboard/manage/albums/[
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{album.title}</h1>
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="mt-1 text-sm text-ink-soft">
             On your site at{" "}
             <a href={`${siteUrl(user.subdomain)}/${album.slug}`} target="_blank" rel="noopener noreferrer" className="underline">
               /{album.slug}

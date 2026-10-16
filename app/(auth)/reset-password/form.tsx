@@ -12,15 +12,15 @@ export function ResetPasswordForm({ token }: { token: Promise<string> }) {
   if (!value) {
     return (
       <div className="space-y-4">
-        <h1 className="text-xl font-semibold">Link missing</h1>
-        <p className="text-sm text-zinc-600">Open the link from your reset email, or <Link href="/forgot-password" className="underline">request a new one</Link>.</p>
+        <h1 className="font-display text-3xl">Link missing</h1>
+        <p className="text-sm text-ink-soft">Open the link from your reset email, or <Link href="/forgot-password" className="underline">request a new one</Link>.</p>
       </div>
     );
   }
 
   return (
     <form action={action} className="space-y-4">
-      <h1 className="text-xl font-semibold">Choose a new password</h1>
+      <h1 className="font-display text-3xl">Choose a new password</h1>
       <input type="hidden" name="token" value={value} />
       <Field label="New password" hint="At least 8 characters.">
         <Input name="password" type="password" required minLength={8} autoComplete="new-password" />

@@ -19,7 +19,7 @@ export default function MessagesPage() {
 async function Messages() {
   const user = await requireUser();
   return (
-    <div className="rounded-2xl bg-white ring-1 ring-zinc-200">
+    <div className="bg-card border border-rule">
       <Inbox inquiries={user.inquiries ?? []} />
     </div>
   );

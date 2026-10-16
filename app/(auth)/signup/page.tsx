@@ -12,7 +12,7 @@ export default function SignupPage() {
 
   return (
     <form action={action} className="space-y-4">
-      <h1 className="text-xl font-semibold">Create your site</h1>
+      <h1 className="font-display text-3xl">Create your site</h1>
       <Field label="Your name">
         <Input name="name" required defaultValue={f.name} autoComplete="name" />
       </Field>
@@ -23,7 +23,7 @@ export default function SignupPage() {
         <Input name="password" type="password" required minLength={8} autoComplete="new-password" />
       </Field>
       <Field label="Site address">
-        <div className="flex items-center rounded-lg border border-zinc-300 focus-within:border-black focus-within:ring-1 focus-within:ring-black">
+        <div className="flex items-center border border-rule focus-within:border-ink focus-within:border focus-within:border-ink">
           <input
             name="subdomain"
             required
@@ -33,14 +33,14 @@ export default function SignupPage() {
             placeholder="yourname"
             className="min-w-0 flex-1 rounded-l-lg px-3 py-2 text-sm lowercase outline-none"
           />
-          <span className="pr-3 text-sm text-zinc-500">.{ROOT_DOMAIN}</span>
+          <span className="pr-3 text-sm text-ink-soft">.{ROOT_DOMAIN}</span>
         </div>
       </Field>
       <Message error={state.error} />
       <Button type="submit" disabled={pending} className="w-full">
         {pending ? "Creating…" : "Create account"}
       </Button>
-      <p className="text-center text-sm text-zinc-600">
+      <p className="text-center text-sm text-ink-soft">
         Already have an account? <Link href="/login" className="underline">Log in</Link>
       </p>
     </form>

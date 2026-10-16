@@ -14,14 +14,14 @@ export type Device = keyof typeof DEVICES;
 
 export function DeviceButtons({ device, onChange }: { device: Device; onChange: (d: Device) => void }) {
   return (
-    <div role="group" aria-label="Preview size" className="flex gap-1 rounded-full bg-zinc-100 p-1 text-sm">
+    <div role="group" aria-label="Preview size" className="flex gap-4">
       {(Object.keys(DEVICES) as Device[]).map((d) => (
         <button
           key={d}
           type="button"
           aria-pressed={device === d}
           onClick={() => onChange(d)}
-          className={`rounded-full px-3 py-1 ${device === d ? "bg-white font-medium shadow-sm ring-1 ring-zinc-200" : "text-zinc-600 hover:text-black"}`}
+          className={`label border-b py-1 transition-colors ${device === d ? "border-accent text-ink" : "border-transparent text-ink-faint hover:text-ink"}`}
         >
           {DEVICES[d].label}
         </button>
@@ -87,7 +87,7 @@ export function DevicePreview({ src, device, design, path, className = "" }: {
   const scale = box.width ? Math.min(1, box.width / width) : 1;
 
   return (
-    <div ref={boxRef} className={`relative overflow-hidden rounded-xl bg-zinc-200 ring-1 ring-zinc-300 ${className}`}>
+    <div ref={boxRef} className={`relative overflow-hidden bg-ink/10 border border-rule ${className}`}>
       {box.width > 0 && (
         <iframe
           ref={frameRef}
@@ -100,7 +100,7 @@ export function DevicePreview({ src, device, design, path, className = "" }: {
             transformOrigin: "top left",
             left: Math.max(0, (box.width - width * scale) / 2),
           }}
-          className="absolute top-0 border-0 bg-white"
+          className="absolute top-0 border-0 bg-card"
         />
       )}
     </div>

@@ -19,7 +19,7 @@ export function PreviewWorkspace({ pages, liveUrl, hasUnpublishedDesign }: {
         {pages.length > 1 && (
           <label className="flex items-center gap-2 text-sm">
             Page
-            <select value={path} onChange={(e) => setPath(e.target.value)} className="rounded-lg border border-zinc-300 bg-white px-2 py-1.5">
+            <select value={path} onChange={(e) => setPath(e.target.value)} className="border border-rule bg-card px-2 py-1.5">
               {pages.map((p) => (
                 <option key={p.path} value={p.path}>{p.title}</option>
               ))}
@@ -28,17 +28,17 @@ export function PreviewWorkspace({ pages, liveUrl, hasUnpublishedDesign }: {
         )}
         <div className="ml-auto flex flex-wrap items-center gap-3 text-sm">
           {hasUnpublishedDesign && (
-            <span className="text-amber-700">
+            <span className="text-accent">
               Showing design changes that aren’t live yet.{" "}
               <Link href="/dashboard/manage/design" className="underline">Publish them</Link>
             </span>
           )}
           {liveUrl ? (
-            <a href={liveUrl} target="_blank" rel="noopener noreferrer" className="rounded-full px-3 py-1.5 ring-1 ring-zinc-300 hover:bg-zinc-100">
+            <a href={liveUrl} target="_blank" rel="noopener noreferrer" className="px-3 py-1.5 border border-rule hover:bg-ink/5">
               Open live site ↗
             </a>
           ) : (
-            <span className="text-zinc-500">Your site is offline.</span>
+            <span className="text-ink-soft">Your site is offline.</span>
           )}
         </div>
       </div>

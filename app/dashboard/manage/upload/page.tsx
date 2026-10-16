@@ -33,7 +33,7 @@ async function RecentUploads() {
           const src = photoSource(user.id, p);
           return (
             <li key={p.id}>
-              <img src={src.src} srcSet={src.srcSet} sizes="160px" alt="" className="aspect-square w-full rounded-md object-cover" />
+              <img src={src.src} srcSet={src.srcSet} sizes="160px" alt="" className="aspect-square w-full object-cover" />
             </li>
           );
         })}

@@ -23,10 +23,10 @@ async function Account({ searchParams }: { searchParams: PageProps<"/dashboard/m
   return (
     <>
       {verified === "1" && (
-        <p className="rounded-2xl bg-green-50 px-6 py-4 text-sm text-green-800 ring-1 ring-green-200">Thanks — your email is confirmed.</p>
+        <p className="border-l-2 border-ink bg-card px-5 py-3 text-sm">Thanks — your email is confirmed.</p>
       )}
       {verified === "expired" && !user.emailVerified && (
-        <p className="rounded-2xl bg-red-50 px-6 py-4 text-sm text-red-800 ring-1 ring-red-200">
+        <p className="border-l-2 border-accent bg-card px-5 py-3 text-sm text-accent">
           That confirmation link has expired or was already used. Send a new one from the banner above.
         </p>
       )}

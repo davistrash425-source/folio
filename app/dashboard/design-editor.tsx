@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element -- user uploads are served by our own route */
 import { useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
 import { discardDraftDesign, publishDesign, saveDraftDesign, undoDesign, type DesignResult } from "@/app/actions/design";
-import { Button, inputClass } from "@/app/ui/form";
+import { Button, chipClass, inputClass } from "@/app/ui/form";
 import {
   PAGE_TEMPLATES,
   THEMES,
@@ -108,12 +108,12 @@ export function DesignEditor(props: {
 
   return (
     <div className="space-y-4">
-      <div className="sticky top-0 z-30 -mx-6 flex flex-wrap items-center gap-3 border-b border-zinc-200 bg-zinc-50/95 px-6 py-3 backdrop-blur md:mx-0 md:rounded-2xl md:border md:bg-white/95">
-        <span className={`flex items-center gap-2 text-sm ${unsaved || unpublished ? "text-amber-700" : "text-green-700"}`} aria-live="polite">
-          <span className={`h-2 w-2 rounded-full ${unsaved || unpublished ? "bg-amber-500" : "bg-green-600"}`} aria-hidden="true" />
+      <div className="sticky top-0 z-30 -mx-6 flex flex-wrap items-center gap-3 border-b border-rule bg-paper/95 px-6 py-3 backdrop-blur md:mx-0 md: md:border md:bg-paper/95">
+        <span className={`flex items-center gap-2 text-sm ${unsaved || unpublished ? "text-accent" : "text-ink"}`} aria-live="polite">
+          <span className={`h-2 w-2 rounded-full ${unsaved || unpublished ? "bg-accent" : "bg-ink"}`} aria-hidden="true" />
           {status}
         </span>
-        {(problem || error) && <span role="alert" className="text-sm text-red-600">{problem ?? error}</span>}
+        {(problem || error) && <span role="alert" className="text-sm text-accent">{problem ?? error}</span>}
         <div className="ml-auto flex flex-wrap gap-2">
           <ToolbarButton
             disabled={pending || (!unsaved && !canUndo)}
@@ -148,12 +148,12 @@ export function DesignEditor(props: {
               {design.pages.map((p, i) => (
                 <li
                   key={p.id}
-                  className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm ring-1 ${p.id === page.id ? "bg-black text-white ring-black" : "bg-zinc-50 ring-zinc-200"}`}
+                  className={`flex items-center gap-2 px-3 py-2 text-sm border ${p.id === page.id ? "bg-ink text-paper border-ink" : "bg-paper border-rule"}`}
                 >
                   <button type="button" onClick={() => setPageId(p.id)} aria-pressed={p.id === page.id} className="flex flex-1 items-baseline gap-2 text-left">
                     <span className="font-medium">{p.title || "Untitled"}</span>
-                    <span className={p.id === page.id ? "text-white/60" : "text-zinc-400"}>/{p.slug}</span>
-                    {!p.showInNav && <span className={p.id === page.id ? "text-white/60" : "text-zinc-400"}>· hidden from menu</span>}
+                    <span className={p.id === page.id ? "text-paper/60" : "text-ink-faint"}>/{p.slug}</span>
+                    {!p.showInNav && <span className={p.id === page.id ? "text-paper/60" : "text-ink-faint"}>· hidden from menu</span>}
                   </button>
                   {i > 0 && (
                     <>
@@ -170,7 +170,7 @@ export function DesignEditor(props: {
               onAdd={addPage}
               disabled={design.pages.length >= 20}
             />
-            <p className="text-xs text-zinc-500">The first page is your home page. Menu order follows this list.</p>
+            <p className="text-xs text-ink-soft">The first page is your home page. Menu order follows this list.</p>
           </Group>
 
           <Group title={`Page: ${page.title || "Untitled"}`} key={page.id}>
@@ -187,8 +187,8 @@ export function DesignEditor(props: {
               albumSlugs={albumSlugs}
             />
             <div>
-              <p className="mb-2 text-sm font-medium">Sections (top to bottom)</p>
-              {page.sections.length === 0 && <p className="mb-2 text-sm text-zinc-500">This page has no sections yet.</p>}
+              <p className="label mb-2 text-ink-soft">Sections, top to bottom</p>
+              {page.sections.length === 0 && <p className="mb-2 text-sm text-ink-soft">This page has no sections yet.</p>}
               <ul className="space-y-2">
                 {page.sections.map((section, i) => (
                   <SectionCard
@@ -219,7 +219,7 @@ export function DesignEditor(props: {
                 <ThemeCard key={id} id={id} active={design.theme === id} onClick={() => setDesign((d) => applyTheme(d, id))} />
               ))}
             </div>
-            <p className="text-xs text-zinc-500">Switching theme changes colors, fonts, gallery style and header style. Your pages stay.</p>
+            <p className="text-xs text-ink-soft">Switching theme changes colors, fonts, gallery style and header style. Your pages stay.</p>
             <div className="grid grid-cols-2 gap-3">
               {(
                 [
@@ -234,7 +234,7 @@ export function DesignEditor(props: {
                     type="color"
                     value={design.colors[key]}
                     onChange={(e) => update({ colors: { ...design.colors, [key]: e.target.value } })}
-                    className="h-8 w-10 cursor-pointer rounded border border-zinc-300"
+                    className="h-8 w-10 cursor-pointer rounded border border-rule"
                   />
                   {label}
                 </label>
@@ -253,7 +253,7 @@ export function DesignEditor(props: {
           </Group>
 
           <Group title="Gallery style">
-            <p className="text-xs text-zinc-500">Used by every gallery and album page, unless a gallery picks its own layout.</p>
+            <p className="text-xs text-ink-soft">Used by every gallery and album page, unless a gallery picks its own layout.</p>
             <Choice
               label="Layout"
               value={design.gallery.layout}
@@ -350,14 +350,14 @@ export function DesignEditor(props: {
               <input type="checkbox" checked={design.nav.albums} onChange={(e) => update({ nav: { albums: e.target.checked } })} />
               List albums in the site menu
             </label>
-            <p className="text-xs text-zinc-500">Each album has its own page. Link to them with an “Album links” section, or show one album with a Gallery section.</p>
+            <p className="text-xs text-ink-soft">Each album has its own page. Link to them with an “Album links” section, or show one album with a Gallery section.</p>
           </Group>
         </div>
 
         <div className="space-y-3 xl:sticky xl:top-20 xl:self-start">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-sm text-zinc-500">
-              Live preview: <span className="font-medium text-zinc-800">{page.title}</span>
+            <p className="text-sm text-ink-soft">
+              Live preview: <span className="font-medium text-ink">{page.title}</span>
               {unsaved ? " (unsaved)" : ""}
             </p>
             <DeviceButtons device={device} onChange={setDevice} />
@@ -383,7 +383,7 @@ function PageSettings({ page, isHome, onChange, onDelete, suggestSlug, albumSlug
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <label className="block text-sm">
-          <span className="font-medium">Page name</span>
+          <span className="label text-ink-soft">Page name</span>
           <input
             value={page.title}
             maxLength={40}
@@ -395,12 +395,12 @@ function PageSettings({ page, isHome, onChange, onDelete, suggestSlug, albumSlug
           />
         </label>
         <label className="block text-sm">
-          <span className="font-medium">Address</span>
+          <span className="label text-ink-soft">Address</span>
           {isHome ? (
-            <p className="mt-1 px-1 py-2 text-zinc-500">/ (home page)</p>
+            <p className="mt-1 px-1 py-2 text-ink-soft">/ (home page)</p>
           ) : (
-            <span className="mt-1 flex items-center rounded-lg border border-zinc-300 bg-white focus-within:border-black focus-within:ring-1 focus-within:ring-black">
-              <span className="pl-3 text-zinc-400">/</span>
+            <span className="mt-1 flex items-center border border-rule bg-card focus-within:border-ink focus-within:border focus-within:border-ink">
+              <span className="pl-3 text-ink-faint">/</span>
               <input
                 value={page.slug}
                 maxLength={40}
@@ -415,7 +415,7 @@ function PageSettings({ page, isHome, onChange, onDelete, suggestSlug, albumSlug
         </label>
       </div>
       {albumSlugs.includes(page.slug) && (
-        <p className="text-xs text-amber-700">An album also uses /{page.slug}; this page will show there instead of the album.</p>
+        <p className="text-xs text-accent">An album also uses /{page.slug}; this page will show there instead of the album.</p>
       )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <label className="flex items-center gap-2 text-sm">
@@ -423,7 +423,7 @@ function PageSettings({ page, isHome, onChange, onDelete, suggestSlug, albumSlug
           Show in the site menu
         </label>
         {!isHome && (
-          <button type="button" onClick={onDelete} className="rounded-full px-3 py-1.5 text-sm text-red-600 hover:bg-red-50">
+          <button type="button" onClick={onDelete} className="px-3 py-1.5 text-sm text-accent hover:bg-accent-soft">
             Delete page
           </button>
         )}
@@ -447,7 +447,7 @@ function SectionCard({ section, index, count, photos, albums, onChange, onMove, 
   const summary = sectionSummary(section, albums);
 
   return (
-    <li className="rounded-lg bg-zinc-50 text-sm ring-1 ring-zinc-200">
+    <li className="bg-paper text-sm border border-rule">
       <div className="flex items-center gap-2 px-3 py-2">
         <input
           type="checkbox"
@@ -457,15 +457,15 @@ function SectionCard({ section, index, count, photos, albums, onChange, onMove, 
           title="Show on the page"
         />
         <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex flex-1 items-baseline gap-2 text-left">
-          <span className={section.visible ? "font-medium" : "font-medium text-zinc-400"}>{label}</span>
-          {summary && <span className="truncate text-xs text-zinc-500">{summary}</span>}
+          <span className={section.visible ? "font-medium" : "font-medium text-ink-faint"}>{label}</span>
+          {summary && <span className="truncate text-xs text-ink-soft">{summary}</span>}
         </button>
         <IconButton label={`Move ${label} up`} disabled={index === 0} onClick={() => onMove(index - 1)}>↑</IconButton>
         <IconButton label={`Move ${label} down`} disabled={index === count - 1} onClick={() => onMove(index + 1)}>↓</IconButton>
         <IconButton label={`Remove ${label}`} onClick={onRemove}>×</IconButton>
       </div>
       {open && (
-        <div className="space-y-4 border-t border-zinc-200 px-3 py-3">
+        <div className="space-y-4 border-t border-rule px-3 py-3">
           <SectionSettings section={section} photos={photos} albums={albums} onChange={onChange} />
         </div>
       )}
@@ -500,7 +500,7 @@ function SectionSettings({ section, photos, albums, onChange }: {
   const titleInput = (placeholder: string) =>
     "title" in section && (
       <label className="block">
-        <span className="text-sm font-medium">Heading</span>
+        <span className="label text-ink-soft">Heading</span>
         <input
           value={section.title}
           maxLength={80}
@@ -526,12 +526,12 @@ function SectionSettings({ section, photos, albums, onChange }: {
           />
           {section.style === "cover" && (
             <div>
-              <p className="mb-2 text-sm font-medium">Cover photo</p>
+              <p className="label mb-2 text-ink-soft">Cover photo</p>
               <button
                 type="button"
                 aria-pressed={section.coverPhotoId === null}
                 onClick={() => onChange({ ...section, coverPhotoId: null })}
-                className={`mb-2 rounded-full px-3 py-1 text-xs ring-1 ${section.coverPhotoId === null ? "bg-black text-white ring-black" : "ring-zinc-300"}`}
+                className={`mb-2 px-3 py-1 text-xs border ${section.coverPhotoId === null ? "bg-ink text-paper border-ink" : "border-rule"}`}
               >
                 Automatic (first photo on the page)
               </button>
@@ -580,10 +580,10 @@ function SectionSettings({ section, photos, albums, onChange }: {
           )}
           {section.source.kind === "album" &&
             (albums.length === 0 ? (
-              <p className="text-sm text-zinc-500">You don’t have any albums yet.</p>
+              <p className="text-sm text-ink-soft">You don’t have any albums yet.</p>
             ) : (
               <label className="block text-sm">
-                <span className="font-medium">Album</span>
+                <span className="label text-ink-soft">Album</span>
                 <select
                   value={section.source.albumId}
                   onChange={(e) => onChange({ ...section, source: { kind: "album", albumId: e.target.value } })}
@@ -616,7 +616,7 @@ function SectionSettings({ section, photos, albums, onChange }: {
         <>
           {titleInput("Optional")}
           <label className="block">
-            <span className="text-sm font-medium">Text</span>
+            <span className="label text-ink-soft">Text</span>
             <textarea
               value={section.body}
               rows={5}
@@ -631,21 +631,21 @@ function SectionSettings({ section, photos, albums, onChange }: {
       return (
         <>
           {titleInput("About")}
-          <p className="text-xs text-zinc-500">Shows the bio from your Account page.</p>
+          <p className="text-xs text-ink-soft">Shows the bio from your Account page.</p>
         </>
       );
     case "albums":
       return (
         <>
           {titleInput("Albums")}
-          <p className="text-xs text-zinc-500">Shows a card for each album on your site (see Albums below).</p>
+          <p className="text-xs text-ink-soft">Shows a card for each album on your site (see Albums below).</p>
         </>
       );
     case "contact":
       return (
         <>
           {titleInput("Contact")}
-          <p className="text-xs text-zinc-500">Your contact details and a message form.</p>
+          <p className="text-xs text-ink-soft">Your contact details and a message form.</p>
         </>
       );
   }
@@ -659,12 +659,13 @@ function swap<T>(list: T[], a: number, b: number) {
 
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <details open className="group rounded-2xl bg-white ring-1 ring-zinc-200">
-      <summary className="cursor-pointer list-none px-5 py-4 font-semibold">
-        <span className="mr-2 inline-block transition group-open:rotate-90" aria-hidden="true">›</span>
-        {title}
+    <details open className="group border-t border-ink">
+      <summary className="flex cursor-pointer list-none items-baseline justify-between py-3">
+        <span className="font-display text-2xl">{title}</span>
+        <span className="label text-ink-faint group-open:hidden">Show</span>
+        <span className="label hidden text-ink-faint group-open:inline">Hide</span>
       </summary>
-      <div className="space-y-5 px-5 pb-5">{children}</div>
+      <div className="space-y-5 pb-8">{children}</div>
     </details>
   );
 }
@@ -682,7 +683,7 @@ function AddMenu<T extends string>({ label, options, onAdd, disabled }: {
         value={value}
         onChange={(e) => setValue(e.target.value as T)}
         aria-label={`${label}: type`}
-        className="flex-1 rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-sm"
+        className="flex-1 border border-rule bg-card px-2 py-1.5 text-sm"
       >
         {options.map(([v, text]) => (
           <option key={v} value={v}>{text}</option>
@@ -692,7 +693,7 @@ function AddMenu<T extends string>({ label, options, onAdd, disabled }: {
         type="button"
         disabled={disabled}
         onClick={() => onAdd(value)}
-        className="rounded-full px-4 py-1.5 text-sm font-medium ring-1 ring-zinc-300 hover:bg-zinc-100 disabled:opacity-40"
+        className="px-4 py-1.5 text-sm font-medium border border-rule hover:bg-ink/5 disabled:opacity-40"
       >
         + {label}
       </button>
@@ -708,7 +709,7 @@ function Choice<T extends string>({ label, value, options, onChange }: {
 }) {
   return (
     <fieldset>
-      <legend className="mb-2 text-sm font-medium">{label}</legend>
+      <legend className="label mb-2 text-ink-soft">{label}</legend>
       <div className="flex flex-wrap gap-1">
         {options.map(([v, text]) => (
           <button
@@ -716,7 +717,7 @@ function Choice<T extends string>({ label, value, options, onChange }: {
             type="button"
             aria-pressed={value === v}
             onClick={() => onChange(v)}
-            className={`rounded-full px-3 py-1.5 text-sm ring-1 ${value === v ? "bg-black text-white ring-black" : "ring-zinc-300 hover:bg-zinc-100"}`}
+            className={chipClass(value === v)}
           >
             {text}
           </button>
@@ -736,7 +737,7 @@ function ThemeCard({ id, active, onClick }: { id: ThemeId; active: boolean; onCl
       aria-pressed={active}
       onClick={onClick}
       title={t.description}
-      className={`rounded-xl p-2 text-left text-xs ring-1 ${active ? "ring-2 ring-black" : "ring-zinc-200 hover:ring-zinc-400"}`}
+      className={`border p-2 text-left text-xs ${active ? "border-ink ring-1 ring-ink" : "border-rule hover:border-ink"}`}
     >
       <span className={`mb-2 grid h-12 grid-cols-3 gap-0.5 rounded-md p-1 ring-1 ring-zinc-200 ${swatch}`}>
         <span className={`rounded-sm ${bar}`} />
@@ -757,15 +758,15 @@ function PhotoPicker({ photos, selected, onChange, ordered, single, hint, dimEmp
   hint?: string;
   dimEmpty?: boolean;
 }) {
-  if (photos.length === 0) return <p className="text-sm text-zinc-500">Upload photos first.</p>;
+  if (photos.length === 0) return <p className="text-sm text-ink-soft">Upload photos first.</p>;
   return (
     <div>
-      {hint && <p className="mb-2 text-xs text-zinc-500">{hint}</p>}
+      {hint && <p className="mb-2 text-xs text-ink-soft">{hint}</p>}
       {!single && (
         <div className="mb-2 flex gap-3 text-xs">
           <button type="button" className="underline" onClick={() => onChange(photos.map((p) => p.id))}>Select all</button>
           <button type="button" className="underline" onClick={() => onChange([])}>Clear</button>
-          <span className="text-zinc-500">{selected.length} selected</span>
+          <span className="text-ink-soft">{selected.length} selected</span>
         </div>
       )}
       <ul className="grid max-h-64 grid-cols-5 gap-1.5 overflow-y-auto pr-1">
@@ -781,11 +782,11 @@ function PhotoPicker({ photos, selected, onChange, ordered, single, hint, dimEmp
                 aria-label={p.description || "Photo"}
                 title={p.description || undefined}
                 onClick={() => onChange(single ? (on ? [] : [p.id]) : on ? selected.filter((id) => id !== p.id) : [...selected, p.id])}
-                className={`relative block w-full overflow-hidden rounded-md ring-offset-1 ${on ? "ring-2 ring-black" : empty ? "opacity-40" : "opacity-70 hover:opacity-100"}`}
+                className={`relative block w-full overflow-hidden ring-offset-1 ring-offset-paper ${on ? "ring-2 ring-accent" : empty ? "opacity-40" : "opacity-70 hover:opacity-100"}`}
               >
                 <img src={p.src} srcSet={p.srcSet} sizes="80px" alt="" className="aspect-square w-full object-cover" />
                 {on && (
-                  <span className="absolute right-0.5 top-0.5 min-w-4 rounded-full bg-black px-1 text-[10px] leading-4 text-white">
+                  <span className="absolute right-0.5 top-0.5 min-w-4 bg-ink px-1 text-[10px] leading-4 text-paper">
                     {ordered ? index + 1 : "✓"}
                   </span>
                 )}
@@ -803,7 +804,7 @@ function AlbumPicker({ albums, selected, onChange }: {
   selected: string[];
   onChange: (ids: string[]) => void;
 }) {
-  if (albums.length === 0) return <p className="text-sm text-zinc-500">You don’t have any albums yet.</p>;
+  if (albums.length === 0) return <p className="text-sm text-ink-soft">You don’t have any albums yet.</p>;
   const chosen = selected.flatMap((id) => albums.find((a) => a.id === id) ?? []);
   const others = albums.filter((a) => !selected.includes(a.id));
   return (
@@ -811,7 +812,7 @@ function AlbumPicker({ albums, selected, onChange }: {
       {[...chosen, ...others].map((a) => {
         const i = selected.indexOf(a.id);
         return (
-          <li key={a.id} className="flex items-center gap-2 rounded-lg bg-zinc-50 px-3 py-2 text-sm ring-1 ring-zinc-200">
+          <li key={a.id} className="flex items-center gap-2 bg-paper px-3 py-2 text-sm border border-rule">
             <label className="flex flex-1 items-center gap-2">
               <input
                 type="checkbox"
@@ -819,7 +820,7 @@ function AlbumPicker({ albums, selected, onChange }: {
                 onChange={(e) => onChange(e.target.checked ? [...selected, a.id] : selected.filter((id) => id !== a.id))}
               />
               {a.title}
-              {a.photoCount === 0 && <span className="text-xs text-zinc-400">(empty — hidden on site)</span>}
+              {a.photoCount === 0 && <span className="text-xs text-ink-faint">(empty — hidden on site)</span>}
             </label>
             {i !== -1 && (
               <>
@@ -841,7 +842,7 @@ function IconButton({ label, children, ...props }: React.ComponentProps<"button"
       aria-label={label}
       title={label}
       {...props}
-      className="rounded px-1.5 opacity-70 hover:bg-zinc-200 hover:opacity-100 disabled:opacity-25"
+      className="rounded px-1.5 opacity-70 hover:bg-ink/10 hover:opacity-100 disabled:opacity-25"
     >
       {children}
     </button>
@@ -853,7 +854,7 @@ function ToolbarButton({ children, ...props }: React.ComponentProps<"button">) {
     <button
       type="button"
       {...props}
-      className="h-9 rounded-full px-4 text-sm font-medium ring-1 ring-zinc-300 hover:bg-zinc-100 disabled:opacity-40"
+      className="h-9 px-4 text-sm font-medium border border-rule hover:bg-ink/5 disabled:opacity-40"
     >
       {children}
     </button>
@@ -864,14 +865,14 @@ function ToolbarButton({ children, ...props }: React.ComponentProps<"button">) {
 // preview, then save or publish like any other edit.
 function AiPlaceholder() {
   return (
-    <div className="rounded-2xl border border-dashed border-zinc-300 bg-white p-4">
-      <label htmlFor="ai-request" className="text-sm font-medium">Describe a change</label>
+    <div className="border border-dashed border-rule bg-card p-4">
+      <label htmlFor="ai-request" className="label text-ink-soft">Describe a change</label>
       <textarea
         id="ai-request"
         disabled
         rows={2}
         placeholder="e.g. “Add a Weddings page with my wedding album and a contact form” — coming soon"
-        className="mt-2 w-full resize-none rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-400"
+        className="mt-2 w-full resize-none border border-rule bg-paper px-3 py-2 text-sm text-ink-faint"
       />
     </div>
   );

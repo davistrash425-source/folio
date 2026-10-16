@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { deletePhoto, reorderPhotos, saveProfile, updatePhoto, uploadPhotos } from "@/app/actions/site";
-import { Button, Field, Input, Message, inputClass } from "@/app/ui/form";
+import { Button, Field, Input, Message, inputClass, chipClass } from "@/app/ui/form";
 import type { User } from "@/lib/db";
 
 // Keep in sync with MAX_PHOTO_BYTES in lib/uploads.ts.
@@ -66,12 +66,12 @@ export function PhotoUploader() {
           setDragging(false);
           upload(Array.from(e.dataTransfer.files));
         }}
-        className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed px-6 py-8 text-center transition ${
-          dragging ? "border-black bg-zinc-50" : "border-zinc-300 hover:border-zinc-400"
+        className={`flex cursor-pointer flex-col items-center justify-center gap-1 border-2 border-dashed px-6 py-8 text-center transition ${
+          dragging ? "border-black bg-paper" : "border-rule hover:border-ink-faint"
         } ${busy ? "pointer-events-none opacity-60" : ""}`}
       >
         <span className="font-medium">{busy ? "Uploading…" : "Drop photos here or click to choose"}</span>
-        <span className="text-sm text-zinc-500">JPG, PNG, WebP, GIF or AVIF, up to {MAX_PHOTO_MB} MB each</span>
+        <span className="text-sm text-ink-soft">JPG, PNG, WebP, GIF or AVIF, up to {MAX_PHOTO_MB} MB each</span>
         <input
           ref={inputRef}
           type="file"
@@ -87,19 +87,19 @@ export function PhotoUploader() {
       {items.length > 0 && (
         <div className="space-y-2 text-sm" aria-live="polite">
           <div className="flex items-center gap-3">
-            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-100">
+            <div className="h-1.5 flex-1 overflow-hidden bg-ink/5">
               <div
-                className="h-full bg-black transition-all"
+                className="h-full bg-ink transition-all"
                 style={{ width: `${((done + failed.length) / items.length) * 100}%` }}
               />
             </div>
-            <span className="text-zinc-600">
+            <span className="text-ink-soft">
               {done + failed.length} of {items.length}
             </span>
           </div>
           {!busy && done > 0 && <Message ok={`Uploaded ${done} photo${done === 1 ? "" : "s"}.`} />}
           {failed.length > 0 && (
-            <ul className="text-red-600" role="alert">
+            <ul className="text-accent" role="alert">
               {failed.map((f, i) => (
                 <li key={i}>Couldn’t upload {f.name}: {f.reason}.</li>
               ))}
@@ -152,7 +152,7 @@ export function PhotoLibrary({
 
   if (photos.length === 0) {
     return (
-      <p className="rounded-2xl bg-white p-6 text-sm text-zinc-500 ring-1 ring-zinc-200">
+      <p className="bg-card p-6 text-sm text-ink-soft border border-rule">
         No photos yet. <Link href="/dashboard/manage/upload" className="underline">Upload some</Link> to fill your site.
       </p>
     );
@@ -191,21 +191,21 @@ export function PhotoLibrary({
               type="button"
               aria-pressed={filter === f.id}
               onClick={() => setFilter(f.id)}
-              className={`rounded-full px-3 py-1.5 text-sm ring-1 ${filter === f.id ? "bg-black text-white ring-black" : "bg-white ring-zinc-300 hover:bg-zinc-100"}`}
+              className={chipClass(filter === f.id)}
             >
               {f.label} <span className="opacity-60">{count}</span>
             </button>
           );
         })}
-        <span className="ml-auto text-sm text-zinc-500">
+        <span className="ml-auto text-sm text-ink-soft">
           {canReorder ? "Click a photo to edit it. Drag to reorder." : "Click a photo to edit it."}
         </span>
       </div>
 
       {visible.length === 0 ? (
-        <p className="py-10 text-center text-sm text-zinc-500">Nothing here — nice work.</p>
+        <p className="py-10 text-center text-sm text-ink-soft">Nothing here — nice work.</p>
       ) : (
-        <ul className={`grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 ${pending ? "opacity-80" : ""}`}>
+        <ul className={`grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 ${pending ? "opacity-80" : ""}`}>
           {visible.map((photo, i) => (
             <li
               key={photo.id}
@@ -227,19 +227,23 @@ export function PhotoLibrary({
                 }
                 setDragId(null);
               }}
-              className={`group relative overflow-hidden rounded-lg bg-zinc-100 ${dragId === photo.id ? "opacity-40" : ""}`}
+              className={`group relative ${dragId === photo.id ? "opacity-40" : ""}`}
             >
               <button
                 type="button"
                 onClick={() => setOpenId(photo.id)}
                 aria-label={`Edit photo${photo.description ? `: ${photo.description}` : ` ${i + 1}`}`}
-                className="block w-full"
+                className="block w-full bg-ink/5 outline-offset-2 hover:outline hover:outline-1 hover:outline-ink"
               >
                 <img src={photo.src} srcSet={photo.srcSet} sizes="240px" alt="" draggable={false} className="aspect-square w-full object-cover" />
               </button>
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 px-2 pb-2 pt-6 text-xs text-white">
-                <p className="truncate">{photo.description || <span className="text-amber-200">No description</span>}</p>
-                {photo.location && <p className="truncate opacity-80">{photo.location}</p>}
+              {/* Caption under the frame, like a contact sheet. */}
+              <div className="pointer-events-none mt-2 text-xs">
+                <p className="flex gap-2">
+                  <span className="label text-ink-faint">{String(order.indexOf(photo) + 1).padStart(2, "0")}</span>
+                  <span className="truncate">{photo.description || <span className="text-accent">No description</span>}</span>
+                </p>
+                {photo.location && <p className="truncate pl-7 text-ink-soft">{photo.location}</p>}
               </div>
               {canReorder && (
                 <div className="absolute right-1 top-1 flex gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
@@ -300,16 +304,16 @@ function PhotoDrawer({ photo, albums, onClose, onPrev, onNext }: {
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex justify-end bg-black/30" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div role="dialog" aria-modal="true" aria-label="Photo details" className="flex h-full w-full max-w-md flex-col overflow-y-auto bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-3">
+    <div className="fixed inset-0 z-40 flex justify-end bg-ink/30" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div role="dialog" aria-modal="true" aria-label="Photo details" className="flex h-full w-full max-w-md flex-col overflow-y-auto bg-card border-l border-ink">
+        <div className="flex items-center justify-between border-b border-rule px-5 py-3">
           <div className="flex gap-1">
             <SmallButton label="Previous photo" disabled={!onPrev} onClick={() => (dirty ? save(onPrev) : onPrev?.())}>←</SmallButton>
             <SmallButton label="Next photo" disabled={!onNext} onClick={() => (dirty ? save(onNext) : onNext?.())}>→</SmallButton>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close" className="rounded-full px-3 py-1 text-xl hover:bg-zinc-100">×</button>
+          <button type="button" onClick={onClose} aria-label="Close" className="px-3 py-1 text-xl hover:bg-ink/5">×</button>
         </div>
-        <img src={photo.src} srcSet={photo.srcSet} sizes="448px" alt="" className="max-h-80 w-full bg-zinc-100 object-contain" />
+        <img src={photo.src} srcSet={photo.srcSet} sizes="448px" alt="" className="max-h-80 w-full bg-ink/5 object-contain" />
         <form
           className="flex flex-1 flex-col gap-4 p-5"
           onSubmit={(e) => {
@@ -339,9 +343,9 @@ function PhotoDrawer({ photo, albums, onClose, onPrev, onNext }: {
             <Input value={alt} onChange={(e) => { setAlt(e.target.value); setSaved(false); }} maxLength={300} placeholder={description} />
           </Field>
           <fieldset>
-            <legend className="text-sm font-medium text-zinc-800">Albums</legend>
+            <legend className="label text-ink-soft">Albums</legend>
             {albums.length === 0 ? (
-              <p className="mt-1 text-sm text-zinc-500">
+              <p className="mt-1 text-sm text-ink-soft">
                 No albums yet. <Link href="/dashboard/manage/albums" className="underline">Create one</Link>.
               </p>
             ) : (
@@ -364,7 +368,7 @@ function PhotoDrawer({ photo, albums, onClose, onPrev, onNext }: {
               </ul>
             )}
           </fieldset>
-          <div className="mt-auto flex flex-wrap items-center gap-3 border-t border-zinc-200 pt-4">
+          <div className="mt-auto flex flex-wrap items-center gap-3 border-t border-rule pt-4">
             <Button type="submit" disabled={pending || !dirty}>{pending ? "Saving…" : "Save"}</Button>
             {saved && !dirty && <Message ok="Saved." />}
             <button
@@ -376,7 +380,7 @@ function PhotoDrawer({ photo, albums, onClose, onPrev, onNext }: {
                   onClose();
                 });
               }}
-              className="ml-auto rounded-full px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+              className="ml-auto px-3 py-2 text-sm text-accent hover:bg-accent-soft"
             >
               Delete photo
             </button>
@@ -398,7 +402,7 @@ function SmallButton({
       aria-label={label}
       title={label}
       {...props}
-      className="rounded-full bg-white/90 px-2 py-1 text-xs font-medium shadow-sm ring-1 ring-zinc-200 disabled:opacity-40"
+      className="bg-paper/90 px-2 py-1 text-xs font-medium border border-rule disabled:opacity-40"
     >
       {children}
     </button>
