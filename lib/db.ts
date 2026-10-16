@@ -4,7 +4,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
-import type { SiteDesign } from "./design";
+import { presetDesign, type SiteDesign } from "./design";
 import type { TemplateId } from "./templates";
 
 export type SocialLinks = {
@@ -162,6 +162,7 @@ export async function createUser(input: {
       },
       photos: [],
       published: input.published,
+      design: presetDesign("minimal"),
       emailVerified: false,
       albums: [],
       inquiries: [],

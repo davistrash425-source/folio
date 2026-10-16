@@ -1,21 +1,35 @@
 import type { Metadata } from "next";
-import { homepagePhotos } from "@/lib/design";
-import { currentAlbum, type SiteData } from "@/lib/site-data";
+import { galleryPhotos } from "@/lib/design";
+import { resolvePath, type SiteData } from "@/lib/site-data";
 import { siteUrl } from "@/lib/site";
 
-// Metadata for the site home page and album pages.
+// Metadata for every page and album of a photographer's site.
 export function siteMetadata(subdomain: string, site: SiteData | null): Metadata {
-  if (!site) return { title: "Site not found" };
-  const album = currentAlbum(site);
-  const title = album ? `${album.title} — ${site.profile.name}` : `${site.profile.name} — Photography`;
+  const target = site && resolvePath(site);
+  if (!site || !target) return { title: "Site not found" };
+  const { profile } = site;
   const byId = new Map(site.photos.map((p) => [p.id, p]));
-  const cover = album
-    ? byId.get(album.coverPhotoId ?? "") ?? byId.get(album.photoIds[0])
-    : byId.get(site.design.hero.coverPhotoId ?? "") ?? homepagePhotos(site.design, site.photos)[0];
-  const description = (album?.description || site.profile.bio).slice(0, 160) || `Photography by ${site.profile.name}`;
+
+  let title = `${profile.name} — Photography`;
+  let description = profile.bio;
+  let cover;
+  if (target.album) {
+    title = `${target.album.title} — ${profile.name}`;
+    description = target.album.description || profile.bio;
+    cover = byId.get(target.album.coverPhotoId ?? "") ?? byId.get(target.album.photoIds[0]);
+  } else {
+    const page = target.page;
+    if (page.slug) title = `${page.title} — ${profile.name}`;
+    const hero = page.sections.find((s) => s.type === "hero");
+    const gallery = page.sections.find((s) => s.type === "gallery" && s.visible);
+    cover =
+      (hero?.type === "hero" && hero.coverPhotoId ? byId.get(hero.coverPhotoId) : undefined) ??
+      (gallery?.type === "gallery" ? galleryPhotos(gallery, site.photos, site.albums)[0] : undefined) ??
+      site.photos[0];
+  }
   return {
     title,
-    description,
+    description: description.slice(0, 160) || `Photography by ${profile.name}`,
     // Photo URLs are relative; link previews need them absolute.
     metadataBase: new URL(siteUrl(subdomain)),
     openGraph: cover ? { title, images: [{ url: cover.src, alt: cover.alt }] } : { title },

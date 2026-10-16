@@ -2,8 +2,8 @@
 
 1. A photographer signs up and claims a site address.
 2. They upload photos, then add a description and location to each one.
-3. They group photos into albums, and design the site in the Web design editor: theme, colors,
-   fonts, which photos and albums appear, section order, gallery layout and captions. Design
+3. They group photos into albums, and design the site in the Web design editor: pages (home,
+   galleries, about, contact…), each page's sections, theme, colors, fonts, gallery layout and captions. Design
    changes stay in a draft (with a live preview) until they publish them.
 4. They add their name, bio, contact details and social links.
 5. Their site is live at `name.<root domain>`, with album pages like `name.<root domain>/weddings`,
@@ -59,7 +59,10 @@ Emails (password reset, email confirmation, new inquiries) are printed to the de
 
 ## How site design works
 
-Each account has a `SiteDesign` object (`lib/design.ts`): theme, colors, fonts, section order and visibility, header style, which photos and albums appear, gallery layout and captions. It's validated with a zod schema, and the renderer draws the site from it.
+Each account has a `SiteDesign` object (`lib/design.ts`): theme, colors, fonts, gallery style, captions, which albums appear, and the site's **pages**. Each page has a name, an address (`/about`), a menu setting and an ordered list of sections: header, gallery (all photos, chosen photos or one album, with an optional layout of its own), album links, about, text and contact. It's validated with a zod schema, and the renderer draws the site from it.
+
+- Addresses: `/` is the first page, `/<page>` the other pages, and `/<album>` each album. If a page and an album share an address, the page wins (the editor and album creation warn about this).
+- Older designs (version 1, one page) are upgraded automatically, and accounts that never saved a design keep their original one-page layout. New accounts start with a home page and an About page.
 
 - The editor saves to `draftDesign`. Publishing copies it to `design`, which is what visitors see. The last 20 saved drafts are kept for Undo.
 - The dashboard preview frames (`/site-preview`) show the draft. The editor sends unsaved changes to the frame with `postMessage`, so the preview updates instantly.

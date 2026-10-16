@@ -2,7 +2,7 @@
 // that also run in the browser (the dashboard's live preview). Keep this
 // file free of server-only imports; loading lives in lib/public-site.ts.
 import type { User } from "./db";
-import { visibleAlbums, type SiteDesign } from "./design";
+import { findPage, visibleAlbums, type SiteDesign } from "./design";
 import type { PhotoSource } from "./uploads";
 
 export type SiteAlbum = {
@@ -22,16 +22,20 @@ export type SiteData = {
   design: SiteDesign;
   photos: PhotoSource[]; // every photo, in library order
   albums: SiteAlbum[]; // every album; the design picks which appear
-  albumSlug?: string; // set on an album page
+  path: string; // "" for home, else a page or album address
   preview: boolean; // links stay inside the dashboard preview
 };
 
-export function currentAlbum(site: SiteData) {
-  if (!site.albumSlug) return undefined;
-  return visibleAlbums(site.design, site.albums).find((a) => a.slug === site.albumSlug);
+// What the current address shows: one of the design's pages, or an album.
+// Pages win if a page and an album share an address.
+export function resolvePath(site: Pick<SiteData, "design" | "albums" | "path">) {
+  const page = findPage(site.design, site.path);
+  if (page) return { page };
+  const album = visibleAlbums(site.design, site.albums).find((a) => a.slug === site.path);
+  return album ? { album } : null;
 }
 
-export function siteHref(site: Pick<SiteData, "preview">, album?: string) {
-  if (site.preview) return `/site-preview${album ? `?album=${album}` : ""}`;
-  return album ? `/${album}` : "/";
+export function siteHref(site: Pick<SiteData, "preview">, path = "") {
+  if (site.preview) return `/site-preview${path ? `?path=${path}` : ""}`;
+  return `/${path}`;
 }

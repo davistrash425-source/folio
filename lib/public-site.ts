@@ -1,7 +1,7 @@
 import { findUserBySubdomain, type User } from "./db";
 import { readDesign } from "./design";
 import { isPublished } from "./site";
-import { currentAlbum, type SiteData } from "./site-data";
+import { resolvePath, type SiteData } from "./site-data";
 import { photoSource } from "./uploads";
 
 export type { SiteAlbum, SiteData } from "./site-data";
@@ -15,9 +15,9 @@ export function draftDesign(user: User) {
 }
 
 // Builds what the renderer draws. Returns null when the page shouldn't be
-// shown: a draft site viewed publicly, or an album that isn't on the site.
+// shown: a draft site viewed publicly, or an address with no page or album.
 // The preview shows the draft design; the live site the published one.
-export function siteData(user: User, opts: { album?: string; preview?: boolean } = {}): SiteData | null {
+export function siteData(user: User, opts: { path?: string; preview?: boolean } = {}): SiteData | null {
   if (!opts.preview && !isPublished(user)) return null;
   const site: SiteData = {
     subdomain: user.subdomain,
@@ -32,14 +32,16 @@ export function siteData(user: User, opts: { album?: string; preview?: boolean }
       coverPhotoId: a.coverPhotoId,
       photoIds: a.photoIds,
     })),
-    albumSlug: opts.album,
+    path: opts.path ?? "",
     preview: Boolean(opts.preview),
   };
-  if (opts.album && !currentAlbum(site)) return null;
+  // The preview may be showing a page that only exists in the editor's
+  // unsaved design, so it renders anyway and falls back to home.
+  if (!opts.preview && !resolvePath(site)) return null;
   return site;
 }
 
-export async function loadSite(subdomain: string, album?: string) {
+export async function loadSite(subdomain: string, path?: string) {
   const user = await findUserBySubdomain(subdomain);
-  return user ? siteData(user, { album }) : null;
+  return user ? siteData(user, { path }) : null;
 }

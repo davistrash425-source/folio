@@ -18,8 +18,8 @@ export default function SitePreviewPage({ searchParams }: PageProps<"/site-previ
 
 async function Preview({ searchParams }: { searchParams: PageProps<"/site-preview">["searchParams"] }) {
   const user = await requireUser();
-  const { album } = await searchParams;
-  const site = siteData(user, { preview: true, album: typeof album === "string" ? album : undefined });
+  const { path } = await searchParams;
+  const site = siteData(user, { preview: true, path: typeof path === "string" ? path : "" });
   if (!site) notFound();
   return <LivePreview site={site} />;
 }

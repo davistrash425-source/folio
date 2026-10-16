@@ -4,25 +4,24 @@ import Link from "next/link";
 import { useState } from "react";
 import { DevicePreview, DeviceButtons, type Device } from "../device-preview";
 
-export function PreviewWorkspace({ albums, liveUrl, hasUnpublishedDesign }: {
-  albums: { slug: string; title: string }[];
+export function PreviewWorkspace({ pages, liveUrl, hasUnpublishedDesign }: {
+  pages: { path: string; title: string }[];
   liveUrl: string | null;
   hasUnpublishedDesign: boolean;
 }) {
   const [device, setDevice] = useState<Device>("desktop");
-  const [album, setAlbum] = useState("");
+  const [path, setPath] = useState("");
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 px-6 py-6">
       <div className="flex flex-wrap items-center gap-3">
         <DeviceButtons device={device} onChange={setDevice} />
-        {albums.length > 0 && (
+        {pages.length > 1 && (
           <label className="flex items-center gap-2 text-sm">
             Page
-            <select value={album} onChange={(e) => setAlbum(e.target.value)} className="rounded-lg border border-zinc-300 bg-white px-2 py-1.5">
-              <option value="">Home</option>
-              {albums.map((a) => (
-                <option key={a.slug} value={a.slug}>{a.title}</option>
+            <select value={path} onChange={(e) => setPath(e.target.value)} className="rounded-lg border border-zinc-300 bg-white px-2 py-1.5">
+              {pages.map((p) => (
+                <option key={p.path} value={p.path}>{p.title}</option>
               ))}
             </select>
           </label>
@@ -44,8 +43,8 @@ export function PreviewWorkspace({ albums, liveUrl, hasUnpublishedDesign }: {
         </div>
       </div>
       <DevicePreview
-        key={album}
-        src={`/site-preview${album ? `?album=${album}` : ""}`}
+        key={path}
+        src={`/site-preview${path ? `?path=${path}` : ""}`}
         device={device}
         className="min-h-[32rem] flex-1"
       />

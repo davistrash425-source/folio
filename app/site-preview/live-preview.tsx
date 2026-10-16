@@ -6,12 +6,15 @@ import type { SiteDesign } from "@/lib/design";
 import type { SiteData } from "@/lib/site-data";
 
 export const DESIGN_MESSAGE = "folio:design";
+export const PATH_MESSAGE = "folio:path";
 export const READY_MESSAGE = "folio:ready";
 
-// Renders the site, swapping in any unsaved design the Web design editor
-// sends from the parent window, so changes show up instantly.
+// Renders the site, swapping in any unsaved design (and the page being
+// edited) that the Web design editor sends from the parent window, so
+// changes show up instantly.
 export function LivePreview({ site }: { site: SiteData }) {
   const [design, setDesign] = useState<SiteDesign>(site.design);
+  const [path, setPath] = useState(site.path);
   const [serverDesign, setServerDesign] = useState(site.design);
   if (site.design !== serverDesign) {
     setServerDesign(site.design);
@@ -20,13 +23,17 @@ export function LivePreview({ site }: { site: SiteData }) {
 
   useEffect(() => {
     function onMessage(e: MessageEvent) {
-      if (e.origin !== window.location.origin || e.data?.type !== DESIGN_MESSAGE) return;
-      setDesign(e.data.design);
+      if (e.origin !== window.location.origin) return;
+      if (e.data?.type === DESIGN_MESSAGE) setDesign(e.data.design);
+      if (e.data?.type === PATH_MESSAGE) {
+        setPath(e.data.path);
+        window.scrollTo(0, 0);
+      }
     }
     window.addEventListener("message", onMessage);
     if (window.parent !== window) window.parent.postMessage({ type: READY_MESSAGE }, window.location.origin);
     return () => window.removeEventListener("message", onMessage);
   }, []);
 
-  return <SiteRenderer site={{ ...site, design }} />;
+  return <SiteRenderer site={{ ...site, design, path }} />;
 }

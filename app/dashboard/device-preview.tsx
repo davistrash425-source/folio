@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { DESIGN_MESSAGE, READY_MESSAGE } from "@/app/site-preview/live-preview";
+import { DESIGN_MESSAGE, PATH_MESSAGE, READY_MESSAGE } from "@/app/site-preview/live-preview";
 import type { SiteDesign } from "@/lib/design";
 
 const DEVICES = {
@@ -31,16 +31,20 @@ export function DeviceButtons({ device, onChange }: { device: Device; onChange: 
 }
 
 // The site in an iframe at a real device width, scaled down to fit. When
-// `design` is given it's sent to the frame so unsaved changes show live.
-export function DevicePreview({ src, device, design, className = "" }: {
+// `design` is given it's sent to the frame so unsaved changes show live, and
+// `path` switches the frame to that page without reloading it.
+export function DevicePreview({ src, device, design, path, className = "" }: {
   src: string;
   device: Device;
   design?: SiteDesign;
+  path?: string;
   className?: string;
 }) {
   const boxRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [box, setBox] = useState({ width: 0, height: 0 });
+  const pathRef = useRef(path);
+  const framesSeen = useRef(new WeakSet<Window>());
 
   useEffect(() => {
     const el = boxRef.current;
@@ -59,11 +63,25 @@ export function DevicePreview({ src, device, design, className = "" }: {
       frameRef.current?.contentWindow?.postMessage({ type: DESIGN_MESSAGE, design }, window.location.origin);
     send();
     function onMessage(e: MessageEvent) {
-      if (e.origin === window.location.origin && e.data?.type === READY_MESSAGE && e.source === frameRef.current?.contentWindow) send();
+      const frame = frameRef.current?.contentWindow;
+      if (e.origin !== window.location.origin || e.data?.type !== READY_MESSAGE || !frame || e.source !== frame) return;
+      send();
+      // Point a newly created frame at the page being edited. Later loads
+      // come from clicking links inside the preview, so leave those alone.
+      if (pathRef.current !== undefined && !framesSeen.current.has(frame)) {
+        framesSeen.current.add(frame);
+        frame.postMessage({ type: PATH_MESSAGE, path: pathRef.current }, window.location.origin);
+      }
     }
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
   }, [design]);
+
+  useEffect(() => {
+    pathRef.current = path;
+    if (path === undefined) return;
+    frameRef.current?.contentWindow?.postMessage({ type: PATH_MESSAGE, path }, window.location.origin);
+  }, [path]);
 
   const width = DEVICES[device].width;
   const scale = box.width ? Math.min(1, box.width / width) : 1;

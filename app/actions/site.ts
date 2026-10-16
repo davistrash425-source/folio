@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { randomUUID } from "crypto";
-import { findUserBySubdomain, updateUser, type Photo } from "@/lib/db";
+import { findUserById, findUserBySubdomain, updateUser, type Photo } from "@/lib/db";
+import { draftDesign, publishedDesign } from "@/lib/public-site";
 import { sendEmail } from "@/lib/email";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { getSessionUserId } from "@/lib/session";
@@ -150,6 +151,10 @@ export async function createAlbum(_prev: ActionState, formData: FormData): Promi
   const slug = slugify(title);
   const slugError = validateSlug(slug);
   if (slugError) return { error: slugError };
+  const owner = await findUserById(userId);
+  if (owner && [draftDesign(owner), publishedDesign(owner)].some((d) => d.pages.some((p) => p.slug === slug))) {
+    return { error: `One of your pages already uses the address /${slug}. Pick another album name.` };
+  }
 
   const id = randomUUID();
   let taken = false;

@@ -18,10 +18,15 @@ export default function PreviewPage() {
 async function Preview() {
   const user = await requireUser();
   const draft = draftDesign(user);
-  const albums = visibleAlbums(draft, user.albums ?? []).map((a) => ({ slug: a.slug, title: a.title }));
+  const pages = [
+    ...draft.pages.map((p) => ({ path: p.slug, title: p.slug ? p.title : `${p.title} (home)` })),
+    ...visibleAlbums(draft, user.albums ?? [])
+      .filter((a) => !draft.pages.some((p) => p.slug === a.slug))
+      .map((a) => ({ path: a.slug, title: `Album: ${a.title}` })),
+  ];
   return (
     <PreviewWorkspace
-      albums={albums}
+      pages={pages}
       liveUrl={isPublished(user) ? siteUrl(user.subdomain) : null}
       hasUnpublishedDesign={!sameDesign(draft, publishedDesign(user))}
     />

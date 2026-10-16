@@ -35,6 +35,7 @@ export function isPublished(user: { published?: boolean }) {
 }
 
 // Album pages live at name.yourapp.com/<slug>; these paths are taken.
+// Keep in sync with RESERVED_PAGE_SLUGS in lib/design.ts.
 const RESERVED_SLUGS = new Set(["api", "_next", "favicon.ico", "sites"]);
 
 export function slugify(title: string) {
