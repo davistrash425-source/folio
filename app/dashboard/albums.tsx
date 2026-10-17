@@ -2,17 +2,12 @@
 
 /* eslint-disable @next/next/no-img-element -- user uploads are served by our own route */
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useActionState, useState, useTransition } from "react";
 import { createAlbum, deleteAlbum, setAlbumCover, setAlbumPhotos, updateAlbum } from "@/app/actions/site";
 import { Button, Field, Input, Message, inputClass } from "@/app/ui/form";
 
 export function CreateAlbumForm() {
   const [state, action, pending] = useActionState(createAlbum, {});
-  const router = useRouter();
-  // Go straight to the new album so its photos can be picked.
-  useEffect(() => {
-    if (state.id) router.push(`/dashboard/manage/albums/${state.id}`);
-  }, [state.id, router]);
 
   return (
     <form action={action} className="grid gap-4 sm:grid-cols-[1fr_2fr_auto] sm:items-end">

@@ -11,7 +11,7 @@ import { getSessionUserId } from "@/lib/session";
 import { appUrl, isPublished, slugify, validateSlug } from "@/lib/site";
 import { deletePhotoFiles, savePhoto } from "@/lib/uploads";
 
-export type ActionState = { error?: string; ok?: string; id?: string };
+export type ActionState = { error?: string; ok?: string };
 
 // Every action re-checks the session itself rather than trusting the page.
 async function currentUserId() {
@@ -167,7 +167,12 @@ export async function createAlbum(_prev: ActionState, formData: FormData): Promi
     u.albums.push({ id, slug, title, description, photoIds: [] });
   });
   if (taken) return { error: "You already have an album with that name." };
-  return { ...done(`Created “${title}”.`), id };
+  revalidatePath("/dashboard", "layout");
+  // Go straight to the new album so its photos can be picked. This happens
+  // here, once, rather than in an effect on the form: the dashboard keeps
+  // pages mounted while you navigate, so an effect would fire again every
+  // time you came back to the Albums page.
+  redirect(`/dashboard/manage/albums/${id}`);
 }
 
 export async function updateAlbum(
