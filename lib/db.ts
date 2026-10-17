@@ -4,6 +4,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
+import { revalidateTag } from "next/cache";
 import { presetDesign, type SiteDesign } from "./design";
 import type { TemplateId } from "./templates";
 
@@ -136,7 +137,7 @@ export async function createUser(input: {
   name: string;
   published: boolean;
 }) {
-  return mutate((data) => {
+  const created = await mutate((data) => {
     const email = input.email.toLowerCase();
     const subdomain = input.subdomain.toLowerCase();
     if (data.users.some((u) => u.email === email)) {
@@ -170,22 +171,36 @@ export async function createUser(input: {
     data.users.push(user);
     return user;
   });
+  // An address someone visited before it was claimed may be cached as missing.
+  siteChanged(created.subdomain);
+  return created;
+}
+
+// Tells the cached public site (lib/public-site.ts) to rebuild. `expire: 0`
+// means nobody is served the old version while it rebuilds.
+function siteChanged(subdomain: string) {
+  revalidateTag(`site:${subdomain.toLowerCase()}`, { expire: 0 });
 }
 
 export async function updateUser(id: string, fn: (user: User) => void) {
-  return mutate((data) => {
+  const user = await mutate((data) => {
     const user = data.users.find((u) => u.id === id);
     if (!user) throw new Error("USER_NOT_FOUND");
     fn(user);
     return user;
   });
+  siteChanged(user.subdomain);
+  return user;
 }
 
 export async function deleteUser(id: string) {
-  return mutate((data) => {
+  let subdomain = "";
+  await mutate((data) => {
+    subdomain = data.users.find((u) => u.id === id)?.subdomain ?? "";
     data.users = data.users.filter((u) => u.id !== id);
     data.tokens = (data.tokens ?? []).filter((t) => t.userId !== id);
   });
+  if (subdomain) siteChanged(subdomain);
 }
 
 export async function addToken(token: Token) {

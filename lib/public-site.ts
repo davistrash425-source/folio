@@ -1,3 +1,4 @@
+import { cacheLife, cacheTag } from "next/cache";
 import { findUserBySubdomain, type User } from "./db";
 import { readDesign } from "./design";
 import { isPublished } from "./site";
@@ -41,7 +42,29 @@ export function siteData(user: User, opts: { path?: string; preview?: boolean } 
   return site;
 }
 
-export async function loadSite(subdomain: string, path?: string) {
+// The tag every change to a photographer's site invalidates, so visitors see
+// edits straight away. lib/db.ts (siteChanged) builds the same tag; it can't
+// import this file because this file imports it.
+export const siteTag = (subdomain: string) => `site:${subdomain.toLowerCase()}`;
+
+// Everything about one photographer's public site, cached so moving between
+// its pages doesn't re-read and re-render from the database each time. It is
+// keyed by subdomain only (not page), so stray addresses can't fill the cache.
+async function loadSiteData(subdomain: string) {
+  "use cache";
+  cacheTag(siteTag(subdomain));
+  // Browsers may reuse it for a minute (and prefetch it); the server keeps it
+  // until something changes, or a day.
+  cacheLife({ stale: 60, revalidate: 3600, expire: 86400 });
   const user = await findUserBySubdomain(subdomain);
-  return user ? siteData(user, { path }) : null;
+  return user ? siteData(user) : null;
+}
+
+// The site at one address: a page or an album. Null if the site doesn't
+// exist, is offline, or has nothing at that address.
+export async function loadSite(subdomain: string, path = "") {
+  const site = await loadSiteData(subdomain.toLowerCase());
+  if (!site) return null;
+  const atPath = { ...site, path };
+  return resolvePath(atPath) ? atPath : null;
 }
