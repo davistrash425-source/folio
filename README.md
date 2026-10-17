@@ -40,7 +40,9 @@ Emails (password reset, email confirmation, new inquiries) are printed to the de
 | Dashboard: Preview website tab | `app/dashboard/preview`, `app/site-preview` |
 | Site design model (what the editor edits) | `lib/design.ts`, `app/actions/design.ts` |
 | Web design editor | `app/dashboard/design-editor.tsx` |
-| Public site renderer | `app/sites/[subdomain]/renderer.tsx` |
+| Public site themes (one file each) | `app/sites/[subdomain]/themes/`, picked in `renderer.tsx` |
+| Theme names and descriptions | `lib/themes.ts` (themes), `lib/templates.ts` (Classic looks) |
+| Browser-side photo compression | `lib/compress-image.ts` |
 | Database (JSON file) | `lib/db.ts` |
 | Photo storage (local disk) | `lib/uploads.ts`, `app/api/uploads` |
 | Resizing and metadata stripping | `lib/images.ts` |
@@ -62,14 +64,32 @@ Emails (password reset, email confirmation, new inquiries) are printed to the de
 Each account has a `SiteDesign` object (`lib/design.ts`): theme, colors, fonts, gallery style, captions, which albums appear, and the site's **pages**. Each page has a name, an address (`/about`), a menu setting and an ordered list of sections: header, gallery (all photos, chosen photos or one album, with an optional layout of its own), album links, about, text and contact. It's validated with a zod schema, and the renderer draws the site from it.
 
 - Addresses: `/` is the first page, `/<page>` the other pages, and `/<album>` each album. If a page and an album share an address, the page wins (the editor and album creation warn about this).
-- Older designs (version 1, one page) are upgraded automatically, and accounts that never saved a design keep their original one-page layout. New accounts start with a home page and an About page.
+- Older designs are upgraded when read: version 1 (one page) and version 2 (before there were separate themes) become Classic with the same look, colors and pages. Accounts that never saved a design keep their original one-page layout. New accounts start with Classic and a home page and an About page.
 
 - The editor saves to `draftDesign`. Publishing copies it to `design`, which is what visitors see. The last 20 saved drafts are kept for Undo.
 - The dashboard preview frames (`/site-preview`) show the draft. The editor sends unsaved changes to the frame with `postMessage`, so the preview updates instantly.
 - Accounts created before designs existed get the preset for their original template.
 - A future AI assistant only has to return a new `SiteDesign` that passes the schema; the placeholder box in the editor marks where it goes.
 
+## Themes
+
+A site is drawn by one of four themes, each with its own layout code in `app/sites/[subdomain]/themes/`. They all read the same content (pages, sections, photos, albums, captions, bio), so switching themes never loses anything.
+
+| Theme | What it is | Settings |
+| --- | --- | --- |
+| **Classic** | Clean pages, fully editable | Look (17 starting looks), colors, fonts, gallery layouts, header styles |
+| **Exhibition** | A gallery wall: photos hang in one row you scroll sideways (one at a time, vertically, on phones) with museum wall labels | Wall color, label position |
+| **Index** | A big typeset list of the work; hover a line to see the photo (phones get thumbnails) | Highlight color, list order |
+| **Film strip** | Frames on strips of film with sprocket holes, edge print and frame numbers; text on taped paper notes | Film stock, frame numbers |
+
+- The three creative themes set their own layout, colors and fonts. The editor hides Classic's controls for them, and Classic's settings are kept for when you switch back.
+- Classic's 17 looks (Minimal, Sepia Print, Polaroid…) are color, font and gallery presets, not separate layouts.
+- To add a theme: write a component that takes `{ site }`, register it in `renderer.tsx`, add it to `THEMES` in `lib/design.ts` (with settings in `themeSettingsSchema`) and to `lib/themes.ts`, and add a miniature to `ThemeArt` in the editor. Themes can use the helpers in `themes/shared.ts`: `currentPage`, `navItems`, `pageGalleries` (one lightbox for the whole page), `visibleSections`.
+- Fonts for the creative themes are in `themes/fonts.ts` with `preload: false`, so a site only downloads the fonts its theme uses.
+
 ## How photos are stored
+
+Photos over 20 MB are compressed in the browser before upload (`lib/compress-image.ts`): shrunk to at most 8000px or 40 megapixels and re-encoded at the highest quality that fits, so the stored original is the compressed version. Animated GIFs over 20 MB and HEIC files are refused with a clear message.
 
 Each upload is kept as the original (`<id>.orig.<ext>`, never served, included in the account export) plus WebP copies at 640, 1280 and 2048px wide with EXIF and GPS data removed. The public site picks a size with `srcset`.
 

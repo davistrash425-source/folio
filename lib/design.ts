@@ -9,7 +9,37 @@ const hex = z.string().regex(/^#[0-9a-f]{6}$/i, "Use a 6-digit hex color like #1
 const id = z.string().min(1).max(64);
 const heading = z.string().max(80).describe("Optional heading shown above the section");
 
-export const THEMES = ["minimal", "dark", "editorial"] as const;
+// The Classic theme's starting looks: ready-made colors, fonts and gallery
+// styles. They're presets, not separate layouts, so any of them can be
+// reproduced by editing Classic's settings.
+export const LOOKS = [
+  "minimal",
+  "dark",
+  "editorial",
+  "darkroom",
+  "contact-sheet",
+  "sepia",
+  "polaroid",
+  "noir",
+  "cyanotype",
+  "kodachrome",
+  "magazine",
+  "desert",
+  "forest",
+  "riso",
+  "neon",
+  "concrete",
+  "sorbet",
+] as const;
+
+// Each theme draws the site with its own layout code. Classic is the flexible
+// one (colors, fonts and gallery styles are editable); the others decide how
+// the site looks and moves themselves, and only offer a few settings.
+export const THEMES = ["classic", "exhibition", "index", "filmstrip"] as const;
+export const WALLS = ["charcoal", "plaster", "oxblood", "forest"] as const;
+export const FILM_STOCKS = ["gold", "mono", "slide"] as const;
+export const INDEX_SORTS = ["manual", "newest", "location"] as const;
+export const FONTS = ["sans", "serif", "mixed", "mono"] as const;
 export const GALLERY_LAYOUTS = ["grid", "masonry", "column", "editorial"] as const;
 
 // Page addresses that would clash with the app's own routes.
@@ -73,16 +103,14 @@ const pageSchema = z.object({
   sections: z.array(sectionSchema).max(30).describe("Top to bottom"),
 });
 
-export const designSchema = z.object({
-  version: z.literal(2),
-  theme: z.enum(THEMES).describe("Preset the colors, fonts and layout started from"),
+const designBase = z.object({
   colors: z.object({
     background: hex,
     text: hex,
     muted: hex.describe("Secondary text, borders"),
     accent: hex.describe("Links and buttons"),
   }),
-  fonts: z.enum(["sans", "serif", "mixed"]).describe("mixed = serif headings with sans-serif text"),
+  fonts: z.enum(FONTS).describe("mixed = serif headings with sans-serif text; mono = typewriter-style monospace"),
   pages: z
     .array(pageSchema)
     .min(1)
@@ -125,7 +153,39 @@ export const designSchema = z.object({
   }),
 });
 
+// Settings for the creative themes. All of them are always stored, so
+// switching away from a theme and back keeps what was chosen.
+const themeSettingsSchema = z
+  .object({
+    exhibition: z.object({
+      wall: z.enum(WALLS).describe("Wall color"),
+      labels: z.enum(["below", "beside"]).describe("Where the wall label sits next to each photo"),
+    }),
+    index: z.object({
+      accent: hex.describe("Hover and link color"),
+      sort: z.enum(INDEX_SORTS).describe("manual = the order you set; newest = latest upload first; location = A–Z"),
+    }),
+    filmstrip: z.object({
+      stock: z.enum(FILM_STOCKS).describe("The film's color and edge print"),
+      frameNumbers: z.boolean(),
+    }),
+  })
+  .describe("Used only when that theme is chosen");
+
+export const designSchema = designBase.extend({
+  version: z.literal(3),
+  theme: z.enum(THEMES),
+  look: z.enum(LOOKS).describe("Which Classic look was applied last; colors, fonts and gallery hold the actual values"),
+  themeSettings: themeSettingsSchema,
+});
+
+// Version 2 had Classic's looks as its themes and no settings for others.
+const designSchemaV2 = designBase.extend({ version: z.literal(2), theme: z.enum(LOOKS) });
+type DesignV2 = z.infer<typeof designSchemaV2>;
+
 export type SiteDesign = z.infer<typeof designSchema>;
+export type LookId = (typeof LOOKS)[number];
+export type ThemeSettings = SiteDesign["themeSettings"];
 export type SitePage = SiteDesign["pages"][number];
 export type Section = SitePage["sections"][number];
 export type SectionType = Section["type"];
@@ -136,9 +196,9 @@ export type ThemeId = SiteDesign["theme"];
 
 type Look = Pick<SiteDesign, "colors" | "fonts" | "gallery"> & { heroStyle: "cover" | "title" };
 
-// The look each theme starts with. Picking a theme applies these and keeps
-// the photographer's pages, content and captions.
-export const THEME_LOOKS: Record<ThemeId, Look> = {
+// The look each Classic preset starts with. Picking one applies these and
+// keeps the photographer's pages, content and captions.
+export const CLASSIC_LOOKS: Record<LookId, Look> = {
   minimal: {
     colors: { background: "#ffffff", text: "#18181b", muted: "#71717a", accent: "#18181b" },
     fonts: "sans",
@@ -156,6 +216,90 @@ export const THEME_LOOKS: Record<ThemeId, Look> = {
     fonts: "serif",
     gallery: { layout: "editorial", columns: 2, spacing: "airy", cropping: "original" },
     heroStyle: "cover",
+  },
+  darkroom: {
+    colors: { background: "#120807", text: "#f3e3dc", muted: "#9a6b62", accent: "#e5484d" },
+    fonts: "mono",
+    gallery: { layout: "masonry", columns: 3, spacing: "tight", cropping: "original" },
+    heroStyle: "title",
+  },
+  "contact-sheet": {
+    colors: { background: "#1a1a18", text: "#f0ede4", muted: "#8c887d", accent: "#f2c94c" },
+    fonts: "mono",
+    gallery: { layout: "grid", columns: 4, spacing: "tight", cropping: "square" },
+    heroStyle: "title",
+  },
+  sepia: {
+    colors: { background: "#f1e7d6", text: "#3b2a1a", muted: "#8a6f52", accent: "#8b4513" },
+    fonts: "serif",
+    gallery: { layout: "grid", columns: 3, spacing: "airy", cropping: "original" },
+    heroStyle: "cover",
+  },
+  polaroid: {
+    colors: { background: "#f4f1ea", text: "#222222", muted: "#8a8478", accent: "#c2410c" },
+    fonts: "mixed",
+    gallery: { layout: "grid", columns: 3, spacing: "airy", cropping: "square" },
+    heroStyle: "title",
+  },
+  noir: {
+    colors: { background: "#0b0b0b", text: "#e8e8e8", muted: "#7a7a7a", accent: "#c9a227" },
+    fonts: "serif",
+    gallery: { layout: "column", columns: 2, spacing: "airy", cropping: "original" },
+    heroStyle: "cover",
+  },
+  cyanotype: {
+    colors: { background: "#0f2c4c", text: "#e6f0fa", muted: "#8fb0d1", accent: "#ffffff" },
+    fonts: "serif",
+    gallery: { layout: "masonry", columns: 3, spacing: "tight", cropping: "original" },
+    heroStyle: "title",
+  },
+  kodachrome: {
+    colors: { background: "#fff8e7", text: "#1d1d1b", muted: "#8a7a5a", accent: "#d7261e" },
+    fonts: "sans",
+    gallery: { layout: "grid", columns: 4, spacing: "tight", cropping: "square" },
+    heroStyle: "cover",
+  },
+  magazine: {
+    colors: { background: "#ffffff", text: "#111111", muted: "#666666", accent: "#e10600" },
+    fonts: "mixed",
+    gallery: { layout: "editorial", columns: 2, spacing: "tight", cropping: "original" },
+    heroStyle: "cover",
+  },
+  desert: {
+    colors: { background: "#f3e2d3", text: "#4a2c21", muted: "#a0715c", accent: "#a8431f" },
+    fonts: "mixed",
+    gallery: { layout: "editorial", columns: 2, spacing: "airy", cropping: "original" },
+    heroStyle: "cover",
+  },
+  forest: {
+    colors: { background: "#1d2a22", text: "#e9efe6", muted: "#93a596", accent: "#b7d48a" },
+    fonts: "mixed",
+    gallery: { layout: "masonry", columns: 2, spacing: "airy", cropping: "original" },
+    heroStyle: "cover",
+  },
+  riso: {
+    colors: { background: "#fdf6ec", text: "#1f3fbf", muted: "#7b86c9", accent: "#c81d5a" },
+    fonts: "mono",
+    gallery: { layout: "grid", columns: 3, spacing: "tight", cropping: "square" },
+    heroStyle: "title",
+  },
+  neon: {
+    colors: { background: "#0d0221", text: "#f8f1ff", muted: "#9b8ab8", accent: "#ff2e97" },
+    fonts: "sans",
+    gallery: { layout: "grid", columns: 3, spacing: "none", cropping: "square" },
+    heroStyle: "cover",
+  },
+  concrete: {
+    colors: { background: "#d4d4d0", text: "#1a1a1a", muted: "#5e5e5a", accent: "#b33a00" },
+    fonts: "mono",
+    gallery: { layout: "grid", columns: 4, spacing: "none", cropping: "portrait" },
+    heroStyle: "title",
+  },
+  sorbet: {
+    colors: { background: "#fdeef0", text: "#4a2b3a", muted: "#a8858f", accent: "#b8436a" },
+    fonts: "serif",
+    gallery: { layout: "masonry", columns: 3, spacing: "airy", cropping: "original" },
+    heroStyle: "title",
   },
 };
 
@@ -204,9 +348,17 @@ function counter(prefix: string) {
   return () => `${prefix}${++n}`;
 }
 
+export function defaultThemeSettings(): ThemeSettings {
+  return {
+    exhibition: { wall: "charcoal", labels: "below" },
+    index: { accent: "#e5322d", sort: "manual" },
+    filmstrip: { stock: "gold", frameNumbers: true },
+  };
+}
+
 // The starting design for new accounts: a home page and an About page.
-export function presetDesign(theme: ThemeId): SiteDesign {
-  const look = THEME_LOOKS[theme];
+export function presetDesign(theme: ThemeId = "classic", look: LookId = "minimal"): SiteDesign {
+  const preset = CLASSIC_LOOKS[look];
   const makeId = counter("p");
   const home: SitePage = {
     id: makeId(),
@@ -214,37 +366,46 @@ export function presetDesign(theme: ThemeId): SiteDesign {
     slug: "",
     showInNav: true,
     sections: [
-      { id: makeId(), type: "hero", visible: true, style: look.heroStyle, coverPhotoId: null },
+      { id: makeId(), type: "hero", visible: true, style: preset.heroStyle, coverPhotoId: null },
       { id: makeId(), type: "gallery", visible: true, title: "", source: { kind: "all" }, layout: "default" },
       { id: makeId(), type: "albums", visible: true, title: "" },
     ],
   };
   return {
-    version: 2,
+    version: 3,
     theme,
-    colors: { ...look.colors },
-    fonts: look.fonts,
+    look,
+    themeSettings: defaultThemeSettings(),
+    colors: { ...preset.colors },
+    fonts: preset.fonts,
     pages: [home, newPage("about", "about", makeId)],
     nav: { albums: false },
     albums: { show: "all", albumIds: [] },
-    gallery: { ...look.gallery },
+    gallery: { ...preset.gallery },
     captions: { show: "none", photoIds: [], includeLocation: true },
   };
 }
 
-// Switches theme: new colors, fonts, gallery style and header style; same
-// pages and content.
+// Switches theme. Pages and content carry over, and Classic's colors, fonts
+// and gallery style are kept for if you come back to it.
 export function applyTheme(design: SiteDesign, theme: ThemeId): SiteDesign {
-  const look = THEME_LOOKS[theme];
+  return { ...design, theme };
+}
+
+// Applies one of Classic's looks (and switches to Classic): new colors,
+// fonts, gallery style and header style; same pages and content.
+export function applyLook(design: SiteDesign, look: LookId): SiteDesign {
+  const preset = CLASSIC_LOOKS[look];
   return {
     ...design,
-    theme,
-    colors: { ...look.colors },
-    fonts: look.fonts,
-    gallery: { ...look.gallery },
+    theme: "classic",
+    look,
+    colors: { ...preset.colors },
+    fonts: preset.fonts,
+    gallery: { ...preset.gallery },
     pages: design.pages.map((p) => ({
       ...p,
-      sections: p.sections.map((s) => (s.type === "hero" ? { ...s, style: look.heroStyle } : s)),
+      sections: p.sections.map((sec) => (sec.type === "hero" ? { ...sec, style: preset.heroStyle } : sec)),
     })),
   };
 }
@@ -254,9 +415,9 @@ export function applyTheme(design: SiteDesign, theme: ThemeId): SiteDesign {
 // Version 1 had one page with a fixed set of sections.
 const designSchemaV1 = z.object({
   version: z.literal(1),
-  theme: z.enum(THEMES),
-  colors: designSchema.shape.colors,
-  fonts: designSchema.shape.fonts,
+  theme: z.enum(LOOKS),
+  colors: designBase.shape.colors,
+  fonts: designBase.shape.fonts,
   sections: z.array(z.object({ type: z.enum(["hero", "gallery", "albums", "about", "contact"]), visible: z.boolean() })),
   hero: z.object({ style: z.enum(["cover", "title"]), coverPhotoId: z.string().nullable() }),
   content: z.object({
@@ -265,12 +426,12 @@ const designSchemaV1 = z.object({
     albums: z.enum(["all", "selected"]),
     albumIds: z.array(z.string()),
   }),
-  gallery: designSchema.shape.gallery,
-  captions: designSchema.shape.captions,
+  gallery: designBase.shape.gallery,
+  captions: designBase.shape.captions,
 });
 
 // Turns a version 1 design into a single home page that looks the same.
-function fromV1(v1: z.infer<typeof designSchemaV1>): SiteDesign {
+function fromV1(v1: z.infer<typeof designSchemaV1>): DesignV2 {
   const makeId = counter("m");
   const sections: Section[] = v1.sections.map(({ type, visible }) => {
     const sid = makeId();
@@ -303,17 +464,24 @@ function fromV1(v1: z.infer<typeof designSchemaV1>): SiteDesign {
   };
 }
 
-function isTheme(value: unknown): value is ThemeId {
-  return THEMES.includes(value as ThemeId);
+// Version 2's themes were Classic's looks, so those sites become Classic with
+// the same look. Colors, fonts and gallery were stored in full, so they
+// look exactly as before.
+function fromV2(v2: DesignV2): SiteDesign {
+  return { ...v2, version: 3, theme: "classic", look: v2.theme, themeSettings: defaultThemeSettings() };
+}
+
+function isLook(value: unknown): value is LookId {
+  return LOOKS.includes(value as LookId);
 }
 
 // The one-page layout sites had before designs were stored, so accounts
 // that never saved one keep looking the way they did.
-export function legacyDesign(theme: ThemeId): SiteDesign {
-  const look = THEME_LOOKS[theme];
+export function legacyDesign(theme: LookId): SiteDesign {
+  const look = CLASSIC_LOOKS[theme];
   const order: ("hero" | "gallery" | "albums" | "about" | "contact")[] =
     theme === "editorial" ? ["hero", "about", "gallery", "albums", "contact"] : ["hero", "gallery", "albums", "about", "contact"];
-  return fromV1({
+  return fromV2(fromV1({
     version: 1,
     theme,
     colors: { ...look.colors },
@@ -323,7 +491,7 @@ export function legacyDesign(theme: ThemeId): SiteDesign {
     content: { homepage: "all", homepagePhotoIds: [], albums: "all", albumIds: [] },
     gallery: { ...look.gallery },
     captions: { show: "none", photoIds: [], includeLocation: true },
-  });
+  }));
 }
 
 // Reads a stored design, upgrading older versions. Accounts with no stored
@@ -331,9 +499,11 @@ export function legacyDesign(theme: ThemeId): SiteDesign {
 export function readDesign(stored: unknown, fallbackTheme: unknown): SiteDesign {
   const current = designSchema.safeParse(stored);
   if (current.success) return current.data;
+  const v2 = designSchemaV2.safeParse(stored);
+  if (v2.success) return fromV2(v2.data);
   const v1 = designSchemaV1.safeParse(stored);
-  if (v1.success) return fromV1(v1.data);
-  return legacyDesign(isTheme(fallbackTheme) ? fallbackTheme : "minimal");
+  if (v1.success) return fromV2(fromV1(v1.data));
+  return legacyDesign(isLook(fallbackTheme) ? fallbackTheme : "minimal");
 }
 
 // ── What the design selects ─────────────────────────────────────────────
@@ -343,6 +513,28 @@ type HasId = { id: string };
 function pick<T extends HasId>(all: T[], ids: string[]) {
   const byId = new Map(all.map((x) => [x.id, x]));
   return ids.flatMap((id) => byId.get(id) ?? []);
+}
+
+// An album drawn as a page (title, description, its photos). The creative
+// themes show album addresses this way, so they only need to draw pages.
+export function albumAsPage(album: {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  coverPhotoId?: string;
+}): SitePage {
+  return {
+    id: `album-${album.id}`,
+    title: album.title,
+    slug: album.slug,
+    showInNav: false,
+    sections: [
+      { id: "album-title", type: "hero", visible: true, style: "title", coverPhotoId: album.coverPhotoId ?? null },
+      { id: "album-text", type: "text", visible: Boolean(album.description), title: "", body: album.description },
+      { id: "album-gallery", type: "gallery", visible: true, title: "", source: { kind: "album", albumId: album.id }, layout: "default" },
+    ],
+  };
 }
 
 export function findPage(design: SiteDesign, slug: string) {

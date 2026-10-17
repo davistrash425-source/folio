@@ -1,7 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  CLASSIC_LOOKS,
+  LOOKS,
   THEMES,
+  albumAsPage,
+  applyLook,
   applyTheme,
   designSchema,
   galleryPhotos,
@@ -13,20 +17,35 @@ import {
   visibleAlbums,
   type GallerySection,
 } from "../lib/design.ts";
+import { TEMPLATES } from "../lib/templates.ts";
 
 let n = 0;
 const makeId = () => `t${++n}`;
 
-test("every theme preset is a valid design with a home and an About page", () => {
+test("every theme and every Classic look makes a valid design with a home and an About page", () => {
   for (const theme of THEMES) {
     const d = presetDesign(theme);
     assert.ok(designSchema.safeParse(d).success, theme);
     assert.deepEqual(d.pages.map((p) => p.slug), ["", "about"]);
   }
+  for (const look of LOOKS) {
+    const d = presetDesign("classic", look);
+    assert.ok(designSchema.safeParse(d).success, look);
+    assert.equal(d.look, look);
+  }
+});
+
+test("every Classic look has a name and description in the look picker", () => {
+  assert.deepEqual(TEMPLATES.map((t) => t.id), [...LOOKS]);
+  assert.deepEqual(Object.keys(CLASSIC_LOOKS), [...LOOKS]);
+});
+
+test("there are four themes: one flexible and three that style themselves", () => {
+  assert.deepEqual([...THEMES], ["classic", "exhibition", "index", "filmstrip"]);
 });
 
 test("invalid designs are rejected", () => {
-  const d = presetDesign("minimal");
+  const d = presetDesign();
   const ok = (x: unknown) => designSchema.safeParse(x).success;
   assert.equal(ok({ ...d, colors: { ...d.colors, accent: "red" } }), false, "bad color");
   assert.equal(ok({ ...d, pages: [d.pages[1], d.pages[0]] }), false, "home not first");
@@ -36,6 +55,11 @@ test("invalid designs are rejected", () => {
   assert.equal(ok({ ...d, pages: [...d.pages, { ...newPage("blank", "x", makeId), title: " " }] }), false, "empty title");
   assert.equal(ok({ ...d, gallery: { ...d.gallery, columns: 7 } }), false, "bad columns");
   assert.equal(ok({ ...d, pages: [...d.pages, newPage("gallery", "gallery", makeId)] }), true, "added page");
+  assert.equal(ok({ ...d, theme: "sepia" }), false, "a look is not a theme");
+  const settings = d.themeSettings;
+  assert.equal(ok({ ...d, themeSettings: { ...settings, exhibition: { ...settings.exhibition, wall: "pink" } } }), false, "bad wall");
+  assert.equal(ok({ ...d, themeSettings: { ...settings, index: { ...settings.index, accent: "red" } } }), false, "bad accent");
+  assert.equal(ok({ ...d, themeSettings: { ...settings, filmstrip: { ...settings.filmstrip, stock: "color" } } }), false, "bad stock");
 });
 
 test("version 1 designs become one home page that looks the same", () => {
@@ -76,25 +100,71 @@ test("version 1 designs become one home page that looks the same", () => {
   assert.equal(d.nav.albums, true);
 });
 
-test("accounts without a design keep their original one-page layout", () => {
+test("accounts without a design keep their original one-page layout as Classic", () => {
   const d = readDesign(undefined, "dark");
   assert.ok(designSchema.safeParse(d).success);
-  assert.equal(d.theme, "dark");
+  assert.equal(d.theme, "classic");
+  assert.equal(d.look, "dark");
+  assert.equal(d.colors.background, "#000000");
   assert.equal(d.pages.length, 1);
   assert.deepEqual(d.pages[0].sections.map((s) => s.type), ["hero", "gallery", "albums", "about", "contact"]);
-  assert.equal(readDesign({ junk: true }, "editorial").theme, "editorial");
-  assert.equal(readDesign(undefined, "nonsense").theme, "minimal");
+  assert.equal(readDesign({ junk: true }, "editorial").look, "editorial");
+  assert.equal(readDesign(undefined, "nonsense").look, "minimal");
 });
 
-test("switching theme keeps pages and captions", () => {
-  const d = presetDesign("minimal");
+test("version 2 designs become Classic with the same look, colors and pages", () => {
+  const v3 = presetDesign("classic", "sepia");
+  v3.colors = { ...v3.colors, accent: "#123456" }; // an edit on top of the look
+  v3.captions = { show: "all", photoIds: [], includeLocation: false };
+  const { look, themeSettings, ...rest } = v3;
+  void themeSettings;
+  const v2 = { ...rest, version: 2, theme: look };
+  const d = readDesign(v2, "minimal");
+  assert.ok(designSchema.safeParse(d).success);
+  assert.equal(d.version, 3);
+  assert.equal(d.theme, "classic");
+  assert.equal(d.look, "sepia");
+  assert.equal(d.colors.accent, "#123456");
+  assert.deepEqual(d.pages, v3.pages);
+  assert.deepEqual(d.captions, v3.captions);
+  assert.deepEqual(d.themeSettings, presetDesign().themeSettings);
+  // Version 3 designs are returned as they are.
+  assert.deepEqual(readDesign(v3, "minimal"), v3);
+});
+
+test("switching theme keeps pages and captions, and keeps Classic settings for coming back", () => {
+  const d = presetDesign();
   d.captions = { ...d.captions, show: "all" };
-  const switched = applyTheme(d, "editorial");
-  assert.equal(switched.colors.background, "#fafaf9");
-  assert.deepEqual(switched.pages.map((p) => p.id), d.pages.map((p) => p.id));
-  assert.deepEqual(switched.captions, d.captions);
-  const hero = switched.pages[0].sections[0];
+  const classicColors = d.colors;
+  const away = applyTheme(d, "exhibition");
+  assert.equal(away.theme, "exhibition");
+  assert.deepEqual(away.pages, d.pages);
+  assert.deepEqual(away.captions, d.captions);
+  assert.deepEqual(applyTheme(away, "classic").colors, classicColors);
+});
+
+test("applying a Classic look changes colors, fonts, gallery and header, and returns to Classic", () => {
+  const d = applyTheme(presetDesign(), "index");
+  const looked = applyLook(d, "editorial");
+  assert.equal(looked.theme, "classic");
+  assert.equal(looked.look, "editorial");
+  assert.equal(looked.colors.background, "#fafaf9");
+  assert.deepEqual(looked.pages.map((p) => p.id), d.pages.map((p) => p.id));
+  const hero = looked.pages[0].sections[0];
   assert.ok(hero.type === "hero" && hero.style === "cover");
+});
+
+test("an album can be drawn as a page that shows its photos", () => {
+  const album = { id: "a1", slug: "weddings", title: "Weddings", description: "By the sea", coverPhotoId: "p2" };
+  const page = albumAsPage(album);
+  const d = presetDesign();
+  assert.ok(designSchema.safeParse({ ...d, pages: [...d.pages, { ...page, showInNav: false }] }).success);
+  assert.equal(page.slug, "weddings");
+  assert.deepEqual(page.sections.map((s) => [s.type, s.visible]), [["hero", true], ["text", true], ["gallery", true]]);
+  const gallery = page.sections[2] as GallerySection;
+  const photos = [{ id: "p1" }, { id: "p2" }, { id: "p3" }];
+  assert.deepEqual(galleryPhotos(gallery, photos, [{ id: "a1", photoIds: ["p3", "p1"] }]).map((p) => p.id), ["p3", "p1"]);
+  assert.equal(albumAsPage({ ...album, description: "" }).sections[1].visible, false, "no empty description block");
 });
 
 test("galleries show all photos, chosen photos or an album", () => {
@@ -113,7 +183,7 @@ test("album and caption choices", () => {
     { id: "y", photoIds: [] },
     { id: "z", photoIds: ["b"] },
   ];
-  const d = presetDesign("minimal");
+  const d = presetDesign();
   assert.deepEqual(visibleAlbums(d, albums).map((a) => a.id), ["x", "z"], "empty albums hidden");
   d.albums = { show: "selected", albumIds: ["z", "y", "x"] };
   assert.deepEqual(visibleAlbums(d, albums).map((a) => a.id), ["z", "x"]);

@@ -50,7 +50,6 @@ export async function publishDesign(input: unknown): Promise<DesignResult> {
   const draft = saved.draft;
   const user = await updateUser(await currentUserId(), (u) => {
     u.design = draft;
-    u.template = draft.theme;
   });
   revalidatePath(`/sites/${user.subdomain}`, "layout");
   return done(draftDesign(user), publishedDesign(user), user.designHistory?.length ?? 0);

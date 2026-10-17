@@ -21,6 +21,14 @@
   --font-ui: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
   --font-label: var(--font-plex-mono), ui-monospace, monospace;
   --font-display: var(--font-newsreader), ui-serif, Georgia, serif;
+
+  /* Photographers' creative themes (app/sites/[subdomain]/themes/fonts.ts). */
+  --font-exh-serif: var(--font-cormorant), ui-serif, Georgia, serif;
+  --font-exh-sans: var(--font-jost), ui-sans-serif, system-ui, sans-serif;
+  --font-idx: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+  --font-film-title: var(--font-bebas), Impact, "Arial Narrow", sans-serif;
+  --font-film-edge: var(--font-share-tech), ui-monospace, monospace;
+  --font-film-note: var(--font-elite), "Courier New", monospace;
 }
 
 body {

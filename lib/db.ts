@@ -162,7 +162,7 @@ export async function createUser(input: {
       },
       photos: [],
       published: input.published,
-      design: presetDesign("minimal"),
+      design: presetDesign(),
       emailVerified: false,
       albums: [],
       inquiries: [],

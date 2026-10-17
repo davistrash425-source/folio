@@ -5,12 +5,15 @@ import Link from "next/link";
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { deletePhoto, reorderPhotos, saveProfile, updatePhoto, uploadPhotos } from "@/app/actions/site";
 import { Button, Field, Input, Message, inputClass, chipClass } from "@/app/ui/form";
+import { CompressError, MAX_UPLOAD_BYTES, compressPhoto, formatMB } from "@/lib/compress-image";
 import type { User } from "@/lib/db";
 
-// Keep in sync with MAX_PHOTO_BYTES in lib/uploads.ts.
-const MAX_PHOTO_MB = 20;
-
-type UploadItem = { name: string; status: "waiting" | "uploading" | "done" | "failed"; reason?: string };
+type UploadItem = {
+  name: string;
+  status: "waiting" | "compressing" | "uploading" | "done" | "failed";
+  reason?: string;
+  note?: string; // e.g. "Compressed 34 MB → 11 MB"
+};
 
 const ACCEPT = "image/jpeg,image/png,image/webp,image/gif,image/avif";
 
@@ -18,7 +21,7 @@ export function PhotoUploader() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [items, setItems] = useState<UploadItem[]>([]);
   const [dragging, setDragging] = useState(false);
-  const busy = items.some((i) => i.status === "waiting" || i.status === "uploading");
+  const busy = items.some((i) => i.status === "waiting" || i.status === "compressing" || i.status === "uploading");
 
   // Photos are sent one request at a time so a big batch never exceeds the
   // request body limit and one bad file doesn't stop the rest.
@@ -29,17 +32,32 @@ export function PhotoUploader() {
       setItems((cur) => cur.map((x, j) => (j === i ? { ...x, ...item } : x)));
 
     for (const [i, file] of files.entries()) {
+      if (/hei[cf]$/i.test(file.name) || /hei[cf]/.test(file.type)) {
+        update(i, { status: "failed", reason: "HEIC isn’t supported — export it as a JPG from Photos and try again" });
+        continue;
+      }
       if (!ACCEPT.split(",").includes(file.type)) {
         update(i, { status: "failed", reason: "not a JPG, PNG, WebP, GIF or AVIF" });
         continue;
       }
-      if (file.size > MAX_PHOTO_MB * 1024 * 1024) {
-        update(i, { status: "failed", reason: `over ${MAX_PHOTO_MB} MB` });
-        continue;
+
+      // Photos over the upload limit are shrunk here instead of rejected.
+      let toSend = file;
+      if (file.size > MAX_UPLOAD_BYTES) {
+        update(i, { status: "compressing" });
+        try {
+          const compressed = await compressPhoto(file);
+          toSend = compressed.file;
+          if (compressed.from) update(i, { note: `Compressed ${formatMB(compressed.from)} → ${formatMB(compressed.to)}` });
+        } catch (err) {
+          update(i, { status: "failed", reason: err instanceof CompressError ? err.message : "couldn’t be compressed" });
+          continue;
+        }
       }
+
       update(i, { status: "uploading" });
       const fd = new FormData();
-      fd.append("photos", file);
+      fd.append("photos", toSend);
       try {
         const result = await uploadPhotos({}, fd);
         update(i, result.error ? { status: "failed", reason: "couldn't be read as an image" } : { status: "done" });
@@ -70,8 +88,10 @@ export function PhotoUploader() {
           dragging ? "border-black bg-paper" : "border-rule hover:border-ink-faint"
         } ${busy ? "pointer-events-none opacity-60" : ""}`}
       >
-        <span className="font-medium">{busy ? "Uploading…" : "Drop photos here or click to choose"}</span>
-        <span className="text-sm text-ink-soft">JPG, PNG, WebP, GIF or AVIF, up to {MAX_PHOTO_MB} MB each</span>
+        <span className="font-medium">
+          {items.some((i) => i.status === "compressing") ? "Compressing…" : busy ? "Uploading…" : "Drop photos here or click to choose"}
+        </span>
+        <span className="text-sm text-ink-soft">JPG, PNG, WebP, GIF or AVIF. Photos over 20 MB are compressed for you.</span>
         <input
           ref={inputRef}
           type="file"
@@ -98,6 +118,9 @@ export function PhotoUploader() {
             </span>
           </div>
           {!busy && done > 0 && <Message ok={`Uploaded ${done} photo${done === 1 ? "" : "s"}.`} />}
+          {items.filter((i) => i.note).map((i, n) => (
+            <p key={n} className="text-ink-soft">{i.name}: {i.note}</p>
+          ))}
           {failed.length > 0 && (
             <ul className="text-accent" role="alert">
               {failed.map((f, i) => (

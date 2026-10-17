@@ -97,6 +97,7 @@ export type PhotoSource = {
   alt: string;
   description: string;
   location: string;
+  createdAt: string;
 };
 
 // What an <img> needs to show a photo at the right size.
@@ -108,6 +109,7 @@ export function photoSource(userId: string, photo: Photo): PhotoSource {
     alt: photo.alt || photo.description || "",
     description: photo.description ?? "",
     location: photo.location ?? "",
+    createdAt: photo.createdAt,
   };
   if (!photo.variants?.length) return { ...base, src: photoUrl(userId, photo.file) };
   const urls = photo.variants.map((w) => [w, photoUrl(userId, variantName(baseName(photo.file), w))] as const);
