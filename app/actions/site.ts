@@ -9,7 +9,7 @@ import { draftDesign, publishedDesign } from "@/lib/public-site";
 import { sendEmail } from "@/lib/email";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { appUrl, isPublished, slugify, validateSlug } from "@/lib/site";
-import { deletePhotoFiles, savePhoto, storage } from "@/lib/uploads";
+import { deletePhotoFiles, directUpload, finishDirectUpload, savePhoto, storage } from "@/lib/uploads";
 
 export type ActionState = { error?: string; ok?: string };
 
@@ -62,6 +62,48 @@ export async function uploadPhotos(_prev: ActionState, formData: FormData): Prom
     `Uploaded ${saved.length} photo${saved.length === 1 ? "" : "s"}.` +
       (skipped.length ? ` Skipped: ${skipped.join(", ")}.` : ""),
   );
+}
+
+// ── Direct uploads (R2) ─────────────────────────────────────────────────
+// The browser asks for an upload address, sends the photo straight to
+// storage, then calls finishPhotoUpload. With no direct uploads (the local
+// disk), `direct` is missing and the browser uses uploadPhotos instead.
+
+export async function startPhotoUpload(
+  contentType: string,
+  size: number,
+): Promise<{ error?: string; direct?: { file: string; url: string } }> {
+  const userId = await currentUserId();
+  try {
+    const direct = await directUpload(userId, contentType, size);
+    return direct ? { direct } : {};
+  } catch (err) {
+    const message = (err as Error).message;
+    if (message === "UNSUPPORTED_TYPE") return { error: "not a JPG, PNG, WebP, GIF or AVIF" };
+    if (message === "TOO_LARGE") return { error: "over 20 MB" };
+    throw err;
+  }
+}
+
+export async function finishPhotoUpload(file: string): Promise<ActionState> {
+  const userId = await currentUserId();
+  let photo: Awaited<ReturnType<typeof finishDirectUpload>>;
+  try {
+    photo = await finishDirectUpload(userId, file);
+  } catch {
+    return { error: "couldn't be read as an image" };
+  }
+  try {
+    await updateUser(userId, (u) => {
+      if (u.photos.some((p) => p.id === photo.id)) return; // finished twice
+      u.photos.push({ ...photo, createdAt: new Date().toISOString() });
+    });
+  } catch (err) {
+    if ((err as Error).message !== "USER_NOT_FOUND") throw err;
+    await storage.removeAll(userId);
+    redirect("/login");
+  }
+  return done("Uploaded 1 photo.");
 }
 
 export async function deletePhoto(photoId: string) {

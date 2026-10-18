@@ -51,6 +51,11 @@ export type Storage = {
   get(userId: string, file: string): Promise<Buffer>; // throws if missing
   remove(userId: string, file: string): Promise<void>;
   removeAll(userId: string): Promise<void>;
+  // A short-lived address the browser can upload `file` to directly, for
+  // stores that support it (R2). Hosts like Vercel cap request bodies at a
+  // few MB, so large photos can't go through the app's own server.
+  // The address only accepts exactly `contentType` and `size` bytes.
+  uploadUrl?(userId: string, file: string, contentType: string, size: number): Promise<string>;
 };
 
 // Local disk, under <DATA_DIR>/uploads/<userId>/. Served by app/api/uploads.
@@ -155,6 +160,18 @@ export function r2Storage(config: R2Config): Storage {
     async remove(userId, file) {
       await send(objectUrl(userId, file), { method: "DELETE" });
     },
+    async uploadUrl(userId, file, contentType, size) {
+      const url = new URL(objectUrl(userId, file));
+      url.searchParams.set("X-Amz-Expires", String(UPLOAD_URL_SECONDS));
+      // The type and size are signed, so R2 refuses anything but the photo the
+      // browser declared (which directUpload already checked is under the limit).
+      const signed = await client.sign(url.toString(), {
+        method: "PUT",
+        headers: { "Content-Type": contentType, "Content-Length": String(size) },
+        aws: { signQuery: true, allHeaders: true },
+      });
+      return signed.url;
+    },
     async removeAll(userId) {
       for (const bucket of [config.publicBucket, config.privateBucket]) {
         const keys = await list(bucket, userId);
@@ -171,6 +188,8 @@ export function r2Storage(config: R2Config): Storage {
     },
   };
 }
+
+const UPLOAD_URL_SECONDS = 10 * 60;
 
 const unescapeXml = (s: string) =>
   s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&");
@@ -203,6 +222,47 @@ export async function savePhoto(userId: string, file: File): Promise<Omit<Photo,
 export async function storePhoto(userId: string, file: string, data: Buffer) {
   const image = await processImage(data); // throws on files that aren't images
   await storage.put(userId, file, data);
+  return saveVariants(userId, file, image);
+}
+
+// The name the browser uploads an original under: server-chosen, so it can't
+// name anything else.
+const ORIGINAL_NAME = new RegExp(
+  `^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\\.orig\\.(${Object.values(IMAGE_TYPES).join("|")})$`,
+);
+
+// Picks the name and upload address for a photo the browser will send
+// straight to storage. Returns null when the store can't take direct uploads
+// (the local disk), and the photo goes through uploadPhotos instead.
+export async function directUpload(userId: string, contentType: string, size: number) {
+  if (!Number.isSafeInteger(size) || size <= 0) throw new Error("TOO_LARGE");
+  const ext = IMAGE_TYPES[contentType];
+  if (!ext) throw new Error("UNSUPPORTED_TYPE");
+  if (size > MAX_PHOTO_BYTES) throw new Error("TOO_LARGE");
+  if (!storage.uploadUrl) return null;
+  const file = `${randomUUID()}.orig.${ext}`;
+  return { file, url: await storage.uploadUrl(userId, file, contentType, size) };
+}
+
+// After a direct upload: checks the original that arrived (a real image,
+// within the size limit) and makes its web copies. A bad file is deleted.
+// Returns the fields for a new Photo record.
+export async function finishDirectUpload(userId: string, file: string): Promise<Omit<Photo, "createdAt">> {
+  const match = ORIGINAL_NAME.exec(file);
+  if (!match) throw new Error("BAD_PATH");
+  const data = await storage.get(userId, file).catch(() => {
+    throw new Error("NOT_UPLOADED");
+  });
+  try {
+    if (data.length > MAX_PHOTO_BYTES) throw new Error("TOO_LARGE");
+    return { id: match[1], ...(await saveVariants(userId, file, await processImage(data))) };
+  } catch (err) {
+    await storage.remove(userId, file).catch(() => {});
+    throw err;
+  }
+}
+
+async function saveVariants(userId: string, file: string, image: Awaited<ReturnType<typeof processImage>>) {
   await Promise.all(
     image.variants.map((v) => storage.put(userId, variantName(baseName(file), v.width), v.data)),
   );

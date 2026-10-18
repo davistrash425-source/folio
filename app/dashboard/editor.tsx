@@ -3,7 +3,15 @@
 /* eslint-disable @next/next/no-img-element -- user uploads are served by our own route */
 import Link from "next/link";
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
-import { deletePhoto, reorderPhotos, saveProfile, updatePhoto, uploadPhotos } from "@/app/actions/site";
+import {
+  deletePhoto,
+  finishPhotoUpload,
+  reorderPhotos,
+  saveProfile,
+  startPhotoUpload,
+  updatePhoto,
+  uploadPhotos,
+} from "@/app/actions/site";
 import { Button, Field, Input, Message, inputClass, chipClass } from "@/app/ui/form";
 import { CompressError, MAX_UPLOAD_BYTES, compressPhoto, formatMB } from "@/lib/compress-image";
 import type { User } from "@/lib/db";
@@ -16,6 +24,25 @@ type UploadItem = {
 };
 
 const ACCEPT = "image/jpeg,image/png,image/webp,image/gif,image/avif";
+
+// Sends one photo. Where storage takes direct uploads (R2 in production), the
+// photo goes straight there and the server only finishes it, since hosting
+// caps how much one request to the app can carry. Otherwise it goes through
+// the app (local development).
+async function sendPhoto(file: File): Promise<Partial<UploadItem>> {
+  const start = await startPhotoUpload(file.type, file.size);
+  if (start.error) return { status: "failed", reason: start.error };
+  if (start.direct) {
+    const res = await fetch(start.direct.url, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+    if (!res.ok) return { status: "failed", reason: "upload failed" };
+    const result = await finishPhotoUpload(start.direct.file);
+    return result.error ? { status: "failed", reason: result.error } : { status: "done" };
+  }
+  const fd = new FormData();
+  fd.append("photos", file);
+  const result = await uploadPhotos({}, fd);
+  return result.error ? { status: "failed", reason: "couldn't be read as an image" } : { status: "done" };
+}
 
 export function PhotoUploader() {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -56,11 +83,8 @@ export function PhotoUploader() {
       }
 
       update(i, { status: "uploading" });
-      const fd = new FormData();
-      fd.append("photos", toSend);
       try {
-        const result = await uploadPhotos({}, fd);
-        update(i, result.error ? { status: "failed", reason: "couldn't be read as an image" } : { status: "done" });
+        update(i, await sendPhoto(toSend));
       } catch {
         update(i, { status: "failed", reason: "upload failed" });
       }
