@@ -40,7 +40,7 @@ export async function signup(_prev: FormState, formData: FormData): Promise<Form
   const subdomain = String(formData.get("subdomain") ?? "").trim().toLowerCase();
   const fields = { name, email, subdomain };
 
-  if (!rateLimit(`signup:${await clientIp()}`, 10, HOUR)) return { error: TOO_MANY, fields };
+  if (!(await rateLimit(`signup:${await clientIp()}`, 10, HOUR))) return { error: TOO_MANY, fields };
   if (!name) return { error: "Please enter your name.", fields };
   if (!/^\S+@\S+\.\S+$/.test(email)) return { error: "Please enter a valid email.", fields };
   if (password.length < 8) return { error: "Password must be at least 8 characters.", fields };
@@ -79,7 +79,7 @@ export async function login(_prev: FormState, formData: FormData): Promise<FormS
   // Limit per address (stops guessing one account's password) and per IP
   // (stops trying one password across many accounts).
   const ip = await clientIp();
-  if (!rateLimit(`login:${email}`, 5, 15 * 60 * 1000) || !rateLimit(`login-ip:${ip}`, 30, 15 * 60 * 1000)) {
+  if (!(await rateLimit(`login:${email}`, 5, 15 * 60 * 1000)) || !(await rateLimit(`login-ip:${ip}`, 30, 15 * 60 * 1000))) {
     return { error: TOO_MANY, fields: { email } };
   }
   const user = await findUserByEmail(email);
@@ -100,7 +100,7 @@ export async function logout() {
 export async function requestPasswordReset(_prev: FormState, formData: FormData): Promise<FormState> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const fields = { email };
-  if (!rateLimit(`reset:${await clientIp()}`, 5, HOUR)) return { error: TOO_MANY, fields };
+  if (!(await rateLimit(`reset:${await clientIp()}`, 5, HOUR))) return { error: TOO_MANY, fields };
   const sent = { ok: "If an account uses that email, we've sent it a reset link.", fields };
 
   const user = await findUserByEmail(email);
@@ -140,7 +140,7 @@ export async function resetPassword(_prev: FormState, formData: FormData): Promi
 export async function resendVerification(): Promise<FormState> {
   const userId = await getSessionUserId();
   if (!userId) redirect("/login");
-  if (!rateLimit(`verify:${userId}`, 3, HOUR)) return { error: TOO_MANY };
+  if (!(await rateLimit(`verify:${userId}`, 3, HOUR))) return { error: TOO_MANY };
   const user = await findUserById(userId);
   if (!user) redirect("/login");
   if (user.emailVerified) return {};
@@ -156,7 +156,7 @@ export async function deleteAccount(_prev: FormState, formData: FormData): Promi
   const user = await findUserById(userId);
   if (!user) redirect("/login");
   const password = String(formData.get("password") ?? "");
-  if (!rateLimit(`delete:${userId}`, 5, 15 * 60 * 1000)) return { error: TOO_MANY };
+  if (!(await rateLimit(`delete:${userId}`, 5, 15 * 60 * 1000))) return { error: TOO_MANY };
   if (!(await verifyPassword(password, user.passwordHash))) {
     return { error: "That password isn't right." };
   }

@@ -260,7 +260,7 @@ export async function sendInquiry(
   if (!name || !message) return { error: "Please add your name and a message." };
   if (!/^\S+@\S+\.\S+$/.test(email)) return { error: "Please enter a valid email so they can reply." };
 
-  if (!rateLimit(`inquiry:${await clientIp()}`, 5, 60 * 60 * 1000)) {
+  if (!(await rateLimit(`inquiry:${await clientIp()}`, 5, 60 * 60 * 1000))) {
     return { error: "You've sent several messages already. Please try again later." };
   }
 
