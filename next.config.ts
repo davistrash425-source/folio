@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // PGlite (the local database, lib/pg.ts) loads its own WebAssembly files,
+  // so Node loads it directly instead of the bundler.
+  serverExternalPackages: ["@electric-sql/pglite"],
   experimental: {
     agentFeedback: true,
     // Allow photo uploads of up to ~25 MB per request.

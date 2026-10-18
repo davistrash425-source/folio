@@ -1,12 +1,17 @@
-// A tiny JSON-file database so the app runs locally with zero setup.
-// Swap this module for a real database (Postgres, SQLite, etc.) later —
-// the rest of the app only talks to the functions exported here.
-import { promises as fs } from "fs";
-import path from "path";
+// Accounts and one-time links, stored in Postgres (lib/pg.ts). The rest of
+// the app only talks to the functions exported here.
+//
+// Each account is one row: its whole User object in a jsonb column, plus the
+// email and site address as their own columns so they can be looked up and
+// kept unique. Changes go through updateUser, which locks the row while it
+// reads, edits and saves it, so two requests can't overwrite each other.
 import { randomUUID } from "crypto";
 import { revalidateTag } from "next/cache";
 import { presetDesign, type SiteDesign } from "./design";
+import { database, type Query } from "./pg";
 import type { TemplateId } from "./templates";
+
+export { DATA_DIR } from "./pg";
 
 export type SocialLinks = {
   instagram?: string;
@@ -88,49 +93,40 @@ export type Token = {
   expiresAt: string;
 };
 
-type Data = { users: User[]; tokens?: Token[] };
+type TokenRow = { hash: string; user_id: string; kind: Token["kind"]; expires_at: Date | string };
+const toToken = (r: TokenRow): Token => ({
+  hash: r.hash,
+  userId: r.user_id,
+  kind: r.kind,
+  expiresAt: new Date(r.expires_at).toISOString(),
+});
 
-// FOLIO_DATA_DIR points tests (and anything else) at a separate folder so
-// they never touch your real accounts and photos.
-export const DATA_DIR = path.resolve(process.env.FOLIO_DATA_DIR ?? "data");
-const DB_FILE = path.join(DATA_DIR, "db.json");
-
-async function read(): Promise<Data> {
-  try {
-    return JSON.parse(await fs.readFile(DB_FILE, "utf8")) as Data;
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") return { users: [] };
-    throw err;
-  }
-}
-
-// Serialize writes so concurrent requests don't clobber each other.
-let queue: Promise<unknown> = Promise.resolve();
-function mutate<T>(fn: (data: Data) => T | Promise<T>): Promise<T> {
-  const run = queue.then(async () => {
-    const data = await read();
-    const result = await fn(data);
-    await fs.mkdir(DATA_DIR, { recursive: true });
-    await fs.writeFile(DB_FILE, JSON.stringify(data, null, 2));
-    return result;
-  });
-  queue = run.catch(() => {});
-  return run;
+async function findUser(where: "id" | "email" | "subdomain", value: string) {
+  const db = await database();
+  const { rows } = await db.query<{ data: User }>(`select data from users where ${where} = $1`, [value]);
+  return rows[0]?.data ?? null;
 }
 
 export async function findUserById(id: string) {
-  return (await read()).users.find((u) => u.id === id) ?? null;
+  return findUser("id", id);
 }
 
 export async function findUserByEmail(email: string) {
-  const e = email.toLowerCase();
-  return (await read()).users.find((u) => u.email === e) ?? null;
+  return findUser("email", email.toLowerCase());
 }
 
 export async function findUserBySubdomain(subdomain: string) {
-  const s = subdomain.toLowerCase();
-  return (await read()).users.find((u) => u.subdomain === s) ?? null;
+  return findUser("subdomain", subdomain.toLowerCase());
 }
+
+// Saves the user's row from the object, inside a transaction.
+const save = (query: Query, user: User) =>
+  query("update users set email = $2, subdomain = $3, data = $4 where id = $1", [
+    user.id,
+    user.email,
+    user.subdomain,
+    JSON.stringify(user),
+  ]);
 
 export async function createUser(input: {
   email: string;
@@ -139,43 +135,48 @@ export async function createUser(input: {
   name: string;
   published: boolean;
 }) {
-  const created = await mutate((data) => {
-    const email = input.email.toLowerCase();
-    const subdomain = input.subdomain.toLowerCase();
-    if (data.users.some((u) => u.email === email)) {
-      throw new Error("EMAIL_TAKEN");
-    }
-    if (data.users.some((u) => u.subdomain === subdomain)) {
-      throw new Error("SUBDOMAIN_TAKEN");
-    }
-    const user: User = {
-      id: randomUUID(),
+  const email = input.email.toLowerCase();
+  const subdomain = input.subdomain.toLowerCase();
+  const user: User = {
+    id: randomUUID(),
+    email,
+    passwordHash: input.passwordHash,
+    subdomain,
+    createdAt: new Date().toISOString(),
+    template: "minimal",
+    profile: {
+      name: input.name,
+      bio: "",
+      contactEmail: email,
+      phone: "",
+      location: "",
+      social: {},
+    },
+    photos: [],
+    published: input.published,
+    design: presetDesign(),
+    emailVerified: false,
+    albums: [],
+    inquiries: [],
+  };
+  const db = await database();
+  try {
+    await db.query("insert into users (id, email, subdomain, data) values ($1, $2, $3, $4)", [
+      user.id,
       email,
-      passwordHash: input.passwordHash,
       subdomain,
-      createdAt: new Date().toISOString(),
-      template: "minimal",
-      profile: {
-        name: input.name,
-        bio: "",
-        contactEmail: email,
-        phone: "",
-        location: "",
-        social: {},
-      },
-      photos: [],
-      published: input.published,
-      design: presetDesign(),
-      emailVerified: false,
-      albums: [],
-      inquiries: [],
-    };
-    data.users.push(user);
-    return user;
-  });
+      JSON.stringify(user),
+    ]);
+  } catch (err) {
+    // The unique columns decide, so two sign-ups at once can't both win.
+    const message = (err as Error).message;
+    if (message.includes("users_email_key")) throw new Error("EMAIL_TAKEN");
+    if (message.includes("users_subdomain_key")) throw new Error("SUBDOMAIN_TAKEN");
+    throw err;
+  }
   // An address someone visited before it was claimed may be cached as missing.
-  siteChanged(created.subdomain);
-  return created;
+  siteChanged(subdomain);
+  return user;
 }
 
 // Tells the cached public site (lib/public-site.ts) to rebuild. `expire: 0`
@@ -184,11 +185,16 @@ function siteChanged(subdomain: string) {
   revalidateTag(`site:${subdomain.toLowerCase()}`, { expire: 0 });
 }
 
+// Reads the user, lets `fn` change it, and saves it, with the row locked
+// throughout. If `fn` throws, nothing is saved.
 export async function updateUser(id: string, fn: (user: User) => void) {
-  const user = await mutate((data) => {
-    const user = data.users.find((u) => u.id === id);
+  const db = await database();
+  const user = await db.transaction(async (query) => {
+    const { rows } = await query<{ data: User }>("select data from users where id = $1 for update", [id]);
+    const user = rows[0]?.data;
     if (!user) throw new Error("USER_NOT_FOUND");
     fn(user);
+    await save(query, user);
     return user;
   });
   siteChanged(user.subdomain);
@@ -196,32 +202,39 @@ export async function updateUser(id: string, fn: (user: User) => void) {
 }
 
 export async function deleteUser(id: string) {
-  let subdomain = "";
-  await mutate((data) => {
-    subdomain = data.users.find((u) => u.id === id)?.subdomain ?? "";
-    data.users = data.users.filter((u) => u.id !== id);
-    data.tokens = (data.tokens ?? []).filter((t) => t.userId !== id);
+  const db = await database();
+  const subdomain = await db.transaction(async (query) => {
+    const { rows } = await query<{ subdomain: string }>("delete from users where id = $1 returning subdomain", [id]);
+    await query("delete from tokens where user_id = $1", [id]);
+    return rows[0]?.subdomain;
   });
   if (subdomain) siteChanged(subdomain);
 }
 
 export async function addToken(token: Token) {
-  return mutate((data) => {
-    const now = Date.now();
+  const db = await database();
+  await db.transaction(async (query) => {
     // Drop expired tokens and older ones of the same kind for this user.
-    data.tokens = (data.tokens ?? []).filter(
-      (t) => Date.parse(t.expiresAt) > now && !(t.userId === token.userId && t.kind === token.kind),
-    );
-    data.tokens.push(token);
+    await query("delete from tokens where expires_at <= now() or (user_id = $1 and kind = $2)", [
+      token.userId,
+      token.kind,
+    ]);
+    await query("insert into tokens (hash, user_id, kind, expires_at) values ($1, $2, $3, $4)", [
+      token.hash,
+      token.userId,
+      token.kind,
+      token.expiresAt,
+    ]);
   });
 }
 
 // Removes the token and returns it if it exists and hasn't expired.
 export async function takeToken(hash: string, kind: Token["kind"]) {
-  return mutate((data) => {
-    const token = (data.tokens ?? []).find((t) => t.hash === hash && t.kind === kind);
-    if (!token) return null;
-    data.tokens = data.tokens!.filter((t) => t !== token);
-    return Date.parse(token.expiresAt) > Date.now() ? token : null;
-  });
+  const db = await database();
+  const { rows } = await db.query<TokenRow>("delete from tokens where hash = $1 and kind = $2 returning *", [
+    hash,
+    kind,
+  ]);
+  const token = rows[0] ? toToken(rows[0]) : null;
+  return token && Date.parse(token.expiresAt) > Date.now() ? token : null;
 }

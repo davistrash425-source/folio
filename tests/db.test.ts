@@ -1,6 +1,5 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, writeFileSync } from "fs";
 import path from "path";
 import {
   DATA_DIR,
@@ -14,8 +13,8 @@ import {
   updateUser,
 } from "../lib/db.ts";
 import { createToken, redeemToken } from "../lib/tokens.ts";
+import { databaseText } from "./helpers.ts";
 
-const DB_FILE = path.join(DATA_DIR, "db.json");
 let n = 0;
 const newUser = (overrides: { email?: string; subdomain?: string } = {}) => {
   n++;
@@ -42,7 +41,7 @@ test("new users start empty and unverified, with a default design", async () => 
   assert.deepEqual([user.photos, user.albums, user.inquiries], [[], [], []]);
   assert.equal(user.profile.contactEmail, "new.person@example.com");
   assert.ok(user.design);
-  assert.ok(existsSync(DB_FILE));
+  assert.deepEqual(await findUserById(user.id), user, "what was saved is what came back");
 });
 
 test("users can be found by id, and by email or address in any case", async () => {
@@ -100,7 +99,7 @@ test("deleting a user removes them and their links, and no one else's", async ()
   assert.equal(await findUserById(gone.id), null);
   assert.equal(await findUserByEmail(gone.email), null);
   assert.ok(await findUserById(kept.id));
-  assert.ok(!readFileSync(DB_FILE, "utf8").includes(gone.id));
+  assert.ok(!(await databaseText()).includes(gone.id));
   assert.equal(await redeemToken(keptToken, "reset"), kept.id);
 });
 
@@ -127,19 +126,33 @@ test("a new link replaces the user's older link of the same kind only", async ()
 
 test("links work once, for their own kind, and only the hash is stored", async () => {
   const token = await createToken("u4", "reset", 60_000);
-  assert.ok(!readFileSync(DB_FILE, "utf8").includes(token), "raw token saved to disk");
+  assert.ok(!(await databaseText()).includes(token), "raw token saved");
   assert.equal(await redeemToken(token, "verify"), null);
   assert.equal(await redeemToken("", "reset"), null);
   assert.equal(await redeemToken(token, "reset"), "u4");
   assert.equal(await redeemToken(token, "reset"), null);
 });
 
-// Runs last: it damages db.json on purpose.
-test("a damaged database file is never treated as empty or overwritten", async () => {
+test("a failed update saves none of its changes", async () => {
   const user = await newUser();
-  writeFileSync(DB_FILE, "{ not json");
-  await assert.rejects(findUserById(user.id));
-  await assert.rejects(newUser());
-  await assert.rejects(updateUser(user.id, () => {}));
-  assert.equal(readFileSync(DB_FILE, "utf8"), "{ not json");
+  await assert.rejects(
+    updateUser(user.id, (u) => {
+      u.profile.bio = "half done";
+      throw new Error("boom");
+    }),
+  );
+  assert.equal((await findUserById(user.id))?.profile.bio, "");
+});
+
+test("two sign-ups racing for the same email or address: exactly one wins", async () => {
+  const results = await Promise.allSettled([
+    newUser({ email: "race@example.com" }),
+    newUser({ email: "RACE@example.com" }),
+    newUser({ subdomain: "racer" }),
+    newUser({ subdomain: "Racer" }),
+  ]);
+  assert.deepEqual(
+    results.map((r) => (r.status === "fulfilled" ? "ok" : (r.reason as Error).message)).sort(),
+    ["EMAIL_TAKEN", "SUBDOMAIN_TAKEN", "ok", "ok"],
+  );
 });

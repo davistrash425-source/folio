@@ -11,6 +11,17 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # A real Postgres for the production build and smoke test. Unit tests use
+    # PGlite instead (each test file gets its own), so they never share data.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: folio
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       # Throwaway values: CI never touches real accounts or sessions.
       SESSION_SECRET: ci-only-not-a-real-secret
@@ -28,7 +39,11 @@ jobs:
       - run: npx tsc --noEmit
       - run: npm test
       - run: npm run build
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/folio
       - name: Smoke test the production build
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/folio
         run: |
           npm start -- --port 3000 > server.log 2>&1 &
           for i in $(seq 60); do curl -sf -o /dev/null http://localhost:3000/login && break; sleep 1; done

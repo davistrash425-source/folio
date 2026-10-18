@@ -3,18 +3,15 @@
 // action without deciding who may call it fails the tests.
 import { beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "fs";
-import path from "path";
 import * as authActions from "../app/actions/auth.ts";
 import * as designActions from "../app/actions/design.ts";
 import * as siteActions from "../app/actions/site.ts";
-import { DATA_DIR, deleteUser } from "../lib/db.ts";
+import { deleteUser } from "../lib/db.ts";
 import { presetDesign } from "../lib/design.ts";
-import { filesOf, formOf, formWith, jpegFile, makeUser, redirectedTo, resetRequest, signInAs, signOut } from "./helpers.ts";
+import { databaseText, filesOf, formOf, formWith, jpegFile, makeUser, redirectedTo, resetRequest, signInAs, signOut } from "./helpers.ts";
 
 beforeEach(resetRequest);
 
-const dbText = () => readFileSync(path.join(DATA_DIR, "db.json"), "utf8");
 
 // Actions that need a signed-in user, each called with realistic input.
 const needSignIn: Record<string, () => Promise<unknown>> = {
@@ -53,11 +50,11 @@ for (const [name, call] of Object.entries(needSignIn)) {
     const someone = await makeUser("Someone");
     await siteActions.setPublished(true).catch(() => {}); // signed out: harmless, makes sure the database exists
     signOut();
-    const before = dbText();
+    const before = await databaseText();
     const files = filesOf(someone.id);
 
     assert.equal(await redirectedTo(call()), "/login");
-    assert.equal(dbText(), before);
+    assert.equal(await databaseText(), before);
     assert.deepEqual(filesOf(someone.id), files);
   });
 
@@ -65,10 +62,10 @@ for (const [name, call] of Object.entries(needSignIn)) {
     const ghost = await makeUser("Ghost");
     await signInAs(ghost);
     await deleteUser(ghost.id);
-    const before = dbText();
+    const before = await databaseText();
 
     assert.equal(await redirectedTo(call()), "/login");
-    assert.equal(dbText(), before);
+    assert.equal(await databaseText(), before);
     assert.deepEqual(filesOf(ghost.id), [], "files saved for a deleted account");
   });
 }

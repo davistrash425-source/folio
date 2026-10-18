@@ -1,12 +1,10 @@
 // The photo upload form (the uploadPhotos server action).
 import { beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "fs";
-import path from "path";
 import { uploadPhotos } from "../app/actions/site.ts";
-import { DATA_DIR, deleteUser, findUserById } from "../lib/db.ts";
+import { deleteUser, findUserById } from "../lib/db.ts";
 import { MAX_PHOTO_BYTES } from "../lib/uploads.ts";
-import { filesOf, formWith, jpegFile, makeUser, redirectedTo, resetRequest, signInAs, signOut } from "./helpers.ts";
+import { databaseText, filesOf, formWith, jpegFile, makeUser, redirectedTo, resetRequest, signInAs, signOut } from "./helpers.ts";
 import { revalidated } from "./stubs/next-cache.ts";
 
 beforeEach(resetRequest);
@@ -14,9 +12,9 @@ beforeEach(resetRequest);
 test("signed-out visitors can't upload, and nothing is saved", async () => {
   await makeUser("Alice");
   signOut();
-  const before = readFileSync(path.join(DATA_DIR, "db.json"), "utf8");
+  const before = await databaseText();
   assert.equal(await redirectedTo(uploadPhotos({}, formWith(await jpegFile()))), "/login");
-  assert.equal(readFileSync(path.join(DATA_DIR, "db.json"), "utf8"), before);
+  assert.equal(await databaseText(), before);
 });
 
 test("uploads go into the signed-in user's account and folder only", async () => {

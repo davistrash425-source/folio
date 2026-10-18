@@ -8,6 +8,7 @@ import path from "path";
 import { crc32 } from "zlib";
 import sharp from "sharp";
 import { createUser, updateUser, type Album, type Photo } from "../lib/db.ts";
+import { database } from "../lib/pg.ts";
 import { createSession, hashPassword } from "../lib/session.ts";
 import { slugify } from "../lib/site.ts";
 import { UPLOAD_DIR, storePhoto } from "../lib/uploads.ts";
@@ -125,6 +126,15 @@ export function formOf(fields: Record<string, string>) {
   const data = new FormData();
   for (const [key, value] of Object.entries(fields)) data.set(key, value);
   return data;
+}
+
+// Everything in the database, as text, to check that something changed
+// nothing (or that a value isn't stored anywhere).
+export async function databaseText() {
+  const db = await database();
+  const users = await db.query("select * from users order by id");
+  const tokens = await db.query("select * from tokens order by hash");
+  return JSON.stringify([users.rows, tokens.rows]);
 }
 
 // A user's stored photo files, by name.
