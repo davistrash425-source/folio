@@ -11,6 +11,7 @@ import { ContactForm } from "../contact-form";
 import { Lightbox } from "../lightbox";
 import { bebas, shareTech, specialElite } from "./fonts";
 import { captionText, currentPage, navItems, pad, pageGalleries, socialLinks, type GalleryBlock, visibleSections, type ThemeProps } from "./shared";
+import { ReportLink } from "./report-link";
 
 const STOCKS = {
   gold: { name: "FOLIO GOLD 400", table: "#14100c", base: "#2b1c0e", edge: "#f0a63a", text: "#f2e6d4", muted: "#a08a6e" },
@@ -103,7 +104,9 @@ export function FilmstripTheme({ site }: ThemeProps) {
       </Lightbox>
 
       <footer className={`${EDGE} mt-auto flex flex-wrap justify-between gap-2 border-t border-white/10 px-6 py-5 text-[var(--muted)] md:px-10`}>
-        <span>© {profile.name}</span>
+        <span>
+          © {profile.name} · <ReportLink site={site} />
+        </span>
         <span className="text-[var(--edge)]">{stock.name} ▶ end of roll</span>
       </footer>
     </div>

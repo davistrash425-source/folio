@@ -13,6 +13,7 @@ import { Lightbox } from "../lightbox";
 import { cormorant, jost } from "./fonts";
 import { SidewaysScroller } from "./sideways-scroller";
 import { currentPage, navItems, pad, pageGalleries, socialLinks, type GalleryBlock, visibleSections, type ThemeProps } from "./shared";
+import { ReportLink } from "./report-link";
 
 const WALLS = {
   charcoal: { bg: "#2a2926", fg: "#ece7dc", muted: "#a39d90", spot: "rgba(255,248,230,0.10)" },
@@ -69,7 +70,11 @@ export function ExhibitionTheme({ site }: ThemeProps) {
       </header>
 
       <Lightbox photos={galleries.all} captions={galleries.captions}>
-        <SidewaysScroller label={page.title} footer={`© ${profile.name}`}>
+        <SidewaysScroller label={page.title} footer={
+            <>
+              © {profile.name} · <ReportLink site={site} />
+            </>
+          }>
           {sections.length === 0 && (
             <Panel>
               <p className="font-exh-serif text-2xl italic text-[var(--muted)]">This page is empty.</p>

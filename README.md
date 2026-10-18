@@ -59,6 +59,9 @@ GitHub Actions (`.github/workflows/ci.yml`) runs lint, type checks, `npm test`, 
 | Photos, albums, inquiries, site online/offline | `app/actions/site.ts` |
 | Password reset, email confirmation, account deletion | `app/actions/auth.ts`, `lib/tokens.ts` |
 | Rate limiting | `lib/rate-limit.ts` |
+| Reporting a site (form, saved reports) | `app/(auth)/report`, `app/actions/report.ts`, `reports` table |
+| robots.txt and sitemaps, per host | `app/robots.ts`, `app/sitemap.ts` |
+| Signing out other devices | `sessionsValidFrom` on the account, checked in `lib/auth.ts` |
 | Data export (.zip) | `app/api/export`, `lib/zip.ts` |
 | Email | `lib/email.ts` |
 
@@ -75,6 +78,7 @@ GitHub Actions (`.github/workflows/ci.yml`) runs lint, type checks, `npm test`, 
 | `R2_PRIVATE_BUCKET` | Bucket for the originals. Never make it public. | |
 | `RESEND_API_KEY`, `EMAIL_FROM` | Resend key, and the sender, e.g. `Folio <hello@yourapp.com>` on a domain verified in Resend | printed to the console (refuses in production) |
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis, for rate limits shared by every server | in memory |
+| `REPORTS_EMAIL` | Where reports about sites (the "Report" link in every site's footer) are emailed | reports are only saved in the database |
 
 Set all six R2 variables or none: a partial setup stops the app at startup.
 
@@ -133,6 +137,7 @@ Accounts and keys:
     ```
 - **Resend:** verify your domain (it gives you DNS records to add), then set `RESEND_API_KEY` and `EMAIL_FROM`.
 - **Upstash:** create a Redis database and set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`.
+- **Reports:** set `REPORTS_EMAIL` to the inbox that should hear about copyright and abuse reports. Every report is also kept in the `reports` table.
 - **Session secret:** generate one with `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"` and set it as `SESSION_SECRET`.
 
 Domain:

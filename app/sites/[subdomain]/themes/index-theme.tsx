@@ -24,6 +24,7 @@ import {
   visibleSections,
   type ThemeProps,
 } from "./shared";
+import { ReportLink } from "./report-link";
 
 const MONO = "font-[family-name:var(--font-plex-mono)] text-xs uppercase tracking-[0.12em]";
 const GUTTER = "px-6 md:px-10";
@@ -85,7 +86,9 @@ export function IndexTheme({ site }: ThemeProps) {
       </Lightbox>
 
       <footer className={`${GUTTER} ${MONO} mt-auto flex flex-wrap justify-between gap-2 border-t border-[var(--fg)] py-5 text-[var(--muted)]`}>
-        <span>© {profile.name}</span>
+        <span>
+          © {profile.name} · <ReportLink site={site} />
+        </span>
         <span>Index of {total} photographs</span>
       </footer>
     </div>

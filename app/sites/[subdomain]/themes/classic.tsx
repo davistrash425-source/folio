@@ -19,6 +19,7 @@ import type { PhotoSource } from "@/lib/uploads";
 import { ContactForm } from "../contact-form";
 import { Lightbox } from "../lightbox";
 import { captionText } from "./shared";
+import { ReportLink } from "./report-link";
 
 type Props = { site: SiteData };
 
@@ -58,7 +59,7 @@ export function ClassicTheme({ site }: Props) {
       <TopBar site={site} current={current} />
       {target.page ? <PageBody site={site} page={target.page} /> : <AlbumPage site={site} album={target.album} />}
       <footer className="px-6 py-10 text-center text-xs text-[var(--muted)] sm:px-10">
-        © {site.profile.name}
+        © {site.profile.name} · <ReportLink site={site} />
       </footer>
     </div>
   );

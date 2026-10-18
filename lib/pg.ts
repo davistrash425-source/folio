@@ -34,6 +34,14 @@ const SCHEMA = `
     expires_at timestamptz not null
   );
   create index if not exists tokens_user_kind on tokens (user_id, kind);
+  create table if not exists reports (
+    id text primary key,
+    subdomain text not null,
+    reason text not null,
+    details text not null,
+    reporter_email text not null,
+    created_at timestamptz not null default now()
+  );
 `;
 
 async function connectPostgres(url: string): Promise<Database> {

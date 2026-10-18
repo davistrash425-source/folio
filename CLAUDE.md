@@ -46,7 +46,14 @@ So server actions (`app/actions/*`) and route handlers are called directly as fu
 - All changes go through `updateUser(id, fn)`, which locks the row (`select … for update`), lets `fn` mutate the `User`, and saves it. If `fn` throws, nothing is saved.
 - `User` fields added over time are optional, and older shapes are upgraded when read (e.g. `readDesign` in `lib/design.ts`). Keep new fields optional, or upgrade old shapes the same way.
 
-**Auth.** `lib/session.ts` signs a `userId.expires` cookie with HMAC (`SESSION_SECRET`, required in production) and hashes passwords with scrypt. Nothing about sessions is stored on the server. Server actions never trust the page: they call `requireUser()` (`lib/auth.ts`), which also checks that the account still exists.
+**Auth.** `lib/session.ts` signs a `userId.expires` cookie with HMAC (`SESSION_SECRET`, required in production) and hashes passwords with scrypt. No session list is stored on the server.
+- Every signed-in check goes through `currentUser()` or `requireUser()` in `lib/auth.ts`, never `getSession` directly. They also check that the account still exists, and that the cookie was issued after the account's `sessionsValidFrom`.
+- A password reset and the "Sign out everywhere else" button both set `sessionsValidFrom`, which signs out every other device.
+- Server actions never trust the page and always call one of these.
+
+**Per-host files.** `proxy.ts` doesn't rewrite `/robots.txt` and `/sitemap.xml`. `app/robots.ts` and `app/sitemap.ts` read the Host header (`siteSubdomain` in `lib/site.ts`) and answer for the app or for one site.
+
+**Limits and reports.** `MAX_PHOTOS` in `lib/uploads.ts` (2,000, a placeholder until plans exist) is checked before uploading and again inside `updateUser`. Every theme's footer has a `ReportLink` (`themes/report-link.tsx`) to `/report`; reports go into the `reports` table and to `REPORTS_EMAIL`. A `"use server"` file may only export async functions, so shared constants like `REPORT_REASONS` live in `lib/`.
 
 **Public site caching.** `lib/public-site.ts` loads a site with `"use cache"` and tags it `site:<subdomain>`. `updateUser`, `createUser` and `deleteUser` in `lib/db.ts` invalidate that tag (`siteChanged`), so any account change refreshes the public site. Dashboard pages refresh with `revalidatePath("/dashboard", "layout")`. `next.config.ts` turns on `cacheComponents` and partial prerendering.
 
@@ -79,6 +86,7 @@ So server actions (`app/actions/*`) and route handlers are called directly as fu
 | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_PUBLIC_BUCKET`, `R2_PRIVATE_BUCKET`, `R2_PUBLIC_URL` | Photo storage on Cloudflare R2 (all six or none) | Local disk |
 | `RESEND_API_KEY`, `EMAIL_FROM` | Email through Resend | Console; production throws |
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Shared rate limits | In memory |
+| `REPORTS_EMAIL` | Inbox for site reports | Reports only saved in the database |
 
 `NEW_SITES_START_PUBLISHED` in `lib/site.ts` decides whether new sites start live or as drafts.
 
@@ -89,7 +97,7 @@ Chosen setup: Vercel for hosting (with a wildcard `*.domain`), Postgres on Neon,
 The order of work:
 1. Move off local disk: database, photo storage with direct uploads, email and rate limits. This is done on the `move-to-postgres` branch, pending CI and a merge into `main`.
 2. Deploy a staging copy on the real domain and run the smoke test against it.
-3. Add terms and privacy pages, per-account storage limits, Sentry and backups.
+3. Add terms and privacy pages (which need the owner's business details), Sentry and backups. The photo limit, reporting, sign-out-everywhere and robots/sitemaps are done.
 4. Run a private beta.
 5. Add billing and custom domains, if wanted.
 

@@ -241,3 +241,17 @@ export async function takeToken(hash: string, kind: Token["kind"]) {
   const token = rows[0] ? toToken(rows[0]) : null;
   return token && Date.parse(token.expiresAt) > Date.now() ? token : null;
 }
+
+// A visitor's report about a site (copyright, harmful content…), kept so
+// nothing is lost if the email about it fails.
+export type Report = { subdomain: string; reason: string; details: string; reporterEmail: string };
+
+export async function addReport(report: Report) {
+  const db = await database();
+  const id = randomUUID();
+  await db.query(
+    "insert into reports (id, subdomain, reason, details, reporter_email) values ($1, $2, $3, $4, $5)",
+    [id, report.subdomain, report.reason, report.details, report.reporterEmail],
+  );
+  return id;
+}
