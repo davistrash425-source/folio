@@ -12,6 +12,17 @@ export function appUrl(pathname = "/") {
   return `${PROTOCOL}://${ROOT_DOMAIN}${pathname}`;
 }
 
+const rootHostname = ROOT_DOMAIN.split(":")[0];
+
+// The photographer's site a Host header points at ("alice" for
+// alice.yourapp.com), or null for the app itself and anything else.
+export function siteSubdomain(host: string) {
+  const hostname = host.split(":")[0].toLowerCase();
+  if (!hostname.endsWith(`.${rootHostname}`)) return null;
+  const subdomain = hostname.slice(0, -(rootHostname.length + 1));
+  return subdomain && subdomain !== "www" && !subdomain.includes(".") ? subdomain : null;
+}
+
 export const RESERVED_SUBDOMAINS = new Set([
   "www", "app", "api", "admin", "dashboard", "login", "signup", "mail",
   "help", "support", "blog", "static", "assets", "cdn",

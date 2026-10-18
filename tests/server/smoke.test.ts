@@ -67,3 +67,12 @@ test("photo addresses can't be bent to reach other files", async () => {
     assert.equal((await get(pathname)).status, 404, pathname);
   }
 });
+
+test("robots.txt answers for the host that asked", async () => {
+  const app = await get("/robots.txt");
+  assert.equal(app.status, 200);
+  assert.match(app.body, /Disallow: \/dashboard/);
+  const site = await get("/robots.txt", `someone.${base.host}`);
+  assert.equal(site.status, 200);
+  assert.match(site.body, new RegExp(`Sitemap: .*someone\.${base.host.replace(/[.:]/g, "\$&")}/sitemap\.xml`));
+});

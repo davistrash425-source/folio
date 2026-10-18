@@ -33,5 +33,7 @@ export function siteMetadata(subdomain: string, site: SiteData | null): Metadata
     // Photo URLs are relative; link previews need them absolute.
     metadataBase: new URL(siteUrl(subdomain)),
     openGraph: cover ? { title, images: [{ url: cover.src, alt: cover.alt }] } : { title },
+    // A big photo, not a thumbnail, when the link is shared on X and the like.
+    twitter: cover ? { card: "summary_large_image" } : undefined,
   };
 }
