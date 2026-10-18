@@ -232,3 +232,15 @@ test("sites that are offline show nothing to visitors, but still show in the own
   await updateUser(alice.id, (u) => (u.published = true));
   assert.equal((await loadSite(alice.subdomain.toUpperCase()))!.subdomain, alice.subdomain, "addresses ignore capitals");
 });
+
+test("the contact email must be an address (or empty), since inquiries are sent to it", async () => {
+  const bob = await makeUser("Bob");
+  await signInAs(bob);
+  for (const bad of ["not an email", "a@b.com\nBcc: x@y.com", "a@b"]) {
+    const result = await saveProfile({}, formOf({ name: "Bob", contactEmail: bad }));
+    assert.match(result.error!, /valid contact email/, bad);
+  }
+  assert.equal((await findUserById(bob.id))!.profile.contactEmail, bob.email, "nothing was saved");
+  assert.deepEqual(await saveProfile({}, formOf({ name: "Bob", contactEmail: "bob@studio.com" })), { ok: "Saved." });
+  assert.deepEqual(await saveProfile({}, formOf({ name: "Bob", contactEmail: "" })), { ok: "Saved." });
+});

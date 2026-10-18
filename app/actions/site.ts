@@ -3,13 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { randomUUID } from "crypto";
-import { findUserById, findUserBySubdomain, updateUser, type Photo } from "@/lib/db";
+import { findUserBySubdomain, updateUser, type Photo } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { draftDesign, publishedDesign } from "@/lib/public-site";
 import { sendEmail } from "@/lib/email";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { appUrl, isPublished, slugify, validateSlug } from "@/lib/site";
-import { deletePhotoFiles, savePhoto } from "@/lib/uploads";
+import { deletePhotoFiles, savePhoto, storage } from "@/lib/uploads";
 
 export type ActionState = { error?: string; ok?: string };
 
@@ -42,10 +42,18 @@ export async function uploadPhotos(_prev: ActionState, formData: FormData): Prom
     }
   }
   if (saved.length) {
-    await updateUser(userId, (u) => {
-      const now = new Date().toISOString();
-      u.photos.push(...saved.map((photo) => ({ ...photo, createdAt: now })));
-    });
+    try {
+      await updateUser(userId, (u) => {
+        const now = new Date().toISOString();
+        u.photos.push(...saved.map((photo) => ({ ...photo, createdAt: now })));
+      });
+    } catch (err) {
+      // The account was deleted while the files were uploading (say, from
+      // another tab). Don't leave its photos behind.
+      if ((err as Error).message !== "USER_NOT_FOUND") throw err;
+      await storage.removeAll(userId);
+      redirect("/login");
+    }
   }
   if (skipped.length && !saved.length) {
     return { error: "Those files couldn't be uploaded. Use JPG, PNG, WebP, GIF or AVIF under 20 MB." };
@@ -123,12 +131,18 @@ export async function saveProfile(_prev: ActionState, formData: FormData): Promi
   const str = (key: string, max: number) => String(formData.get(key) ?? "").trim().slice(0, max);
   const name = str("name", 80);
   if (!name) return { error: "Name can't be empty." };
+  // Inquiry emails are sent to this address, so it has to be one (or empty,
+  // which falls back to the login email).
+  const contactEmail = str("contactEmail", 120);
+  if (contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
+    return { error: "Please enter a valid contact email, or leave it empty." };
+  }
 
   await updateUser(userId, (u) => {
     u.profile = {
       name,
       bio: str("bio", 2000),
-      contactEmail: str("contactEmail", 120),
+      contactEmail,
       phone: str("phone", 40),
       location: str("location", 80),
       social: {
@@ -145,15 +159,15 @@ export async function saveProfile(_prev: ActionState, formData: FormData): Promi
 // ── Albums ──────────────────────────────────────────────────────────────
 
 export async function createAlbum(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const userId = await currentUserId();
+  const owner = await requireUser();
+  const userId = owner.id;
   const title = String(formData.get("title") ?? "").trim().slice(0, 60);
   const description = String(formData.get("description") ?? "").trim().slice(0, 500);
   if (!title) return { error: "Give the album a name." };
   const slug = slugify(title);
   const slugError = validateSlug(slug);
   if (slugError) return { error: slugError };
-  const owner = await findUserById(userId);
-  if (owner && [draftDesign(owner), publishedDesign(owner)].some((d) => d.pages.some((p) => p.slug === slug))) {
+  if ([draftDesign(owner), publishedDesign(owner)].some((d) => d.pages.some((p) => p.slug === slug))) {
     return { error: `One of your pages already uses the address /${slug}. Pick another album name.` };
   }
 

@@ -199,3 +199,16 @@ test("the message is kept even if the email can't be sent", async (t) => {
   assert.equal((await inbox(alice.id)).length, 1);
   assert.equal(errors.length, 1);
 });
+
+test("line breaks can't be used to add email headers", async (t) => {
+  const emails = captureEmails(t);
+  const alice = await makeUser("Alice");
+  await updateUser(alice.id, (u) => {
+    u.profile.contactEmail = "alice@example.com\nBcc: spy@example.com";
+  });
+  newVisitor();
+  await sendInquiry(alice.subdomain, {}, message({ name: "Sam Bcc: spy@example.com" }));
+  assert.equal(emails.length, 1);
+  assert.match(emails[0], /To: alice@example\.com Bcc: spy@example\.com\n/);
+  assert.match(emails[0], /Subject: New inquiry from Sam Bcc: spy@example\.com\n/);
+});

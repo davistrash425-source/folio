@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "fs";
 import path from "path";
 import { uploadPhotos } from "../app/actions/site.ts";
-import { DATA_DIR, findUserById } from "../lib/db.ts";
+import { DATA_DIR, deleteUser, findUserById } from "../lib/db.ts";
 import { MAX_PHOTO_BYTES } from "../lib/uploads.ts";
 import { filesOf, formWith, jpegFile, makeUser, redirectedTo, resetRequest, signInAs, signOut } from "./helpers.ts";
 import { revalidated } from "./stubs/next-cache.ts";
@@ -111,5 +111,20 @@ test("when nothing can be uploaded it says so and saves nothing", async () => {
   assert.match(result.error!, /couldn't be uploaded/);
   assert.equal(result.ok, undefined);
   assert.equal((await findUserById(alice.id))!.photos.length, 0);
+  assert.deepEqual(filesOf(alice.id), []);
+});
+
+test("an account deleted during the upload is sent to log in and leaves no files behind", async () => {
+  const alice = await makeUser("Alice");
+  await signInAs(alice);
+  const photo = await jpegFile("slow.jpg");
+  // Deletes the account while the file is being read, as another tab could.
+  const slow = Object.assign(photo, {
+    arrayBuffer: async () => {
+      await deleteUser(alice.id);
+      return new File([await photo.slice().arrayBuffer()], "slow.jpg").arrayBuffer();
+    },
+  });
+  assert.equal(await redirectedTo(uploadPhotos({}, formWith(slow))), "/login");
   assert.deepEqual(filesOf(alice.id), []);
 });

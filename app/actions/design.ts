@@ -1,9 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
-import { findUserById, updateUser } from "@/lib/db";
+import { updateUser } from "@/lib/db";
 import { designSchema, type SiteDesign } from "@/lib/design";
 import { draftDesign, publishedDesign } from "@/lib/public-site";
 
@@ -70,8 +69,5 @@ export async function undoDesign(): Promise<DesignResult> {
 
 // Throws away unpublished changes: the draft becomes the published design.
 export async function discardDraftDesign(): Promise<DesignResult> {
-  const userId = await currentUserId();
-  const current = await findUserById(userId);
-  if (!current) redirect("/login");
-  return saveDraftDesign(publishedDesign(current));
+  return saveDraftDesign(publishedDesign(await requireUser()));
 }

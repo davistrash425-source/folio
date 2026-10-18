@@ -39,6 +39,16 @@ test("the export refuses forged login cookies and cookies for deleted accounts",
   assert.equal((await exportAccount()).status, 401, "forged cookie");
 });
 
+test("the export refuses a cookie for a real account with the wrong signature", async () => {
+  const alice = await makeUser("Alice");
+  // Right shape, right length, not expired, and the account exists: only the
+  // signature check can turn it away.
+  cookieJar.set("session", `${alice.id}.99999999999999.${"A".repeat(43)}`);
+  assert.equal((await exportAccount()).status, 401);
+  await signInAs(alice);
+  assert.equal((await exportAccount()).status, 200, "the real cookie still works");
+});
+
 test("the export is a zip of the signed-in user's account and original photos", async () => {
   const alice = await makeUser("Alice");
   const dunes = await addPhoto(alice.id, { description: "Dunes" });
