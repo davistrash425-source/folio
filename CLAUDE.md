@@ -55,12 +55,18 @@ So server actions (`app/actions/*`) and route handlers are called directly as fu
 **Photos.** Files larger than 20 MB are compressed in the browser first (`lib/compress-image.ts`).
 - On upload, the original is saved as `<id>.orig.<ext>`. It is never served and is only included in the account export.
 - `lib/images.ts` (sharp) makes WebP copies at 640, 1280 and 2048px with EXIF and GPS removed. `photoSource` builds the `srcset` from them.
-- All file access goes through the `storage` object in `lib/uploads.ts`, which currently writes to local disk under `<DATA_DIR>/uploads/<userId>/`. Files are served by `app/api/uploads/[userId]/[file]`, which returns 404 for originals and non-image extensions.
+- All file access goes through the `storage` object in `lib/uploads.ts`.
+  - With the six `R2_*` variables it uses Cloudflare R2: originals in the private bucket, web copies in the public one, served from `R2_PUBLIC_URL`. Setting only some of them throws at startup.
+  - Otherwise it writes to local disk under `<DATA_DIR>/uploads/<userId>/`, served by `app/api/uploads/[userId]/[file]`, which returns 404 for originals and non-image extensions.
+- Uploads with R2 skip the app server, because Vercel caps request bodies at about 4.5 MB.
+  - The browser calls `startPhotoUpload` for a presigned PUT address. Its type and exact size are signed, and it lasts 10 minutes.
+  - The browser uploads to that address, then calls `finishPhotoUpload`, which reads the file back, validates it with sharp and makes the variants.
+  - Without R2, `PhotoUploader` (`app/dashboard/editor.tsx`) falls back to the `uploadPhotos` form action.
 
-**Not production-ready yet** (see README.md, "Before going to production"):
-- `lib/email.ts` only logs to the console and throws in production.
-- `lib/rate-limit.ts` keeps its counts in memory.
-- Photo storage is on local disk.
+**Swappable services.** Each production service is switched on by its env vars and has a local stand-in when they're missing:
+- `sendEmail` in `lib/email.ts` uses Resend, and otherwise logs to the console (and throws in production).
+- `rateLimit` in `lib/rate-limit.ts` is async. It uses Upstash Redis, and otherwise counts in memory. If Redis is unreachable it falls back to memory rather than locking users out.
+- Tests fake the network for each of these with `t.mock.method(globalThis, "fetch", …)`.
 
 ## Environment variables
 
@@ -70,6 +76,9 @@ So server actions (`app/actions/*`) and route handlers are called directly as fu
 | `SESSION_SECRET` | Signs login cookies | Dev-only value; production refuses to start |
 | `NEXT_PUBLIC_ROOT_DOMAIN` | Domain the sites live under | `localhost:3000` |
 | `FOLIO_DATA_DIR` | Local data folder (PGlite database, uploaded photos) | `data/` (git-ignored) |
+| `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_PUBLIC_BUCKET`, `R2_PRIVATE_BUCKET`, `R2_PUBLIC_URL` | Photo storage on Cloudflare R2 (all six or none) | Local disk |
+| `RESEND_API_KEY`, `EMAIL_FROM` | Email through Resend | Console; production throws |
+| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Shared rate limits | In memory |
 
 `NEW_SITES_START_PUBLISHED` in `lib/site.ts` decides whether new sites start live or as drafts.
 
@@ -78,7 +87,7 @@ So server actions (`app/actions/*`) and route handlers are called directly as fu
 Chosen setup: Vercel for hosting (with a wildcard `*.domain`), Postgres on Neon, Cloudflare R2 for photos (originals in a private bucket, web copies in a public one), Resend for email, and Upstash Redis for rate limits. The domain isn't bought yet (`folio.com` is taken), and whether Folio will be paid is undecided.
 
 The order of work:
-1. Move off local disk: the database (done on the `move-to-postgres` branch), then photo storage, email and rate limits.
+1. Move off local disk: database, photo storage with direct uploads, email and rate limits. This is done on the `move-to-postgres` branch, pending CI and a merge into `main`.
 2. Deploy a staging copy on the real domain and run the smoke test against it.
 3. Add terms and privacy pages, per-account storage limits, Sentry and backups.
 4. Run a private beta.

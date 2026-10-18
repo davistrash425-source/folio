@@ -18,9 +18,16 @@ npm run dev
 - App: http://localhost:3000
 - A photographer's site: http://yourname.localhost:3000 (`*.localhost` resolves to your machine in Chrome, Edge and Firefox)
 
-Data is stored in `data/` (git-ignored): `data/db.json` for accounts and `data/uploads/` for photos.
+Locally there's nothing to set up. Each production service has a local stand-in, used whenever its environment variables are missing:
 
-Emails (password reset, email confirmation, new inquiries) are printed to the dev server's console until an email provider is connected in `lib/email.ts`.
+| Piece | Production | Locally (and in tests) |
+| --- | --- | --- |
+| Database | Postgres (Neon) via `DATABASE_URL` | PGlite (the same Postgres, running inside Node) in `data/pg/` |
+| Photos | Cloudflare R2 | `data/uploads/` |
+| Email | Resend | Printed to the dev server's console |
+| Rate limits | Upstash Redis | Counted in memory |
+
+`data/` is git-ignored. If you have accounts from before the move to Postgres (`data/db.json`), copy them across once with `npm run import-json` while the dev server is stopped.
 
 ## Scripts
 
@@ -28,7 +35,8 @@ Emails (password reset, email confirmation, new inquiries) are printed to the de
 | --- | --- |
 | `npm test` | Every `tests/*.test.ts` file: unit tests, plus server actions and routes run in plain Node with Next's cookies, redirects and cache stubbed (`tests/stubs/`, `tests/helpers.ts`). Each run uses its own empty data folder, never `data/` (see `tests/setup.ts`) |
 | `npm run test:smoke` | Checks a running server; set `BASE_URL` to test a deployment |
-| `npm run backfill-photos` | Makes web-sized copies of photos uploaded before resizing existed. Stop the dev server first. |
+| `npm run import-json` | Copies accounts from the old JSON database (`data/db.json`) into Postgres. Safe to re-run. Set `DATABASE_URL` to import into a real server. |
+| `npm run backfill-photos` | Makes web-sized copies of photos uploaded before resizing existed. Works on `data/db.json`, so run it before `import-json`. Stop the dev server first. |
 
 GitHub Actions (`.github/workflows/ci.yml`) runs lint, type checks, `npm test`, a production build and `npm run test:smoke` on every push to `main` and every pull request.
 
@@ -45,8 +53,8 @@ GitHub Actions (`.github/workflows/ci.yml`) runs lint, type checks, `npm test`, 
 | Public site themes (one file each) | `app/sites/[subdomain]/themes/`, picked in `renderer.tsx` |
 | Theme names and descriptions | `lib/themes.ts` (themes), `lib/templates.ts` (Classic looks) |
 | Browser-side photo compression | `lib/compress-image.ts` |
-| Database (JSON file) | `lib/db.ts` |
-| Photo storage (local disk) | `lib/uploads.ts`, `app/api/uploads` |
+| Database (Postgres, one jsonb row per account) | `lib/db.ts`, connection in `lib/pg.ts` |
+| Photo storage (R2 or local disk), direct uploads | `lib/uploads.ts`, `app/api/uploads` (local only) |
 | Resizing and metadata stripping | `lib/images.ts` |
 | Photos, albums, inquiries, site online/offline | `app/actions/site.ts` |
 | Password reset, email confirmation, account deletion | `app/actions/auth.ts`, `lib/tokens.ts` |
@@ -60,7 +68,15 @@ GitHub Actions (`.github/workflows/ci.yml`) runs lint, type checks, `npm test`, 
 | --- | --- | --- |
 | `NEXT_PUBLIC_ROOT_DOMAIN` | Domain sites live under, e.g. `yourapp.com` | `localhost:3000` |
 | `SESSION_SECRET` | Signs login cookies. **Required in production.** | dev-only value |
-| `FOLIO_DATA_DIR` | Folder for the database and photos | `data` |
+| `FOLIO_DATA_DIR` | Local folder for PGlite and photos | `data` |
+| `DATABASE_URL` | Postgres connection string (Neon: use the pooled one). **Required in production.** | PGlite in `data/pg` |
+| `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | Cloudflare R2 API token with read and write access to both buckets | photos on local disk |
+| `R2_PUBLIC_BUCKET`, `R2_PUBLIC_URL` | Bucket for the web copies, and its public address (custom domain or r2.dev URL) | |
+| `R2_PRIVATE_BUCKET` | Bucket for the originals. Never make it public. | |
+| `RESEND_API_KEY`, `EMAIL_FROM` | Resend key, and the sender, e.g. `Folio <hello@yourapp.com>` on a domain verified in Resend | printed to the console (refuses in production) |
+| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis, for rate limits shared by every server | in memory |
+
+Set all six R2 variables or none: a partial setup stops the app at startup.
 
 ## How site design works
 
@@ -96,12 +112,34 @@ Photos over 20 MB are compressed in the browser before upload (`lib/compress-ima
 
 Each upload is kept as the original (`<id>.orig.<ext>`, never served, included in the account export) plus WebP copies at 640, 1280 and 2048px wide with EXIF and GPS data removed. The public site picks a size with `srcset`.
 
+With R2, originals go to the private bucket and web copies to the public one, which visitors load directly from `R2_PUBLIC_URL`. Hosts like Vercel cap a request to the app at about 4.5 MB, so photos don't pass through the app:
+
+1. The browser asks for an upload address (`startPhotoUpload`). It's a signed R2 address that works for 10 minutes and accepts only the declared type and exact size, at most 20 MB.
+2. The browser sends the photo straight to the private bucket.
+3. `finishPhotoUpload` reads it back, checks that it's a real image within the limit, makes the web copies, and adds it to the account. A bad file is deleted.
+
+Without R2 (local development), photos go through the app with `uploadPhotos`.
+
 ## Before going to production
 
-- Connect an email provider in `lib/email.ts` (it refuses to run in production until you do).
-- Replace the JSON file database (`lib/db.ts`) with a real database.
-- Replace the `storage` object in `lib/uploads.ts` with object storage (S3, R2, Vercel Blob).
-- Move rate limiting (`lib/rate-limit.ts`) to a shared store if you run more than one server.
-- Generate a session secret: `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`.
-- Decide whether new sites start as drafts (`NEW_SITES_START_PUBLISHED` in `lib/site.ts`).
-- Point a wildcard DNS record (`*.yourapp.com`) at your host and add the wildcard domain there.
+Accounts and keys:
+- **Neon:** create a project and set `DATABASE_URL` to its pooled connection string. The tables are created on first start. To bring over local accounts, run `DATABASE_URL=… npm run import-json`.
+- **Cloudflare R2:**
+  - Create two buckets: a public one for web copies, with a custom domain (or the r2.dev address), and a private one for originals.
+  - Create an API token with read and write access to both, then set the six `R2_*` variables.
+  - Give the **private** bucket a CORS rule so browsers can upload to it directly:
+    ```json
+    [{ "AllowedOrigins": ["https://yourapp.com"], "AllowedMethods": ["PUT"], "AllowedHeaders": ["content-type"], "MaxAgeSeconds": 3600 }]
+    ```
+- **Resend:** verify your domain (it gives you DNS records to add), then set `RESEND_API_KEY` and `EMAIL_FROM`.
+- **Upstash:** create a Redis database and set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`.
+- **Session secret:** generate one with `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"` and set it as `SESSION_SECRET`.
+
+Domain:
+- Point the domain and a wildcard record (`*.yourapp.com`) at your host, and add both there.
+- Set `NEXT_PUBLIC_ROOT_DOMAIN`.
+
+Decisions:
+- Whether new sites start as drafts (`NEW_SITES_START_PUBLISHED` in `lib/site.ts`).
+
+Known gap: a photo uploaded directly to R2 but never finished (say the tab closed in between) stays in the private bucket. It's at most 20 MB and visible to no one. A cleanup job can come later.

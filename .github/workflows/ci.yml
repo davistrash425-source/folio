@@ -1,10 +1,9 @@
-# Runs on every push and pull request: lint, type check, unit tests, a
+# Runs on every push (any branch) and pull request: lint, type check, unit tests, a
 # production build, then the smoke test against that build.
 name: CI
 
 on:
   push:
-    branches: [main]
   pull_request:
 
 jobs:
