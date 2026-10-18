@@ -1,0 +1,115 @@
+// The photo upload form (the uploadPhotos server action).
+import { beforeEach, test } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "fs";
+import path from "path";
+import { uploadPhotos } from "../app/actions/site.ts";
+import { DATA_DIR, findUserById } from "../lib/db.ts";
+import { MAX_PHOTO_BYTES } from "../lib/uploads.ts";
+import { filesOf, formWith, jpegFile, makeUser, redirectedTo, resetRequest, signInAs, signOut } from "./helpers.ts";
+import { revalidated } from "./stubs/next-cache.ts";
+
+beforeEach(resetRequest);
+
+test("signed-out visitors can't upload, and nothing is saved", async () => {
+  await makeUser("Alice");
+  signOut();
+  const before = readFileSync(path.join(DATA_DIR, "db.json"), "utf8");
+  assert.equal(await redirectedTo(uploadPhotos({}, formWith(await jpegFile()))), "/login");
+  assert.equal(readFileSync(path.join(DATA_DIR, "db.json"), "utf8"), before);
+});
+
+test("uploads go into the signed-in user's account and folder only", async () => {
+  const alice = await makeUser("Alice");
+  const bob = await makeUser("Bob");
+  await signInAs(alice);
+
+  const result = await uploadPhotos({}, formWith(await jpegFile("one.jpg", 3000, 2000), await jpegFile("two.jpg")));
+  assert.deepEqual(result, { ok: "Uploaded 2 photos." });
+
+  const after = (await findUserById(alice.id))!;
+  assert.equal(after.photos.length, 2);
+  assert.equal(new Set(after.photos.map((p) => p.id)).size, 2);
+  assert.deepEqual([after.photos[0].width, after.photos[0].height], [3000, 2000], "in the order they were chosen");
+  for (const photo of after.photos) {
+    assert.match(photo.file, /^[0-9a-f-]{36}\.orig\.jpg$/);
+    assert.ok(photo.createdAt);
+    assert.ok(photo.variants!.length > 0);
+    assert.ok(filesOf(alice.id).includes(photo.file));
+  }
+  assert.equal(filesOf(alice.id).length, after.photos.reduce((n, p) => n + 1 + p.variants!.length, 0));
+
+  assert.deepEqual((await findUserById(bob.id))!.photos, []);
+  assert.deepEqual(filesOf(bob.id), []);
+});
+
+test("a hand-made form can't send the photos to someone else's account", async () => {
+  const alice = await makeUser("Alice");
+  const bob = await makeUser("Bob");
+  await signInAs(alice);
+  const data = formWith(await jpegFile());
+  data.set("userId", bob.id);
+  data.set("id", bob.id);
+  data.set("subdomain", bob.subdomain);
+
+  await uploadPhotos({}, data);
+  assert.equal((await findUserById(alice.id))!.photos.length, 1);
+  assert.equal((await findUserById(bob.id))!.photos.length, 0);
+  assert.deepEqual(filesOf(bob.id), []);
+});
+
+test("new photos are added after the ones already there", async () => {
+  const alice = await makeUser("Alice");
+  await signInAs(alice);
+  await uploadPhotos({}, formWith(await jpegFile("first.jpg", 1000, 700)));
+  await uploadPhotos({}, formWith(await jpegFile("second.jpg", 900, 600)));
+  const photos = (await findUserById(alice.id))!.photos;
+  assert.deepEqual(photos.map((p) => p.width), [1000, 900]);
+});
+
+test("uploading refreshes the public site and the dashboard", async () => {
+  const alice = await makeUser("Alice");
+  await signInAs(alice);
+  revalidated.length = 0;
+  await uploadPhotos({}, formWith(await jpegFile()));
+  assert.ok(revalidated.includes(`tag:site:${alice.subdomain}`), "the cached public site");
+  assert.ok(revalidated.includes("path:/dashboard"));
+});
+
+test("choosing nothing is an error, and empty file slots are ignored", async () => {
+  const alice = await makeUser("Alice");
+  await signInAs(alice);
+  const nothing = { error: "Choose at least one photo." };
+  assert.deepEqual(await uploadPhotos({}, new FormData()), nothing);
+  assert.deepEqual(await uploadPhotos({}, formWith(new File([], "", { type: "application/octet-stream" }))), nothing);
+  const data = new FormData();
+  data.append("photos", "just text, not a file");
+  assert.deepEqual(await uploadPhotos({}, data), nothing);
+  assert.equal((await findUserById(alice.id))!.photos.length, 0);
+});
+
+test("files that aren't usable photos are skipped, and the good ones still upload", async () => {
+  const alice = await makeUser("Alice");
+  await signInAs(alice);
+  const fake = new File(["<html>not a photo</html>"], "fake.jpg", { type: "image/jpeg" });
+  const svg = new File(['<svg xmlns="http://www.w3.org/2000/svg"/>'], "logo.svg", { type: "image/svg+xml" });
+  const huge = new File([new Uint8Array(MAX_PHOTO_BYTES + 1)], "huge.jpg", { type: "image/jpeg" });
+
+  const result = await uploadPhotos({}, formWith(await jpegFile("good.jpg"), fake, svg, huge));
+  assert.deepEqual(result, { ok: "Uploaded 1 photo. Skipped: fake.jpg, logo.svg, huge.jpg." });
+  const photos = (await findUserById(alice.id))!.photos;
+  assert.equal(photos.length, 1);
+  assert.equal(filesOf(alice.id).length, 1 + photos[0].variants!.length, "nothing left over from the skipped files");
+});
+
+test("when nothing can be uploaded it says so and saves nothing", async () => {
+  const alice = await makeUser("Alice");
+  await signInAs(alice);
+  const fake = new File(["<html>"], "fake.jpg", { type: "image/jpeg" });
+  const text = new File(["hello"], "notes.txt", { type: "text/plain" });
+  const result = await uploadPhotos({}, formWith(fake, text));
+  assert.match(result.error!, /couldn't be uploaded/);
+  assert.equal(result.ok, undefined);
+  assert.equal((await findUserById(alice.id))!.photos.length, 0);
+  assert.deepEqual(filesOf(alice.id), []);
+});

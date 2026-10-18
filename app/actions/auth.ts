@@ -142,7 +142,8 @@ export async function resendVerification(): Promise<FormState> {
   if (!userId) redirect("/login");
   if (!rateLimit(`verify:${userId}`, 3, HOUR)) return { error: TOO_MANY };
   const user = await findUserById(userId);
-  if (!user || user.emailVerified) return {};
+  if (!user) redirect("/login");
+  if (user.emailVerified) return {};
   await sendVerificationEmail(user);
   return { ok: `Sent — check ${user.email}.` };
 }

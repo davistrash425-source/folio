@@ -26,7 +26,7 @@ Emails (password reset, email confirmation, new inquiries) are printed to the de
 
 | Command | What it does |
 | --- | --- |
-| `npm test` | Unit tests: every `tests/*.test.ts` file. Each run uses its own empty data folder, never `data/` (see `tests/setup.ts`) |
+| `npm test` | Every `tests/*.test.ts` file: unit tests, plus server actions and routes run in plain Node with Next's cookies, redirects and cache stubbed (`tests/stubs/`, `tests/helpers.ts`). Each run uses its own empty data folder, never `data/` (see `tests/setup.ts`) |
 | `npm run test:smoke` | Checks a running server; set `BASE_URL` to test a deployment |
 | `npm run backfill-photos` | Makes web-sized copies of photos uploaded before resizing existed. Stop the dev server first. |
 

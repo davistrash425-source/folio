@@ -18,8 +18,11 @@ export const IMAGE_TYPES: Record<string, string> = {
   "image/avif": "avif",
 };
 
-export const MIME_BY_EXT = Object.fromEntries(
-  Object.entries(IMAGE_TYPES).map(([mime, ext]) => [ext, mime]),
+// No prototype, so looking up an extension like "constructor" finds nothing
+// instead of one of JavaScript's built-in properties.
+export const MIME_BY_EXT: Record<string, string | undefined> = Object.assign(
+  Object.create(null),
+  Object.fromEntries(Object.entries(IMAGE_TYPES).map(([mime, ext]) => [ext, mime])),
 );
 
 // Originals keep their metadata (it's the photographer's own file, used for

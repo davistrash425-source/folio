@@ -2,10 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { requireUser } from "@/lib/auth";
 import { findUserById, updateUser } from "@/lib/db";
 import { designSchema, type SiteDesign } from "@/lib/design";
 import { draftDesign, publishedDesign } from "@/lib/public-site";
-import { getSessionUserId } from "@/lib/session";
 
 const HISTORY_LIMIT = 20;
 
@@ -16,10 +16,10 @@ export type DesignResult = {
   canUndo?: boolean;
 };
 
+// Also checks the account still exists, so a login cookie left over from a
+// deleted account can't save anything.
 async function currentUserId() {
-  const id = await getSessionUserId();
-  if (!id) redirect("/login");
-  return id;
+  return (await requireUser()).id;
 }
 
 function done(draft: SiteDesign, published: SiteDesign, historyLength: number): DesignResult {

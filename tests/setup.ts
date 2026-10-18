@@ -12,10 +12,12 @@ process.env.FOLIO_DATA_DIR = dir;
 process.on("exit", () => rmSync(dir, { recursive: true, force: true }));
 
 // Lets plain Node load lib/ the way Next does: Next's own modules (which only
-// work inside Next) become the stubs in tests/stubs/, and "./db" finds "./db.ts".
+// work inside Next) become the stubs in tests/stubs/, "@/lib/db" means
+// "<project>/lib/db.ts" as in tsconfig, and "./db" finds "./db.ts".
 const stubs: Record<string, string> = {
   "next/cache": "next-cache.ts",
   "next/headers": "next-headers.ts",
+  "next/navigation": "next-navigation.ts",
   "next/server": "next-server.ts",
 };
 registerHooks({
@@ -23,6 +25,11 @@ registerHooks({
     if (stubs[specifier]) {
       const url = pathToFileURL(path.resolve("tests/stubs", stubs[specifier])).href;
       return { url, shortCircuit: true };
+    }
+    if (specifier.startsWith("@/")) {
+      const base = pathToFileURL(path.resolve(specifier.slice(2))).href;
+      const found = [base, `${base}.ts`, `${base}/index.ts`].find((c) => c.endsWith(".ts") && existsSync(new URL(c)));
+      if (found) return { url: found, shortCircuit: true };
     }
     if (specifier.startsWith(".") && !path.extname(specifier) && context.parentURL) {
       const ts = new URL(`${specifier}.ts`, context.parentURL);

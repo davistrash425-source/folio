@@ -4,20 +4,20 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { randomUUID } from "crypto";
 import { findUserById, findUserBySubdomain, updateUser, type Photo } from "@/lib/db";
+import { requireUser } from "@/lib/auth";
 import { draftDesign, publishedDesign } from "@/lib/public-site";
 import { sendEmail } from "@/lib/email";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
-import { getSessionUserId } from "@/lib/session";
 import { appUrl, isPublished, slugify, validateSlug } from "@/lib/site";
 import { deletePhotoFiles, savePhoto } from "@/lib/uploads";
 
 export type ActionState = { error?: string; ok?: string };
 
-// Every action re-checks the session itself rather than trusting the page.
+// Every action re-checks the session itself rather than trusting the page. It
+// also checks the account still exists: a login cookie outlives a deleted
+// account (it's valid for 30 days), and must not be able to save anything.
 async function currentUserId() {
-  const id = await getSessionUserId();
-  if (!id) redirect("/login");
-  return id;
+  return (await requireUser()).id;
 }
 
 function done(message: string): ActionState {
@@ -73,9 +73,10 @@ export async function reorderPhotos(photoIds: string[]) {
   const userId = await currentUserId();
   await updateUser(userId, (u) => {
     const byId = new Map(u.photos.map((p) => [p.id, p]));
-    const ordered = photoIds.flatMap((id) => byId.get(id) ?? []);
+    const wanted = new Set(photoIds); // a photo listed twice still appears once
+    const ordered = [...wanted].flatMap((id) => byId.get(id) ?? []);
     // Keep anything the client didn't know about (e.g. uploaded in another tab).
-    const rest = u.photos.filter((p) => !photoIds.includes(p.id));
+    const rest = u.photos.filter((p) => !wanted.has(p.id));
     u.photos = [...ordered, ...rest];
   });
   revalidatePath("/dashboard", "layout");
@@ -236,7 +237,9 @@ export async function sendInquiry(
   if (String(formData.get("company") ?? "")) return { ok: "Thanks — your message was sent." };
 
   const str = (key: string, max: number) => String(formData.get(key) ?? "").trim().slice(0, max);
-  const name = str("name", 80);
+  // One line: the name goes in the notification email's subject, where a line
+  // break could add headers (like a hidden Bcc).
+  const name = str("name", 80).replace(/\s+/g, " ");
   const email = str("email", 120);
   const date = str("date", 80);
   const message = str("message", 4000);
