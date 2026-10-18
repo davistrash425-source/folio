@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { deleteAccount, resendVerification, type FormState } from "@/app/actions/auth";
+import { deleteAccount, resendVerification, signOutEverywhereElse, type FormState } from "@/app/actions/auth";
 import { deleteInquiry, setInquiryRead, setPublished } from "@/app/actions/site";
 import { Button, Field, Input, Message, buttonClass, secondaryButtonClass } from "@/app/ui/form";
 import type { Inquiry } from "@/lib/db";
@@ -129,6 +129,7 @@ export function AccountSettings() {
           Download .zip
         </a>
       </div>
+      <SignOutEverywhere />
       <div>
         <h3 className="font-medium text-accent">Delete account</h3>
         <p className="mb-3 text-sm text-ink-soft">Permanently deletes your site, photos and messages. This can’t be undone.</p>
@@ -156,6 +157,31 @@ export function AccountSettings() {
             Delete my account…
           </button>
         )}
+      </div>
+    </div>
+  );
+}
+
+function SignOutEverywhere() {
+  const [state, setState] = useState<FormState>({});
+  const [pending, startTransition] = useTransition();
+  return (
+    <div>
+      <h3 className="font-medium">Signed in somewhere else?</h3>
+      <p className="mb-3 text-sm text-ink-soft">
+        Signs you out on every other phone, tablet and computer. You stay signed in here. Resetting your password does
+        this too.
+      </p>
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() => startTransition(async () => setState(await signOutEverywhereElse()))}
+        className={secondaryButtonClass}
+      >
+        {pending ? "Signing out…" : "Sign out everywhere else"}
+      </button>
+      <div className="mt-2">
+        <Message ok={state.ok} error={state.error} />
       </div>
     </div>
   );

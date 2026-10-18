@@ -1,9 +1,9 @@
 // Who is signed in (requireUser) and deleting an account (deleteAccount).
-import { beforeEach, test } from "node:test";
+import { beforeEach, test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync } from "fs";
 import path from "path";
-import { deleteAccount } from "../app/actions/auth.ts";
+import { deleteAccount, resetPassword, signOutEverywhereElse } from "../app/actions/auth.ts";
 import { GET as exportAccount } from "../app/api/export/route.ts";
 import { requireUser } from "../lib/auth.ts";
 import { findUserById } from "../lib/db.ts";
@@ -110,4 +110,54 @@ test("after an account is deleted, its old login cookie opens nothing", async ()
   cookieJar.set("session", oldCookie); // another browser that was still signed in
   assert.equal(await redirectedTo(requireUser()), "/login");
   assert.equal((await exportAccount()).status, 401);
+});
+
+// ── Signing out other devices ───────────────────────────────────────────
+
+// Two devices signed in a minute apart; returns each one's login cookie.
+async function twoDevices(t: TestContext, user: { id: string }) {
+  t.mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-10-01T12:00:00Z") });
+  await signInAs(user);
+  const laptop = cookieJar.get("session")!;
+  t.mock.timers.tick(60_000);
+  await signInAs(user);
+  const phone = cookieJar.get("session")!;
+  t.mock.timers.tick(60_000);
+  return { laptop, phone };
+}
+
+const signedInWith = async (cookie: string) => {
+  cookieJar.set("session", cookie);
+  return (await redirectedTo(requireUser())) === null;
+};
+
+test("signing out everywhere else ends other logins but keeps this one", async (t) => {
+  const alice = await makeUser("Alice");
+  const { laptop, phone } = await twoDevices(t, alice);
+
+  cookieJar.set("session", phone);
+  assert.deepEqual(await signOutEverywhereElse(), { ok: "Signed out everywhere else." });
+  const phoneNow = cookieJar.get("session")!; // the phone was given a fresh cookie
+  assert.equal(await signedInWith(phoneNow), true, "this device stays signed in");
+  assert.equal(await signedInWith(phone), false, "its old cookie is over too");
+  assert.equal(await signedInWith(laptop), false, "the other device is signed out");
+  cookieJar.set("session", laptop);
+  assert.equal((await exportAccount()).status, 401, "and can't download the account");
+});
+
+test("resetting the password signs out everyone who was signed in", async (t) => {
+  const alice = await makeUser("Alice");
+  const { laptop } = await twoDevices(t, alice);
+  signOut(); // the reset happens from the login page
+  const token = await createToken(alice.id, "reset", 60 * 60_000);
+  assert.equal(await redirectedTo(resetPassword({}, formOf({ token, password: "a new password" }))), "/dashboard");
+  assert.equal(await signedInWith(cookieJar.get("session")!), true, "the person who reset it is signed in");
+  assert.equal(await signedInWith(laptop), false, "whoever was signed in before is not");
+});
+
+test("accounts that never signed out everywhere keep their logins", async (t) => {
+  const alice = await makeUser("Alice");
+  const { laptop, phone } = await twoDevices(t, alice);
+  assert.equal(await signedInWith(laptop), true);
+  assert.equal(await signedInWith(phone), true);
 });

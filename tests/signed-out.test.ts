@@ -36,6 +36,7 @@ const needSignIn: Record<string, () => Promise<unknown>> = {
   undoDesign: () => designActions.undoDesign(),
   discardDraftDesign: () => designActions.discardDraftDesign(),
   resendVerification: () => authActions.resendVerification(),
+  signOutEverywhereElse: () => authActions.signOutEverywhereElse(),
   deleteAccount: () => authActions.deleteAccount({}, formOf({ password: "anything" })),
 };
 

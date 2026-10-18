@@ -1,13 +1,11 @@
-import { findUserById } from "@/lib/db";
-import { getSessionUserId } from "@/lib/session";
+import { currentUser } from "@/lib/auth";
 import { storage } from "@/lib/uploads";
 import { createZip } from "@/lib/zip";
 
 // Downloads everything in the account: profile, albums, inquiries and the
 // original photo files.
 export async function GET() {
-  const userId = await getSessionUserId();
-  const user = userId ? await findUserById(userId) : null;
+  const user = await currentUser();
   if (!user) return new Response("Not signed in", { status: 401 });
 
   const account: Partial<typeof user> = { ...user };

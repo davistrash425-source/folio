@@ -61,7 +61,9 @@ export async function createSession(userId: string) {
   });
 }
 
-export async function getSessionUserId(): Promise<string | null> {
+// The signed-in user's id and when their login cookie was issued, or null.
+// This only checks the cookie; lib/auth.ts also checks the account.
+export async function getSession(): Promise<{ userId: string; issuedAt: number } | null> {
   await connection(); // the expiry check depends on the current time
   const raw = (await cookies()).get(COOKIE_NAME)?.value;
   if (!raw) return null;
@@ -73,7 +75,11 @@ export async function getSessionUserId(): Promise<string | null> {
     return null;
   }
   if (Number(expires) < Date.now()) return null;
-  return userId;
+  return { userId, issuedAt: Number(expires) - MAX_AGE * 1000 };
+}
+
+export async function getSessionUserId(): Promise<string | null> {
+  return (await getSession())?.userId ?? null;
 }
 
 export async function deleteSession() {

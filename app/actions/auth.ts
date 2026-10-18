@@ -1,13 +1,13 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createUser, deleteUser, findUserByEmail, findUserById, findUserBySubdomain, updateUser } from "@/lib/db";
+import { requireUser } from "@/lib/auth";
+import { createUser, deleteUser, findUserByEmail, findUserBySubdomain, updateUser } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import {
   createSession,
   deleteSession,
-  getSessionUserId,
   hashPassword,
   verifyPassword,
 } from "@/lib/session";
@@ -126,10 +126,12 @@ export async function resetPassword(_prev: FormState, formData: FormData): Promi
   const userId = await redeemToken(token, "reset");
   if (!userId) return { error: "This reset link has expired or was already used. Request a new one." };
   const passwordHash = await hashPassword(password);
-  // Getting the link proves they own the address.
+  // Getting the link proves they own the address. Anyone else signed in to
+  // the account (perhaps whoever knew the old password) is signed out.
   await updateUser(userId, (u) => {
     u.passwordHash = passwordHash;
     u.emailVerified = true;
+    u.sessionsValidFrom = Date.now();
   });
   await createSession(userId);
   redirect("/dashboard");
@@ -138,11 +140,8 @@ export async function resetPassword(_prev: FormState, formData: FormData): Promi
 // ── Email verification ──────────────────────────────────────────────────
 
 export async function resendVerification(): Promise<FormState> {
-  const userId = await getSessionUserId();
-  if (!userId) redirect("/login");
-  if (!(await rateLimit(`verify:${userId}`, 3, HOUR))) return { error: TOO_MANY };
-  const user = await findUserById(userId);
-  if (!user) redirect("/login");
+  const user = await requireUser();
+  if (!(await rateLimit(`verify:${user.id}`, 3, HOUR))) return { error: TOO_MANY };
   if (user.emailVerified) return {};
   await sendVerificationEmail(user);
   return { ok: `Sent — check ${user.email}.` };
@@ -150,13 +149,23 @@ export async function resendVerification(): Promise<FormState> {
 
 // ── Account deletion ────────────────────────────────────────────────────
 
+// ── Signing out other devices ───────────────────────────────────────────
+
+// Ends every login to this account except this one: on a lost phone, a
+// shared computer, anywhere.
+export async function signOutEverywhereElse(): Promise<FormState> {
+  const user = await requireUser();
+  await updateUser(user.id, (u) => {
+    u.sessionsValidFrom = Date.now();
+  });
+  await createSession(user.id);
+  return { ok: "Signed out everywhere else." };
+}
+
 export async function deleteAccount(_prev: FormState, formData: FormData): Promise<FormState> {
-  const userId = await getSessionUserId();
-  if (!userId) redirect("/login");
-  const user = await findUserById(userId);
-  if (!user) redirect("/login");
+  const user = await requireUser();
   const password = String(formData.get("password") ?? "");
-  if (!(await rateLimit(`delete:${userId}`, 5, 15 * 60 * 1000))) return { error: TOO_MANY };
+  if (!(await rateLimit(`delete:${user.id}`, 5, 15 * 60 * 1000))) return { error: TOO_MANY };
   if (!(await verifyPassword(password, user.passwordHash))) {
     return { error: "That password isn't right." };
   }

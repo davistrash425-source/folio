@@ -82,6 +82,9 @@ export type User = {
   design?: SiteDesign;
   draftDesign?: SiteDesign;
   designHistory?: SiteDesign[]; // earlier saved drafts, newest last, for undo
+  // Login cookies issued before this time (ms) no longer work. Set by a
+  // password reset and by "sign out everywhere".
+  sessionsValidFrom?: number;
 };
 
 // One-time links for password resets and email verification. Only a hash of
