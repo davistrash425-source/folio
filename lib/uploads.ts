@@ -1,10 +1,12 @@
-// Photo storage. Everything that touches the disk goes through `storage`
-// below, so moving to S3 / R2 / Vercel Blob means replacing that one object
-// (and photoUrl) rather than changing the rest of the app.
+// Photo storage. Everything that reads or writes photo files goes through
+// `storage` below: Cloudflare R2 when the R2_* settings are present (in
+// production), otherwise the local disk (development and tests).
 import { promises as fs } from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
-import { DATA_DIR, type Photo } from "./db";
+import { AwsClient } from "aws4fetch";
+import type { Photo } from "./db";
+import { DATA_DIR } from "./pg";
 import { processImage, variantName } from "./images";
 
 export const UPLOAD_DIR = path.join(DATA_DIR, "uploads");
@@ -44,24 +46,142 @@ function segment(name: string) {
 const userDir = (userId: string) => path.join(UPLOAD_DIR, segment(userId));
 const local = (userId: string, file: string) => path.join(userDir(userId), segment(file));
 
-export const storage = {
-  async put(userId: string, file: string, data: Buffer) {
+export type Storage = {
+  put(userId: string, file: string, data: Buffer): Promise<void>;
+  get(userId: string, file: string): Promise<Buffer>; // throws if missing
+  remove(userId: string, file: string): Promise<void>;
+  removeAll(userId: string): Promise<void>;
+};
+
+// Local disk, under <DATA_DIR>/uploads/<userId>/. Served by app/api/uploads.
+const diskStorage: Storage = {
+  async put(userId, file, data) {
     await fs.mkdir(userDir(userId), { recursive: true });
     await fs.writeFile(local(userId, file), data);
   },
-  async get(userId: string, file: string) {
+  async get(userId, file) {
     return fs.readFile(local(userId, file));
   },
-  async remove(userId: string, file: string) {
+  async remove(userId, file) {
     await fs.rm(local(userId, file), { force: true });
   },
-  async removeAll(userId: string) {
+  async removeAll(userId) {
     await fs.rm(userDir(userId), { recursive: true, force: true });
   },
 };
 
+export type R2Config = {
+  accountId: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  publicBucket: string; // web copies; readable by anyone at publicUrl
+  privateBucket: string; // originals; never public
+  publicUrl: string; // the public bucket's address, e.g. https://photos.example.com
+};
+
+export function r2ConfigFrom(env: Record<string, string | undefined>): R2Config | null {
+  const config = {
+    accountId: env.R2_ACCOUNT_ID,
+    accessKeyId: env.R2_ACCESS_KEY_ID,
+    secretAccessKey: env.R2_SECRET_ACCESS_KEY,
+    publicBucket: env.R2_PUBLIC_BUCKET,
+    privateBucket: env.R2_PRIVATE_BUCKET,
+    publicUrl: env.R2_PUBLIC_URL?.replace(/\/+$/, ""),
+  };
+  const missing = Object.entries(config).filter(([, v]) => !v);
+  if (missing.length === Object.keys(config).length) return null; // R2 not set up: use the disk
+  if (missing.length) {
+    throw new Error(`R2 is partly configured; missing ${missing.map(([k]) => k).join(", ")}`);
+  }
+  return config as R2Config;
+}
+
+// Cloudflare R2, through its S3-compatible API. Keys are "<userId>/<file>".
+// Originals go to the private bucket, everything else to the public one, so
+// an original can't be fetched even by guessing its address.
+export function r2Storage(config: R2Config): Storage {
+  const client = new AwsClient({
+    accessKeyId: config.accessKeyId,
+    secretAccessKey: config.secretAccessKey,
+    service: "s3",
+    region: "auto",
+    retries: 2, // R2 errors are retried, but not for long: someone is waiting
+  });
+  const endpoint = `https://${config.accountId}.r2.cloudflarestorage.com`;
+  const bucketFor = (file: string) => (isPrivateFile(file) ? config.privateBucket : config.publicBucket);
+  const objectUrl = (userId: string, file: string) =>
+    `${endpoint}/${bucketFor(file)}/${encodeURIComponent(segment(userId))}/${encodeURIComponent(segment(file))}`;
+
+  async function send(url: string, init: RequestInit = {}) {
+    const res = await client.fetch(url, init);
+    if (!res.ok && !(init.method === "DELETE" && res.status === 404)) {
+      throw new Error(`R2 ${init.method ?? "GET"} failed: ${res.status}`);
+    }
+    return res;
+  }
+
+  // Every key in `bucket` under the user's folder, following continuation pages.
+  async function list(bucket: string, userId: string) {
+    const keys: string[] = [];
+    let token: string | undefined;
+    do {
+      const query = new URLSearchParams({ "list-type": "2", prefix: `${segment(userId)}/` });
+      if (token) query.set("continuation-token", token);
+      const xml = await (await send(`${endpoint}/${bucket}?${query}`)).text();
+      for (const [, key] of xml.matchAll(/<Key>([^<]*)<\/Key>/g)) keys.push(unescapeXml(key));
+      token = /<IsTruncated>true<\/IsTruncated>/.test(xml)
+        ? unescapeXml(/<NextContinuationToken>([^<]*)</.exec(xml)?.[1] ?? "")
+        : undefined;
+    } while (token);
+    return keys;
+  }
+
+  return {
+    async put(userId, file, data) {
+      const ext = path.extname(file).slice(1).toLowerCase();
+      await send(objectUrl(userId, file), {
+        method: "PUT",
+        body: new Uint8Array(data),
+        headers: {
+          "Content-Type": MIME_BY_EXT[ext] ?? "application/octet-stream",
+          // File names are random and never reused, so browsers and the CDN can keep them.
+          ...(isPrivateFile(file) ? {} : { "Cache-Control": "public, max-age=31536000, immutable" }),
+        },
+      });
+    },
+    async get(userId, file) {
+      return Buffer.from(await (await send(objectUrl(userId, file))).arrayBuffer());
+    },
+    async remove(userId, file) {
+      await send(objectUrl(userId, file), { method: "DELETE" });
+    },
+    async removeAll(userId) {
+      for (const bucket of [config.publicBucket, config.privateBucket]) {
+        const keys = await list(bucket, userId);
+        for (let i = 0; i < keys.length; i += 10) {
+          await Promise.all(
+            keys
+              .slice(i, i + 10)
+              .map((key) =>
+                send(`${endpoint}/${bucket}/${key.split("/").map(encodeURIComponent).join("/")}`, { method: "DELETE" }),
+              ),
+          );
+        }
+      }
+    },
+  };
+}
+
+const unescapeXml = (s: string) =>
+  s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&");
+
+const r2 = r2ConfigFrom(process.env);
+
+// Where photos live: R2 when its settings are present, otherwise the disk.
+export const storage: Storage = r2 ? r2Storage(r2) : diskStorage;
+
 export function photoUrl(userId: string, file: string) {
-  return `/api/uploads/${userId}/${file}`;
+  return r2 ? `${r2.publicUrl}/${userId}/${file}` : `/api/uploads/${userId}/${file}`;
 }
 
 function baseName(file: string) {
