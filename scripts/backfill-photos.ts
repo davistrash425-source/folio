@@ -8,7 +8,7 @@ import { processImage, variantName } from "../lib/images.ts";
 type Photo = { file: string; width?: number; height?: number; variants?: number[] };
 type Db = { users: { id: string; photos: Photo[] }[] };
 
-const dataDir = path.join(process.cwd(), "data");
+const dataDir = path.resolve(process.env.FOLIO_DATA_DIR ?? "data");
 const dbFile = path.join(dataDir, "db.json");
 const db = JSON.parse(await fs.readFile(dbFile, "utf8")) as Db;
 let done = 0;

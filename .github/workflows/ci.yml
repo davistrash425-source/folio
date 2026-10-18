@@ -1,0 +1,36 @@
+# Runs on every push and pull request: lint, type check, unit tests, a
+# production build, then the smoke test against that build.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Throwaway values: CI never touches real accounts or sessions.
+      SESSION_SECRET: ci-only-not-a-real-secret
+      FOLIO_DATA_DIR: ci-data
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm test
+      - run: npm run build
+      - name: Smoke test the production build
+        run: |
+          npm start -- --port 3000 > server.log 2>&1 &
+          for i in $(seq 60); do curl -sf -o /dev/null http://localhost:3000/login && break; sleep 1; done
+          npm run test:smoke
+      - name: Show server log if something failed
+        if: failure()
+        run: cat server.log || true

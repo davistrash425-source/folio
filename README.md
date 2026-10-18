@@ -26,9 +26,11 @@ Emails (password reset, email confirmation, new inquiries) are printed to the de
 
 | Command | What it does |
 | --- | --- |
-| `npm test` | Unit tests (image processing, slugs, zip export) |
+| `npm test` | Unit tests: every `tests/*.test.ts` file. Each run uses its own empty data folder, never `data/` (see `tests/setup.ts`) |
 | `npm run test:smoke` | Checks a running server; set `BASE_URL` to test a deployment |
 | `npm run backfill-photos` | Makes web-sized copies of photos uploaded before resizing existed. Stop the dev server first. |
+
+GitHub Actions (`.github/workflows/ci.yml`) runs lint, type checks, `npm test`, a production build and `npm run test:smoke` on every push to `main` and every pull request.
 
 ## How it fits together
 
@@ -58,6 +60,7 @@ Emails (password reset, email confirmation, new inquiries) are printed to the de
 | --- | --- | --- |
 | `NEXT_PUBLIC_ROOT_DOMAIN` | Domain sites live under, e.g. `yourapp.com` | `localhost:3000` |
 | `SESSION_SECRET` | Signs login cookies. **Required in production.** | dev-only value |
+| `FOLIO_DATA_DIR` | Folder for the database and photos | `data` |
 
 ## How site design works
 

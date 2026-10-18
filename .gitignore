@@ -42,3 +42,6 @@ next-env.d.ts
 
 # local database and uploaded photos
 /data
+
+# CI data folder (FOLIO_DATA_DIR)
+/ci-data

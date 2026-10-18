@@ -90,7 +90,9 @@ export type Token = {
 
 type Data = { users: User[]; tokens?: Token[] };
 
-export const DATA_DIR = path.join(process.cwd(), "data");
+// FOLIO_DATA_DIR points tests (and anything else) at a separate folder so
+// they never touch your real accounts and photos.
+export const DATA_DIR = path.resolve(process.env.FOLIO_DATA_DIR ?? "data");
 const DB_FILE = path.join(DATA_DIR, "db.json");
 
 async function read(): Promise<Data> {
