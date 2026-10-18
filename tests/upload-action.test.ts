@@ -1,9 +1,10 @@
 // The photo upload form (the uploadPhotos server action).
 import { beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
-import { uploadPhotos } from "../app/actions/site.ts";
-import { deleteUser, findUserById } from "../lib/db.ts";
-import { MAX_PHOTO_BYTES } from "../lib/uploads.ts";
+import { finishPhotoUpload, startPhotoUpload, uploadPhotos } from "../app/actions/site.ts";
+import { randomUUID } from "crypto";
+import { deleteUser, findUserById, updateUser } from "../lib/db.ts";
+import { MAX_PHOTOS, MAX_PHOTO_BYTES, PHOTO_LIMIT_MESSAGE, storage } from "../lib/uploads.ts";
 import { databaseText, filesOf, formWith, jpegFile, makeUser, redirectedTo, resetRequest, signInAs, signOut } from "./helpers.ts";
 import { revalidated } from "./stubs/next-cache.ts";
 
@@ -125,4 +126,28 @@ test("an account deleted during the upload is sent to log in and leaves no files
   });
   assert.equal(await redirectedTo(uploadPhotos({}, formWith(slow))), "/login");
   assert.deepEqual(filesOf(alice.id), []);
+});
+
+test("an account can't hold more than the photo limit, and nothing over it is kept", async () => {
+  const alice = await makeUser("Alice");
+  await signInAs(alice);
+  // Fill the account up to two short of the limit, without real files.
+  await updateUser(alice.id, (u) => {
+    u.photos = Array.from({ length: MAX_PHOTOS - 2 }, (_, i) => ({ id: `p${i}`, file: `p${i}.orig.jpg`, createdAt: "" }));
+  });
+  const result = await uploadPhotos({}, formWith(await jpegFile("a.jpg"), await jpegFile("b.jpg"), await jpegFile("c.jpg")));
+  assert.match(result.ok!, /^Uploaded 2 photos\. 1 more didn't fit: You've reached the limit of 2,000 photos/);
+  assert.equal((await findUserById(alice.id))!.photos.length, MAX_PHOTOS);
+  const kept = (await findUserById(alice.id))!.photos.slice(-2);
+  assert.equal(filesOf(alice.id).length, kept.reduce((n, p) => n + 1 + p.variants!.length, 0), "the extra photo's files are gone");
+
+  assert.deepEqual(await uploadPhotos({}, formWith(await jpegFile())), { error: PHOTO_LIMIT_MESSAGE });
+  assert.deepEqual(await startPhotoUpload("image/jpeg", 1000), { error: PHOTO_LIMIT_MESSAGE }, "no upload address either");
+
+  // A direct upload that arrives after the account filled up is refused and deleted.
+  const file = `${randomUUID()}.orig.jpg`;
+  const jpeg = Buffer.from(await (await jpegFile()).arrayBuffer());
+  await storage.put(alice.id, file, jpeg);
+  assert.deepEqual(await finishPhotoUpload(file), { error: PHOTO_LIMIT_MESSAGE });
+  assert.equal(filesOf(alice.id).some((f) => f.startsWith(file.split(".")[0])), false);
 });

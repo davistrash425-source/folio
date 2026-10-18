@@ -9,7 +9,15 @@ import { draftDesign, publishedDesign } from "@/lib/public-site";
 import { sendEmail } from "@/lib/email";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { appUrl, isPublished, slugify, validateSlug } from "@/lib/site";
-import { deletePhotoFiles, directUpload, finishDirectUpload, savePhoto, storage } from "@/lib/uploads";
+import {
+  MAX_PHOTOS,
+  PHOTO_LIMIT_MESSAGE,
+  deletePhotoFiles,
+  directUpload,
+  finishDirectUpload,
+  savePhoto,
+  storage,
+} from "@/lib/uploads";
 
 export type ActionState = { error?: string; ok?: string };
 
@@ -26,11 +34,13 @@ function done(message: string): ActionState {
 }
 
 export async function uploadPhotos(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const userId = await currentUserId();
+  const user = await requireUser();
+  const userId = user.id;
   const files = formData
     .getAll("photos")
     .filter((f): f is File => f instanceof File && f.size > 0);
   if (files.length === 0) return { error: "Choose at least one photo." };
+  if (user.photos.length >= MAX_PHOTOS) return { error: PHOTO_LIMIT_MESSAGE };
 
   const saved: Awaited<ReturnType<typeof savePhoto>>[] = [];
   const skipped: string[] = [];
@@ -41,11 +51,15 @@ export async function uploadPhotos(_prev: ActionState, formData: FormData): Prom
       skipped.push(file.name);
     }
   }
+  let overLimit: typeof saved = [];
   if (saved.length) {
     try {
       await updateUser(userId, (u) => {
         const now = new Date().toISOString();
-        u.photos.push(...saved.map((photo) => ({ ...photo, createdAt: now })));
+        // Checked again here, as another tab may have filled the space meanwhile.
+        const room = Math.max(0, MAX_PHOTOS - u.photos.length);
+        overLimit = saved.slice(room);
+        u.photos.push(...saved.slice(0, room).map((photo) => ({ ...photo, createdAt: now })));
       });
     } catch (err) {
       // The account was deleted while the files were uploading (say, from
@@ -55,12 +69,16 @@ export async function uploadPhotos(_prev: ActionState, formData: FormData): Prom
       redirect("/login");
     }
   }
+  await Promise.all(overLimit.map((photo) => deletePhotoFiles(userId, { ...photo, createdAt: "" })));
+  if (overLimit.length === saved.length && saved.length) return { error: PHOTO_LIMIT_MESSAGE };
   if (skipped.length && !saved.length) {
     return { error: "Those files couldn't be uploaded. Use JPG, PNG, WebP, GIF or AVIF under 20 MB." };
   }
+  const added = saved.length - overLimit.length;
   return done(
-    `Uploaded ${saved.length} photo${saved.length === 1 ? "" : "s"}.` +
-      (skipped.length ? ` Skipped: ${skipped.join(", ")}.` : ""),
+    `Uploaded ${added} photo${added === 1 ? "" : "s"}.` +
+      (skipped.length ? ` Skipped: ${skipped.join(", ")}.` : "") +
+      (overLimit.length ? ` ${overLimit.length} more didn't fit: ${PHOTO_LIMIT_MESSAGE}` : ""),
   );
 }
 
@@ -73,7 +91,9 @@ export async function startPhotoUpload(
   contentType: string,
   size: number,
 ): Promise<{ error?: string; direct?: { file: string; url: string } }> {
-  const userId = await currentUserId();
+  const user = await requireUser();
+  const userId = user.id;
+  if (user.photos.length >= MAX_PHOTOS) return { error: PHOTO_LIMIT_MESSAGE };
   try {
     const direct = await directUpload(userId, contentType, size);
     return direct ? { direct } : {};
@@ -93,15 +113,21 @@ export async function finishPhotoUpload(file: string): Promise<ActionState> {
   } catch {
     return { error: "couldn't be read as an image" };
   }
+  let full = false;
   try {
     await updateUser(userId, (u) => {
       if (u.photos.some((p) => p.id === photo.id)) return; // finished twice
-      u.photos.push({ ...photo, createdAt: new Date().toISOString() });
+      full = u.photos.length >= MAX_PHOTOS;
+      if (!full) u.photos.push({ ...photo, createdAt: new Date().toISOString() });
     });
   } catch (err) {
     if ((err as Error).message !== "USER_NOT_FOUND") throw err;
     await storage.removeAll(userId);
     redirect("/login");
+  }
+  if (full) {
+    await deletePhotoFiles(userId, { ...photo, createdAt: "" });
+    return { error: PHOTO_LIMIT_MESSAGE };
   }
   return done("Uploaded 1 photo.");
 }
