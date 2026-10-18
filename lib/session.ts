@@ -16,6 +16,7 @@ const scrypt = promisify(scryptCb) as (
 ) => Promise<Buffer>;
 
 const COOKIE_NAME = "session";
+const KEY_LENGTH = 64;
 const MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
 function secret() {
@@ -33,7 +34,7 @@ function sign(value: string) {
 
 export async function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
-  const hash = await scrypt(password, salt, 64);
+  const hash = await scrypt(password, salt, KEY_LENGTH);
   return `${salt}:${hash.toString("hex")}`;
 }
 
@@ -41,6 +42,9 @@ export async function verifyPassword(password: string, stored: string) {
   const [salt, hash] = stored.split(":");
   if (!salt || !hash) return false;
   const expected = Buffer.from(hash, "hex");
+  // A damaged hash decodes short (even to nothing, which would match any
+  // password), so only a full-length one counts.
+  if (expected.length !== KEY_LENGTH) return false;
   const actual = await scrypt(password, salt, expected.length);
   return timingSafeEqual(expected, actual);
 }

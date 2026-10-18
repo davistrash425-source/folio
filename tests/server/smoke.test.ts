@@ -38,7 +38,8 @@ test("unknown subdomain shows the not-found page", async () => {
   assert.match(res.body, /doesn.t exist yet/);
 });
 
-test("original uploads are never served", async () => {
-  const res = await get("/api/uploads/someone/abc.orig.jpg");
-  assert.equal(res.status, 404);
+test("original uploads are never served, however the name is written", async () => {
+  for (const file of ["abc.orig.jpg", "abc.ORIG.jpg", "abc.Orig.png"]) {
+    assert.equal((await get(`/api/uploads/someone/${file}`)).status, 404, file);
+  }
 });

@@ -24,16 +24,26 @@ export const MIME_BY_EXT = Object.fromEntries(
 
 // Originals keep their metadata (it's the photographer's own file, used for
 // export), so they are never served publicly.
+// Lowercased because Windows and macOS disks ignore case, so "x.ORIG.jpg"
+// would otherwise open "x.orig.jpg".
 export function isPrivateFile(file: string) {
-  return file.includes(".orig.");
+  return file.toLowerCase().includes(".orig.");
 }
 
-const local = (userId: string, file: string) =>
-  path.join(UPLOAD_DIR, path.basename(userId), path.basename(file));
+// One folder or file name, never ".." or "." (which would point at the
+// uploads folder or above it).
+function segment(name: string) {
+  const base = path.basename(name);
+  if (!base || base === "." || base === "..") throw new Error("BAD_PATH");
+  return base;
+}
+
+const userDir = (userId: string) => path.join(UPLOAD_DIR, segment(userId));
+const local = (userId: string, file: string) => path.join(userDir(userId), segment(file));
 
 export const storage = {
   async put(userId: string, file: string, data: Buffer) {
-    await fs.mkdir(path.join(UPLOAD_DIR, path.basename(userId)), { recursive: true });
+    await fs.mkdir(userDir(userId), { recursive: true });
     await fs.writeFile(local(userId, file), data);
   },
   async get(userId: string, file: string) {
@@ -43,7 +53,7 @@ export const storage = {
     await fs.rm(local(userId, file), { force: true });
   },
   async removeAll(userId: string) {
-    await fs.rm(path.join(UPLOAD_DIR, path.basename(userId)), { recursive: true, force: true });
+    await fs.rm(userDir(userId), { recursive: true, force: true });
   },
 };
 
