@@ -1,8 +1,9 @@
+import Image from "next/image";
 import type { ReactNode } from "react";
 
-// Small drawn black-and-white "photographs" for the landing page. Folio has no
-// sample photos of its own, so these stand in for a photographer's work: flat
-// shapes in the paper and ink tones of the app, with film grain from the `grain` class in globals.css.
+// Small drawn black-and-white "photographs" for the landing page's theme previews,
+// standing in for a photographer's work: flat shapes in the paper and ink tones
+// of the app, with film grain from the `grain` class in globals.css.
 // Every <Scene> uses the gradients in <SceneDefs>, rendered once per page.
 
 const INK = "#1c1a16";
@@ -186,12 +187,13 @@ function GreasePencilLoop() {
   );
 }
 
-const roll: SceneName[][] = [
-  ["ridge", "shore", "window", "dunes"],
-  ["portrait", "tree", "road", "moon"],
-  ["arches", "pier", "stairs", "bloom"],
+// Real photographs, resized to 600x400 WebP (no EXIF/GPS) in public/home/.
+const roll = [
+  ["arcade", "mountains", "stop-sign", "car"],
+  ["crossing", "yellow-wall", "pagoda", "reflection"],
+  ["cafe", "beach", "alley", "orange-house"],
 ];
-const SELECTED = "tree";
+const SELECTED = "yellow-wall";
 
 // The landing page's hero: one roll printed as a contact sheet.
 export function ContactSheet() {
@@ -210,7 +212,7 @@ export function ContactSheet() {
                 return (
                   <div key={name} className="relative">
                     <div className="develop aspect-[3/2] overflow-hidden" style={{ animationDelay: `${150 + n * 110}ms` }}>
-                      <Scene name={name} />
+                      <Image src={`/home/${name}.webp`} alt="" width={600} height={400} sizes="(min-width: 1024px) 140px, 25vw" className="size-full object-cover" />
                     </div>
                     <span className="absolute -top-3 left-0.5 font-film-edge text-[8px] leading-3 text-[#c08a3e] sm:text-[9px]">
                       ▸{n} {n}A
