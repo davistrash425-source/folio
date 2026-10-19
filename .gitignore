@@ -21,6 +21,7 @@
 /build
 
 # misc
+/folio-homepage-photos/
 .DS_Store
 *.pem
 

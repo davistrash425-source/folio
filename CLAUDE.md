@@ -115,3 +115,4 @@ Each storage piece swaps one module whose interface the rest of the app already 
 - Server actions return `{ error?, ok? }` for the form to show, and use `redirect()` for navigation.
 - Tests are named as plain-English statements of behavior. Many check that one user can't reach another user's data (`tests/ownership.test.ts`, `tests/signed-out.test.ts`); add to those when adding an action.
 - `npm run backfill-photos` and `npm run import-json` (copies an old `data/db.json` into Postgres) are one-time migration scripts in `scripts/`.
+- The landing page's sample photos come from the owner's git-ignored `folio-homepage-photos/` folder: `npm run homepage-photos` writes the web copies to `public/home/` and the order to `app/ui/home-photos.json` (commit both).

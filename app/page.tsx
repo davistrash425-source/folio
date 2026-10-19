@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { buttonClass, secondaryButtonClass } from "@/app/ui/form";
-import { ContactSheet, Scene, SceneDefs, type SceneName } from "@/app/ui/frames";
+import { ContactSheet, homePhoto, Photo } from "@/app/ui/frames";
 import { archivo, bebas, cormorant, shareTech, specialElite } from "@/app/sites/[subdomain]/themes/fonts";
 import { ROOT_DOMAIN } from "@/lib/site";
 
@@ -14,13 +14,15 @@ const steps = [
   ["Publish", "Preview on desktop and phone, then put it live."],
 ];
 
+// The theme previews use the photos after the hero's 12 (the same ones again until there are more).
+const preview = (i: number) => homePhoto(12 + i);
+
 // The theme previews below borrow each theme's own typefaces.
 const fontVars = [archivo, bebas, cormorant, shareTech, specialElite].map((f) => f.variable).join(" ");
 
 export default function Home() {
   return (
     <div className={`flex flex-1 flex-col overflow-x-clip ${fontVars}`}>
-      <SceneDefs />
       <header className="border-b border-ink">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
           <span className="font-display text-2xl italic">Folio</span>
@@ -92,8 +94,8 @@ export default function Home() {
                   <span>Work · About · Contact</span>
                 </div>
                 <div className="mt-3 grid flex-1 grid-cols-3 gap-1">
-                  {(["ridge", "portrait", "pier", "arches", "dunes", "moon"] as SceneName[]).map((s) => (
-                    <Scene key={s} name={s} />
+                  {[0, 1, 2, 3, 4, 5].map((i) => (
+                    <Photo key={i} name={preview(i)} sizes="100px" />
                   ))}
                 </div>
               </div>
@@ -101,20 +103,20 @@ export default function Home() {
             <ThemeCard name="Exhibition" note="One print at a time, on a gallery wall.">
               <div className="flex h-full flex-col items-center justify-center bg-[#2c2a27] p-4">
                 <div className="w-3/5 bg-[#f4f1ea] p-1.5 shadow-[0_8px_16px_rgba(0,0,0,0.5)]">
-                  <Scene name="window" className="aspect-[3/2]" />
+                  <Photo name={preview(6)} sizes="200px" className="aspect-[3/2]" />
                 </div>
-                <p className="mt-3 font-exh-serif text-[11px] italic text-[#cfc8bb]">Evening, Rue Oberkampf</p>
+                <p className="mt-3 font-exh-serif text-[11px] italic text-[#cfc8bb]">Untitled, 2025</p>
               </div>
             </ThemeCard>
             <ThemeCard name="Index" note="A typeset list; pictures on hover.">
               <div className="relative h-full bg-[#f2f0eb] p-3 font-idx text-[8px] text-[#222]">
                 {[
-                  ["01", "Ridge at dusk", "Utah"],
-                  ["02", "Shoreline", "Brittany"],
-                  ["03", "Lone tree", "Palouse"],
-                  ["04", "Arcade", "Bologna"],
-                  ["05", "Wires", "Osaka"],
-                  ["06", "Stairs", "Lisbon"],
+                  ["01", "Crossing", "2025"],
+                  ["02", "Reflection", "2025"],
+                  ["03", "Into the light", "2025"],
+                  ["04", "Midair", "2025"],
+                  ["05", "Stop", "2025"],
+                  ["06", "Window boxes", "2025"],
                 ].map(([n, title, place]) => (
                   <div key={n} className={`flex gap-2 border-b border-[#ccc] py-[5px] ${n === "03" ? "font-extrabold" : ""}`}>
                     <span className="text-[#999]">{n}</span>
@@ -123,7 +125,7 @@ export default function Home() {
                   </div>
                 ))}
                 <div className="absolute right-3 bottom-3 w-2/5 rotate-2 shadow-md">
-                  <Scene name="tree" className="aspect-[3/2]" />
+                  <Photo name={preview(7)} sizes="150px" className="aspect-[3/2]" />
                 </div>
               </div>
             </ThemeCard>
@@ -131,8 +133,8 @@ export default function Home() {
               <div className="flex h-full flex-col justify-center bg-[#0f0e0c] px-3">
                 <p className="font-film-title text-2xl leading-none text-[#efe6d4]">ROLL ONE</p>
                 <div className="mt-2 -mr-6 flex gap-1 border-y-[6px] border-dashed border-[#2a2622] py-1">
-                  {(["road", "shore", "stairs", "bloom"] as SceneName[]).map((s) => (
-                    <Scene key={s} name={s} className="aspect-[3/2] w-[38%] shrink-0" />
+                  {[8, 9, 10, 11].map((i) => (
+                    <Photo key={i} name={preview(i)} sizes="120px" className="aspect-[3/2] w-[38%] shrink-0" />
                   ))}
                 </div>
                 <p className="mt-2 font-film-edge text-[7px] text-[#c08a3e]">FOLIO 400 ▸ 14 ▸ 15 ▸ 16</p>
