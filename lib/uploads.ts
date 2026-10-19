@@ -7,7 +7,7 @@ import { randomUUID } from "crypto";
 import { AwsClient } from "aws4fetch";
 import type { Photo } from "./db";
 import { DATA_DIR } from "./pg";
-import { processImage, variantName } from "./images";
+import { processImage, variantName, type PhotoRights } from "./images";
 
 export const UPLOAD_DIR = path.join(DATA_DIR, "uploads");
 export const MAX_PHOTO_BYTES = 20 * 1024 * 1024;
@@ -226,22 +226,34 @@ function baseName(file: string) {
   return file.replace(/\.orig\.[a-z]+$|\.[a-z]+$/, "");
 }
 
+// The name and copyright notice written into a photo's web copies, from its
+// owner's profile: their own copyright line, or "© <year> <name>. All rights
+// reserved." The year is when the photo went up.
+export function photoRights(
+  profile: { name: string; copyrightLine?: string },
+  year = new Date().getFullYear(),
+): PhotoRights {
+  const oneLine = (text: string) => text.replace(/\s+/g, " ").trim();
+  const name = oneLine(profile.name);
+  return { artist: name, copyright: oneLine(profile.copyrightLine ?? "") || `© ${year} ${name}. All rights reserved.` };
+}
+
 // Saves the original and its web-sized copies. Returns the fields for a new
 // Photo record.
-export async function savePhoto(userId: string, file: File): Promise<Omit<Photo, "createdAt">> {
+export async function savePhoto(userId: string, file: File, rights?: PhotoRights): Promise<Omit<Photo, "createdAt">> {
   const ext = IMAGE_TYPES[file.type];
   if (!ext) throw new Error("UNSUPPORTED_TYPE");
   if (file.size > MAX_PHOTO_BYTES) throw new Error("TOO_LARGE");
   const id = randomUUID();
   const data = Buffer.from(await file.arrayBuffer());
-  return { id, ...(await storePhoto(userId, `${id}.orig.${ext}`, data)) };
+  return { id, ...(await storePhoto(userId, `${id}.orig.${ext}`, data, rights)) };
 }
 
 // Stores an image under `file` along with its resized copies.
-export async function storePhoto(userId: string, file: string, data: Buffer) {
-  const image = await processImage(data); // throws on files that aren't images
+export async function storePhoto(userId: string, file: string, data: Buffer, rights?: PhotoRights) {
+  const image = await processImage(data, rights); // throws on files that aren't images
   await storage.put(userId, file, data);
-  return saveVariants(userId, file, image);
+  return saveVariants(userId, file, image, rights);
 }
 
 // The name the browser uploads an original under: server-chosen, so it can't
@@ -276,6 +288,7 @@ export async function finishDirectUpload(
   userId: string,
   file: string,
   timings: Record<string, number> = {},
+  rights?: PhotoRights,
 ): Promise<Omit<Photo, "createdAt">> {
   const match = ORIGINAL_NAME.exec(file);
   if (!match) throw new Error("BAD_PATH");
@@ -292,18 +305,23 @@ export async function finishDirectUpload(
   let image: Awaited<ReturnType<typeof processImage>>;
   try {
     if (data.length > MAX_PHOTO_BYTES) throw new Error("TOO_LARGE");
-    image = await processImage(data);
+    image = await processImage(data, rights);
   } catch (err) {
     await storage.remove(userId, file).catch(() => {});
     throw new Error((err as Error).message === "TOO_LARGE" ? "TOO_LARGE" : "NOT_AN_IMAGE", { cause: err });
   }
   lap("resize");
-  const saved = await saveVariants(userId, file, image);
+  const saved = await saveVariants(userId, file, image, rights);
   lap("store");
   return { id: match[1], ...saved };
 }
 
-async function saveVariants(userId: string, file: string, image: Awaited<ReturnType<typeof processImage>>) {
+async function saveVariants(
+  userId: string,
+  file: string,
+  image: Awaited<ReturnType<typeof processImage>>,
+  rights?: PhotoRights,
+) {
   await Promise.all(
     image.variants.map((v) => storage.put(userId, variantName(baseName(file), v.width), v.data)),
   );
@@ -312,6 +330,7 @@ async function saveVariants(userId: string, file: string, image: Awaited<ReturnT
     width: image.width,
     height: image.height,
     variants: image.variants.map((v) => v.width),
+    ...(rights ? { copyright: rights.copyright } : {}),
   };
 }
 
@@ -330,8 +349,9 @@ export async function deleteWebCopies(userId: string, photo: Photo) {
 
 // Makes a photo's web copies again from its original, under the same names.
 // Returns the fields to update on the Photo record.
-export async function remakeWebCopies(userId: string, photo: Photo) {
-  return saveVariants(userId, photo.file, await processImage(await storage.get(userId, photo.file)));
+export async function remakeWebCopies(userId: string, photo: Photo, rights?: PhotoRights) {
+  const image = await processImage(await storage.get(userId, photo.file), rights);
+  return saveVariants(userId, photo.file, image, rights);
 }
 
 export type PhotoSource = {

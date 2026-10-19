@@ -1,13 +1,21 @@
 import type { MetadataRoute } from "next";
 import { headers } from "next/headers";
-import { appUrl, siteSubdomain, siteUrl } from "@/lib/site";
+import { loadSite } from "@/lib/public-site";
+import { AI_TRAINING_CRAWLERS, appUrl, siteSubdomain, siteUrl } from "@/lib/site";
 
-// One robots.txt per host: a photographer's site may be crawled in full; the
-// app keeps its private and duplicate addresses out of search results.
+// One robots.txt per host. A photographer's site may be crawled in full by
+// search engines, but unless they allow it, the crawlers that collect pages
+// for training AI are asked to stay away. The app keeps its private and
+// duplicate addresses out of search results.
 export default async function robots(): Promise<MetadataRoute.Robots> {
   const subdomain = siteSubdomain((await headers()).get("host") ?? "");
   if (subdomain) {
-    return { rules: { userAgent: "*", allow: "/" }, sitemap: `${siteUrl(subdomain)}/sitemap.xml` };
+    const site = await loadSite(subdomain);
+    const everyone = { userAgent: "*", allow: "/" };
+    return {
+      rules: site && !site.allowAiTraining ? [{ userAgent: AI_TRAINING_CRAWLERS, disallow: "/" }, everyone] : everyone,
+      sitemap: `${siteUrl(subdomain)}/sitemap.xml`,
+    };
   }
   return {
     rules: {

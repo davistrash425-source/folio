@@ -8,10 +8,12 @@ import { POST as startPhotoUpload } from "../app/api/photos/start/route.ts";
 import { deleteAccount } from "../app/actions/auth.ts";
 import { deletePhoto, sendInquiry, uploadPhotos } from "../app/actions/site.ts";
 import { isAdmin } from "../lib/admin.ts";
-import { addReport, adminActionsFor, findReport, findUserById, type Photo } from "../lib/db.ts";
+import { addReport, adminActionsFor, findReport, findUserById, photosWithoutRights, updateUser, type Photo } from "../lib/db.ts";
 import { siteData } from "../lib/public-site.ts";
 import type { CopyrightNotice } from "../lib/reports.ts";
 import { variantName } from "../lib/images.ts";
+import { storage } from "../lib/uploads.ts";
+import sharp from "sharp";
 import {
   addAlbum,
   addPhoto,
@@ -95,6 +97,7 @@ test("only admins can use the admin actions: others are sent to log in or told i
     releaseLegalHold: () => adminActions.releaseLegalHold(form({ userId: alice.id })),
     closeReport: () => adminActions.closeReport(form({ reportId, note: "hacked" })),
     reopenReport: () => adminActions.reopenReport(form({ reportId })),
+    addRightsToOlderPhotos: () => adminActions.addRightsToOlderPhotos(),
   };
   assert.deepEqual(Object.keys(adminActions).sort(), Object.keys(calls).sort(), "every admin action is checked here");
 
@@ -289,4 +292,24 @@ test("closing a report keeps the admin's note; reopening it keeps the note too; 
     (await adminActionsFor(alice.id)).map((a) => a.action),
     ["reopen-report", "close-report"],
   );
+});
+
+test("older photos get their photographer's name and notice, dated with their upload year; taken-down ones stay down", async () => {
+  const { alice, one, two } = await world();
+  await updateUser(alice.id, (u) => {
+    u.photos.find((p) => p.id === one.id)!.createdAt = "2024-05-01T10:00:00.000Z";
+  });
+  const before = await photosWithoutRights(); // other tests' photos are in this database too
+  await redirectedTo(adminActions.takeDownPhotos(form({ userId: alice.id, photo: two.id })));
+  assert.equal(await photosWithoutRights(), before - 1, "a taken-down photo has no web copies to fix");
+
+  const to = await redirectedTo(adminActions.addRightsToOlderPhotos());
+  assert.equal(to?.split("?")[0], "/admin");
+  assert.equal(doneMessage(to), `Added copyright details to ${before - 1} photos. All done.`);
+  const after = (await findUserById(alice.id))!;
+  assert.equal(after.photos.find((p) => p.id === one.id)?.copyright, "© 2024 Alice. All rights reserved.");
+  const copy = await storage.get(alice.id, variantName(one.id, one.variants![0]));
+  assert.match((await sharp(copy).metadata()).xmp?.toString("utf8") ?? "", /© 2024 Alice/);
+  for (const name of webCopies(two)) assert.ok(!filesOf(alice.id).includes(name), `${name} still deleted`);
+  assert.equal(await photosWithoutRights(), 0);
 });

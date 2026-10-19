@@ -43,6 +43,31 @@ export const RESERVED_SUBDOMAINS = new Set([
 // it over and pass themselves off as its old owner.
 export const ADDRESS_HOLD_MONTHS = 12;
 
+// Crawlers that collect pages to train AI models, by the names their makers
+// publish. Sites ask them to stay away unless the photographer allows it
+// (app/robots.ts). Search engines (Googlebot, Bingbot) and link previews
+// aren't on the list, so sites still show up in search. Only crawlers that
+// follow robots.txt can be stopped this way.
+export const AI_TRAINING_CRAWLERS = [
+  "GPTBot", // OpenAI
+  "ClaudeBot", // Anthropic
+  "anthropic-ai", // Anthropic, older name
+  "Google-Extended", // Google's AI models (Gemini); Google Search is unaffected
+  "Applebot-Extended", // Apple's AI models; Apple's search is unaffected
+  "CCBot", // Common Crawl, a dataset many AI models are trained on
+  "meta-externalagent", // Meta AI
+  "FacebookBot", // Meta's language models
+  "Bytespider", // ByteDance
+  "Amazonbot", // Amazon
+  "cohere-ai", // Cohere
+  "cohere-training-data-crawler", // Cohere
+  "AI2Bot", // Allen Institute for AI
+  "Diffbot", // sells web data, used for AI
+  "Omgilibot", // Webz.io, sells web data for AI training
+  "Timpibot", // Timpi, sells web data for AI training
+  "ImagesiftBot", // Hive, image collection
+];
+
 export function validateSubdomain(value: string): string | null {
   if (!/^[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])$/.test(value)) {
     return "Use 3–30 lowercase letters, numbers or dashes (no dash at the start or end).";

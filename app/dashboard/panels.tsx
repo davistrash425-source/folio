@@ -2,7 +2,7 @@
 
 import { useActionState, useState, useTransition } from "react";
 import { deleteAccount, resendVerification, signOutEverywhereElse, type FormState } from "@/app/actions/auth";
-import { deleteInquiry, setInquiryRead, setPublished } from "@/app/actions/site";
+import { deleteInquiry, saveAiTraining, setInquiryRead, setPublished } from "@/app/actions/site";
 import { Button, Field, Input, Message, buttonClass, secondaryButtonClass } from "@/app/ui/form";
 import type { Inquiry } from "@/lib/db";
 
@@ -116,6 +116,30 @@ export function Inbox({ inquiries }: { inquiries: Inquiry[] }) {
         );
       })}
     </ul>
+  );
+}
+
+// Whether the site asks AI companies' crawlers to stay away (app/robots.ts).
+export function AiTrainingForm({ blocked }: { blocked: boolean }) {
+  const [state, action, pending] = useActionState(saveAiTraining, {});
+  return (
+    <form action={action} className="space-y-3">
+      <label className="flex items-start gap-2 text-sm">
+        <input type="checkbox" name="blockAi" value="yes" defaultChecked={blocked} className="mt-1" />
+        <span>
+          Ask AI companies not to collect my site to train their AI <span className="text-ink-soft">(recommended)</span>
+        </span>
+      </label>
+      <p className="text-sm text-ink-soft">
+        Your site tells the AI crawlers we know about (from OpenAI, Google, Anthropic, Apple, Meta, Common Crawl and
+        others) to stay away. Search engines can still list your site. Crawlers that ignore these rules can’t be stopped
+        this way.
+      </p>
+      <div className="flex items-center gap-3">
+        <Button type="submit" disabled={pending}>{pending ? "Saving…" : "Save"}</Button>
+        <Message error={state.error} ok={state.ok} />
+      </div>
+    </form>
   );
 }
 

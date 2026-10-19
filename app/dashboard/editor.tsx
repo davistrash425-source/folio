@@ -630,6 +630,16 @@ export function ProfileForm({ profile }: { profile: User["profile"] }) {
       <Field label="Website">
         <Input name="website" defaultValue={profile.social.website} placeholder="yourname.com" />
       </Field>
+      <div className="sm:col-span-2">
+        <Field label="Copyright line" hint="Shown at the bottom of your site, and saved inside the photos you upload from now on.">
+          <Input
+            name="copyrightLine"
+            maxLength={120}
+            defaultValue={profile.copyrightLine}
+            placeholder={`© ${profile.name || "Your Name"}. All rights reserved.`}
+          />
+        </Field>
+      </div>
       <div className="flex items-center gap-3 sm:col-span-2">
         <Button type="submit" disabled={pending}>{pending ? "Saving…" : "Save"}</Button>
         <Message error={state.error} ok={state.ok} />

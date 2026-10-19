@@ -39,6 +39,7 @@ export function siteData(user: User, opts: { path?: string; preview?: boolean } 
     })),
     path: opts.path ?? "",
     preview: Boolean(opts.preview),
+    allowAiTraining: Boolean(user.allowAiTraining),
   };
   // The preview may be showing a page that only exists in the editor's
   // unsaved design, so it renders anyway and falls back to home.

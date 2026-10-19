@@ -13,6 +13,7 @@ import {
   MAX_PHOTOS,
   PHOTO_LIMIT_MESSAGE,
   deletePhotoFiles,
+  photoRights,
   savePhoto,
   storage,
 } from "@/lib/uploads";
@@ -43,9 +44,10 @@ export async function uploadPhotos(_prev: ActionState, formData: FormData): Prom
 
   const saved: Awaited<ReturnType<typeof savePhoto>>[] = [];
   const skipped: string[] = [];
+  const rights = photoRights(user.profile);
   for (const file of files) {
     try {
-      saved.push(await savePhoto(userId, file));
+      saved.push(await savePhoto(userId, file, rights));
     } catch {
       skipped.push(file.name);
     }
@@ -172,7 +174,17 @@ export async function saveProfile(_prev: ActionState, formData: FormData): Promi
         facebook: cleanUrl(formData.get("facebook")),
         website: cleanUrl(formData.get("website")),
       },
+      copyrightLine: str("copyrightLine", 120).replace(/\s+/g, " "),
     };
+  });
+  return done("Saved.");
+}
+
+// Whether the site asks AI companies' crawlers to stay away (app/robots.ts).
+export async function saveAiTraining(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const userId = await currentUserId();
+  await updateUser(userId, (u) => {
+    u.allowAiTraining = !formData.get("blockAi");
   });
   return done("Saved.");
 }

@@ -4,10 +4,12 @@ import { redirect, notFound } from "next/navigation";
 import { STRIKE_LIMIT, requireAdmin } from "@/lib/admin";
 import { restoredEmail, suspendedEmail, takedownEmail, unsuspendedEmail } from "@/lib/admin-emails";
 import {
+  allUserIds,
   findReport,
   findUserById,
   findUserBySubdomain,
   logAdminAction,
+  photosWithoutRights,
   setReportStatus,
   updateUser,
   type Photo,
@@ -15,7 +17,7 @@ import {
 } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
 import { siteUrl } from "@/lib/site";
-import { deleteWebCopies, remakeWebCopies } from "@/lib/uploads";
+import { deleteWebCopies, photoRights, remakeWebCopies } from "@/lib/uploads";
 
 // What Folio's admins can do to an account (the pages in app/admin). Every
 // action is logged, and goes back to the page with a message saying what
@@ -25,6 +27,7 @@ import { deleteWebCopies, remakeWebCopies } from "@/lib/uploads";
 
 const str = (formData: FormData, key: string, max = 500) => String(formData.get(key) ?? "").trim().slice(0, max);
 const plural = (count: number) => (count === 1 ? "1 photo" : `${count} photos`);
+const yearOf = (photo: Photo) => new Date(photo.createdAt).getUTCFullYear();
 
 async function accountFrom(formData: FormData) {
   const user = await findUserById(str(formData, "userId", 100));
@@ -110,7 +113,7 @@ export async function restorePhotos(formData: FormData) {
   let failed = 0;
   for (const photo of chosen) {
     try {
-      remade.set(photo.id, await remakeWebCopies(user.id, photo));
+      remade.set(photo.id, await remakeWebCopies(user.id, photo, photoRights(user.profile, yearOf(photo))));
     } catch (err) {
       console.error("Couldn't remake web copies", photo.id, err);
       failed++;
@@ -216,6 +219,51 @@ export async function releaseLegalHold(formData: FormData) {
     detail: "Released the legal hold.",
   });
   backTo(user, "Released the legal hold.");
+}
+
+// Writes the copyright details into web copies made before Folio added
+// them, dated with each photo's upload year. Does as many as it can in about
+// 40 seconds (the admin page allows 60); run it again until none are left.
+export async function addRightsToOlderPhotos() {
+  await requireAdmin();
+  const started = Date.now();
+  const outOfTime = () => Date.now() - started > 40_000;
+  let updated = 0;
+  let failed = 0;
+  for (const id of await allUserIds()) {
+    if (outOfTime()) break;
+    const user = await findUserById(id);
+    const todo = user?.photos.filter((p) => !p.copyright && !p.removed && p.variants?.length) ?? [];
+    if (!user || !todo.length) continue;
+    const remade = new Map<string, Awaited<ReturnType<typeof remakeWebCopies>>>();
+    for (const photo of todo) {
+      if (outOfTime()) break;
+      try {
+        remade.set(photo.id, await remakeWebCopies(user.id, photo, photoRights(user.profile, yearOf(photo))));
+      } catch (err) {
+        console.error("Couldn't add copyright details", photo.id, err);
+        failed++;
+      }
+    }
+    // A photo taken down meanwhile must not get its web copies back.
+    const takenDown: Photo[] = [];
+    await updateUser(user.id, (u) => {
+      for (const photo of u.photos) {
+        const copies = remade.get(photo.id);
+        if (!copies) continue;
+        if (photo.removed) takenDown.push(photo);
+        else Object.assign(photo, copies);
+      }
+    });
+    await Promise.all(takenDown.map((photo) => deleteWebCopies(user.id, photo)));
+    updated += remade.size - takenDown.length;
+  }
+  const left = await photosWithoutRights();
+  const message =
+    `Added copyright details to ${plural(updated)}.` +
+    (failed ? ` ${plural(failed)} failed; see the server log.` : "") +
+    (left ? ` ${plural(left)} left: run it again.` : " All done.");
+  redirect(`/admin?done=${encodeURIComponent(message)}`);
 }
 
 // Closing marks a report as dealt with; the note says how.

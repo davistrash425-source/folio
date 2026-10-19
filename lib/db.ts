@@ -35,6 +35,7 @@ export type Photo = {
   width?: number;
   height?: number;
   variants?: number[]; // widths of the "<base>-<width>.webp" copies
+  copyright?: string; // the notice written into the web copies (lib/images.ts)
   // Set while the photo is taken down by Folio (app/actions/admin.ts): it's
   // off the site and its web copies are deleted, but the private original is
   // kept so it can be put back.
@@ -74,11 +75,17 @@ export type User = {
     phone: string;
     location: string;
     social: SocialLinks;
+    // The footer's copyright line, also written into uploaded photos.
+    // Missing or empty means "© <name>" (lib/site-data.ts).
+    copyrightLine?: string;
   };
   photos: Photo[];
   // Optional so accounts created before these fields existed still load.
   published?: boolean; // missing means published
   emailVerified?: boolean;
+  // Missing means the site asks AI companies' crawlers not to collect it for
+  // training (app/robots.ts); the photographer can allow them.
+  allowAiTraining?: boolean;
   albums?: Album[];
   inquiries?: Inquiry[];
   // How the site looks (lib/design.ts). `design` is what visitors see;
@@ -232,6 +239,25 @@ export async function deleteUser(id: string) {
     return rows[0]?.subdomain;
   });
   if (subdomain) siteChanged(subdomain);
+}
+
+// Every account's id, for maintenance that goes through all of them.
+export async function allUserIds() {
+  const db = await database();
+  const { rows } = await db.query<{ id: string }>("select id from users order by id");
+  return rows.map((r) => r.id);
+}
+
+// Photos whose web copies were made before they carried the copyright
+// details (lib/images.ts). Taken-down photos have no web copies to fix.
+export async function photosWithoutRights() {
+  const db = await database();
+  const { rows } = await db.query<{ count: number }>(
+    `select count(*)::int as count from users, jsonb_array_elements(data->'photos') as photo
+     where photo->>'copyright' is null and photo->'removed' is null
+       and jsonb_array_length(coalesce(photo->'variants', '[]'::jsonb)) > 0`,
+  );
+  return rows[0]?.count ?? 0;
 }
 
 // Whether the address belonged to an account closed in the last `months`.

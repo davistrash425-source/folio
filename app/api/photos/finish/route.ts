@@ -7,6 +7,7 @@ import {
   PHOTO_LIMIT_MESSAGE,
   deletePhotoFiles,
   finishDirectUpload,
+  photoRights,
   storage,
 } from "@/lib/uploads";
 
@@ -45,7 +46,7 @@ export async function POST(req: Request) {
 
   let photo: Awaited<ReturnType<typeof finishDirectUpload>>;
   try {
-    photo = await finishDirectUpload(user.id, file, timings);
+    photo = await finishDirectUpload(user.id, file, timings, photoRights(user.profile));
   } catch (err) {
     const message = (err as Error).message;
     // Storage failures aren't the photo's fault. Log them, or they're invisible.

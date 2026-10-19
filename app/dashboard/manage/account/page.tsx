@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { requireUser } from "@/lib/auth";
 import { ProfileForm } from "../../editor";
-import { AccountSettings } from "../../panels";
+import { AccountSettings, AiTrainingForm } from "../../panels";
 import { Card, Loading, PageHeader } from "../section";
 
 export const metadata = { title: "Account — Folio" };
@@ -32,6 +32,9 @@ async function Account({ searchParams }: { searchParams: PageProps<"/dashboard/m
       )}
       <Card title="About you" subtitle="Your name, bio and contact details, shown on your site.">
         <ProfileForm profile={user.profile} />
+      </Card>
+      <Card title="AI training" subtitle="Whether AI companies may collect your site and photos.">
+        <AiTrainingForm blocked={!user.allowAiTraining} />
       </Card>
       <Card title="Account" subtitle={`Signed in as ${user.email}.`}>
         <AccountSettings />
