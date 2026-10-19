@@ -19,24 +19,44 @@ const signedOut = () => Response.json({ error: "you've been signed out — log i
 // in storage, makes its web copies and adds it to the account. Answers 503
 // when storage fails, which the browser retries; other errors are the photo's.
 export async function POST(req: Request) {
+  // How long each step took, sent back as a Server-Timing header so a slow
+  // upload can be diagnosed from the browser's network panel.
+  const timings: Record<string, number> = {};
+  let started = performance.now();
+  const lap = (step: string) => {
+    timings[step] = performance.now() - started;
+    started = performance.now();
+  };
+  const answer = (body: object, status = 200) =>
+    Response.json(body, {
+      status,
+      headers: {
+        "Server-Timing": Object.entries(timings)
+          .map(([step, ms]) => `${step};dur=${ms.toFixed(0)}`)
+          .join(", "),
+      },
+    });
+
   const user = await currentUser();
   if (!user) return signedOut();
+  lap("auth");
   const body = await req.json().catch(() => null);
   const file = typeof body?.file === "string" ? body.file : "";
 
   let photo: Awaited<ReturnType<typeof finishDirectUpload>>;
   try {
-    photo = await finishDirectUpload(user.id, file);
+    photo = await finishDirectUpload(user.id, file, timings);
   } catch (err) {
     const message = (err as Error).message;
     // Storage failures aren't the photo's fault. Log them, or they're invisible.
     if (!PHOTO_ERRORS.has(message)) {
       console.error("finishPhotoUpload:", err);
-      return Response.json({ error: "couldn't be saved, try again in a minute" }, { status: 503 });
+      return answer({ error: "couldn't be saved, try again in a minute" }, 503);
     }
     if (message === "NOT_AN_IMAGE") console.warn("finishPhotoUpload:", (err as Error).cause);
-    return Response.json({ error: message === "TOO_LARGE" ? "over 20 MB" : "couldn't be read as an image" });
+    return answer({ error: message === "TOO_LARGE" ? "over 20 MB" : "couldn't be read as an image" });
   }
+  started = performance.now();
 
   let full = false;
   try {
@@ -52,11 +72,12 @@ export async function POST(req: Request) {
     await storage.removeAll(user.id);
     return signedOut();
   }
+  lap("save");
   if (full) {
     await deletePhotoFiles(user.id, { ...photo, createdAt: "" });
-    return Response.json({ error: PHOTO_LIMIT_MESSAGE });
+    return answer({ error: PHOTO_LIMIT_MESSAGE });
   }
   // The browser refreshes the page itself once the whole batch is done.
   revalidatePath("/dashboard", "layout");
-  return Response.json({ ok: "Uploaded 1 photo." });
+  return answer({ ok: "Uploaded 1 photo." });
 }

@@ -88,33 +88,49 @@ export function putFile(url: string, file: Blob, type: string, onProgress: (sent
 type Start = { error?: string; direct?: { file: string; url: string } };
 type Finish = { error?: string; ok?: string };
 
-// Sends one photo straight to storage. Returns false, having sent nothing,
-// when storage doesn't take direct uploads (the local disk); the caller then
-// sends it through the app instead.
-export async function uploadDirect(
+type Options = {
+  send?: typeof putFile; // tests swap these
+  delays?: number[];
+};
+
+// Step one: sends one photo straight to storage and returns the name it was
+// stored under. Returns null, having sent nothing, when storage doesn't take
+// direct uploads (the local disk); the caller then sends it through the app.
+export async function sendDirect(
   file: Blob,
   type: string,
-  on: {
-    progress: (sent: number) => void;
-    finishing: () => void;
-    send?: typeof putFile; // tests swap these
-    delays?: number[];
-  },
-): Promise<boolean> {
-  const { send = putFile, delays = RETRY_DELAYS } = on;
+  progress: (sent: number) => void,
+  { send = putFile, delays = RETRY_DELAYS }: Options = {},
+): Promise<string | null> {
   // A retry asks for a new address too, in case the old one expired.
-  const name = await retrying(async () => {
+  return retrying(async () => {
     const start = await postJson<Start>("/api/photos/start", { type, size: file.size });
     if (start.error) throw new UploadError(start.error);
     if (!start.direct) return null;
-    on.progress(0);
-    await send(start.direct.url, file, type, on.progress);
+    progress(0);
+    await send(start.direct.url, file, type, progress);
     return start.direct.file;
   }, delays);
-  if (!name) return false;
-  on.finishing();
-  // Finishing the same photo twice adds it once, so this is safe to retry.
+}
+
+// Step two: the app checks the stored photo, makes its web copies and adds
+// it to the account. Finishing the same photo twice adds it once, so this is
+// safe to retry.
+export async function finishDirect(name: string, { delays = RETRY_DELAYS }: Options = {}) {
   const done = await retrying(() => postJson<Finish>("/api/photos/finish", { file: name }), delays);
   if (done.error) throw new UploadError(done.error);
+}
+
+// Both steps for one photo. Returns false when storage doesn't take direct
+// uploads, as sendDirect does.
+export async function uploadDirect(
+  file: Blob,
+  type: string,
+  on: Options & { progress: (sent: number) => void; finishing: () => void },
+): Promise<boolean> {
+  const name = await sendDirect(file, type, on.progress, on);
+  if (!name) return false;
+  on.finishing();
+  await finishDirect(name, on);
   return true;
 }
