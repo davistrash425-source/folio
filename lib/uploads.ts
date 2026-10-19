@@ -263,22 +263,30 @@ export async function directUpload(userId: string, contentType: string, size: nu
   return { file, url: await storage.uploadUrl(userId, file, contentType, size) };
 }
 
+// The ways finishDirectUpload fails because of the photo itself, rather than
+// storage being unavailable (worth trying again).
+export const PHOTO_ERRORS = new Set(["BAD_PATH", "NOT_UPLOADED", "TOO_LARGE", "NOT_AN_IMAGE"]);
+
 // After a direct upload: checks the original that arrived (a real image,
-// within the size limit) and makes its web copies. A bad file is deleted.
+// within the size limit) and makes its web copies. A bad file is deleted, but
+// not one that storage failed to handle, so trying again can still work.
 // Returns the fields for a new Photo record.
 export async function finishDirectUpload(userId: string, file: string): Promise<Omit<Photo, "createdAt">> {
   const match = ORIGINAL_NAME.exec(file);
   if (!match) throw new Error("BAD_PATH");
-  const data = await storage.get(userId, file).catch(() => {
-    throw new Error("NOT_UPLOADED");
+  const data = await storage.get(userId, file).catch((err) => {
+    const missing = err?.code === "ENOENT" || err?.message === "R2 GET failed: 404";
+    throw missing ? new Error("NOT_UPLOADED") : err;
   });
+  let image: Awaited<ReturnType<typeof processImage>>;
   try {
     if (data.length > MAX_PHOTO_BYTES) throw new Error("TOO_LARGE");
-    return { id: match[1], ...(await saveVariants(userId, file, await processImage(data))) };
+    image = await processImage(data);
   } catch (err) {
     await storage.remove(userId, file).catch(() => {});
-    throw err;
+    throw new Error((err as Error).message === "TOO_LARGE" ? "TOO_LARGE" : "NOT_AN_IMAGE", { cause: err });
   }
+  return { id: match[1], ...(await saveVariants(userId, file, image)) };
 }
 
 async function saveVariants(userId: string, file: string, image: Awaited<ReturnType<typeof processImage>>) {

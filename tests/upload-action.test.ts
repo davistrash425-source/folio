@@ -1,11 +1,23 @@
 // The photo upload form (the uploadPhotos server action).
 import { beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
-import { finishPhotoUpload, startPhotoUpload, uploadPhotos } from "../app/actions/site.ts";
+import { uploadPhotos } from "../app/actions/site.ts";
 import { randomUUID } from "crypto";
 import { deleteUser, findUserById, updateUser } from "../lib/db.ts";
 import { MAX_PHOTOS, MAX_PHOTO_BYTES, PHOTO_LIMIT_MESSAGE, storage } from "../lib/uploads.ts";
-import { databaseText, filesOf, formWith, jpegFile, makeUser, redirectedTo, resetRequest, signInAs, signOut } from "./helpers.ts";
+import {
+  databaseText,
+  filesOf,
+  finishUpload,
+  formWith,
+  jpegFile,
+  makeUser,
+  redirectedTo,
+  resetRequest,
+  signInAs,
+  signOut,
+  startUpload,
+} from "./helpers.ts";
 import { revalidated } from "./stubs/next-cache.ts";
 
 beforeEach(resetRequest);
@@ -142,12 +154,12 @@ test("an account can't hold more than the photo limit, and nothing over it is ke
   assert.equal(filesOf(alice.id).length, kept.reduce((n, p) => n + 1 + p.variants!.length, 0), "the extra photo's files are gone");
 
   assert.deepEqual(await uploadPhotos({}, formWith(await jpegFile())), { error: PHOTO_LIMIT_MESSAGE });
-  assert.deepEqual(await startPhotoUpload("image/jpeg", 1000), { error: PHOTO_LIMIT_MESSAGE }, "no upload address either");
+  assert.deepEqual(await startUpload("image/jpeg", 1000), { error: PHOTO_LIMIT_MESSAGE }, "no upload address either");
 
   // A direct upload that arrives after the account filled up is refused and deleted.
   const file = `${randomUUID()}.orig.jpg`;
   const jpeg = Buffer.from(await (await jpegFile()).arrayBuffer());
   await storage.put(alice.id, file, jpeg);
-  assert.deepEqual(await finishPhotoUpload(file), { error: PHOTO_LIMIT_MESSAGE });
+  assert.deepEqual(await finishUpload(file), { error: PHOTO_LIMIT_MESSAGE });
   assert.equal(filesOf(alice.id).some((f) => f.startsWith(file.split(".")[0])), false);
 });

@@ -16,8 +16,6 @@ beforeEach(resetRequest);
 // Actions that need a signed-in user, each called with realistic input.
 const needSignIn: Record<string, () => Promise<unknown>> = {
   uploadPhotos: async () => siteActions.uploadPhotos({}, formWith(await jpegFile())),
-  startPhotoUpload: () => siteActions.startPhotoUpload("image/jpeg", 1000),
-  finishPhotoUpload: () => siteActions.finishPhotoUpload("00000000-0000-4000-8000-000000000000.orig.jpg"),
   deletePhoto: () => siteActions.deletePhoto("some-id"),
   reorderPhotos: () => siteActions.reorderPhotos(["some-id"]),
   updatePhoto: () =>
