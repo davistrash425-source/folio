@@ -7,6 +7,8 @@ import { existsSync, readdirSync } from "fs";
 import path from "path";
 import { crc32 } from "zlib";
 import sharp from "sharp";
+import { POST as finishPhotoUpload } from "../app/api/photos/finish/route.ts";
+import { POST as startPhotoUpload } from "../app/api/photos/start/route.ts";
 import { createUser, updateUser, type Album, type Photo } from "../lib/db.ts";
 import { database } from "../lib/pg.ts";
 import { createSession, hashPassword } from "../lib/session.ts";
@@ -113,6 +115,20 @@ export async function redirectedTo(run: Promise<unknown>) {
 export async function jpegFile(name = "beach.jpg", width = 1200, height = 800) {
   const data = await sharp({ create: { width, height, channels: 3, background: "#336699" } }).jpeg().toBuffer();
   return new File([new Uint8Array(data)], name, { type: "image/jpeg" });
+}
+
+// A JSON POST to a route handler, as the browser's fetch sends it.
+export function postJson(handler: (req: Request) => Promise<Response>, body: unknown) {
+  return handler(new Request("http://localhost/api", { method: "POST", body: JSON.stringify(body) }));
+}
+
+// The two steps of a direct upload (app/api/photos), returning their answers.
+export async function startUpload(type: string, size: number) {
+  return (await postJson(startPhotoUpload, { type, size })).json();
+}
+
+export async function finishUpload(file: string) {
+  return (await postJson(finishPhotoUpload, { file })).json();
 }
 
 // The upload form with these files chosen.

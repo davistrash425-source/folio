@@ -13,8 +13,6 @@ import {
   MAX_PHOTOS,
   PHOTO_LIMIT_MESSAGE,
   deletePhotoFiles,
-  directUpload,
-  finishDirectUpload,
   savePhoto,
   storage,
 } from "@/lib/uploads";
@@ -82,62 +80,8 @@ export async function uploadPhotos(_prev: ActionState, formData: FormData): Prom
   );
 }
 
-// ── Direct uploads (R2) ─────────────────────────────────────────────────
-// The browser asks for an upload address, sends the photo straight to
-// storage, then calls finishPhotoUpload. With no direct uploads (the local
-// disk), `direct` is missing and the browser uses uploadPhotos instead.
-
-export async function startPhotoUpload(
-  contentType: string,
-  size: number,
-): Promise<{ error?: string; direct?: { file: string; url: string } }> {
-  const user = await requireUser();
-  const userId = user.id;
-  if (user.photos.length >= MAX_PHOTOS) return { error: PHOTO_LIMIT_MESSAGE };
-  try {
-    const direct = await directUpload(userId, contentType, size);
-    return direct ? { direct } : {};
-  } catch (err) {
-    const message = (err as Error).message;
-    if (message === "UNSUPPORTED_TYPE") return { error: "not a JPG, PNG, WebP, GIF or AVIF" };
-    if (message === "TOO_LARGE") return { error: "over 20 MB" };
-    throw err;
-  }
-}
-
-export async function finishPhotoUpload(file: string): Promise<ActionState> {
-  const userId = await currentUserId();
-  let photo: Awaited<ReturnType<typeof finishDirectUpload>>;
-  try {
-    photo = await finishDirectUpload(userId, file);
-  } catch (err) {
-    const message = (err as Error).message;
-    // Storage failures aren't the photo's fault. Log them, or they're invisible.
-    if (message.startsWith("R2 ")) {
-      console.error("finishPhotoUpload:", err);
-      return { error: "couldn't be saved, try again in a minute" };
-    }
-    if (message !== "BAD_PATH") console.warn("finishPhotoUpload:", err);
-    return { error: "couldn't be read as an image" };
-  }
-  let full = false;
-  try {
-    await updateUser(userId, (u) => {
-      if (u.photos.some((p) => p.id === photo.id)) return; // finished twice
-      full = u.photos.length >= MAX_PHOTOS;
-      if (!full) u.photos.push({ ...photo, createdAt: new Date().toISOString() });
-    });
-  } catch (err) {
-    if ((err as Error).message !== "USER_NOT_FOUND") throw err;
-    await storage.removeAll(userId);
-    redirect("/login");
-  }
-  if (full) {
-    await deletePhotoFiles(userId, { ...photo, createdAt: "" });
-    return { error: PHOTO_LIMIT_MESSAGE };
-  }
-  return done("Uploaded 1 photo.");
-}
+// Direct uploads to R2 go through app/api/photos/start and /finish instead,
+// so several photos can upload at once (the browser runs actions one at a time).
 
 export async function deletePhoto(photoId: string) {
   const userId = await currentUserId();
