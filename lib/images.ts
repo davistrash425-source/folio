@@ -32,7 +32,9 @@ export async function processImage(input: Buffer): Promise<ProcessedImage> {
       data: await sharp(input, { animated: true })
         .rotate()
         .resize({ width: w })
-        .webp({ quality: 82 })
+        // effort 2 (of 0-6, default 4) encodes about a third faster for files
+        // within a few percent of the size; quality is set separately.
+        .webp({ quality: 82, effort: 2 })
         .toBuffer(),
     })),
   );
