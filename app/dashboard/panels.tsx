@@ -28,7 +28,10 @@ export function VerifyEmailBanner({ email }: { email: string }) {
   const [pending, startTransition] = useTransition();
   return (
     <div className="flex flex-wrap items-center gap-3 border-l-2 border-accent bg-card px-5 py-3 text-sm">
-      <span className="flex-1">Confirm your email address ({email}) so you can reset your password if you ever forget it.</span>
+      <span className="flex-1">
+        Confirm your email address ({email}) to put your site online. Open the link we emailed you; it also lets you
+        reset your password if you ever forget it.
+      </span>
       {state.ok || state.error ? (
         <Message ok={state.ok} error={state.error} />
       ) : (

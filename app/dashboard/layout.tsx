@@ -53,6 +53,11 @@ async function SiteStatus() {
           <span className="label bg-ink px-1.5 text-paper">Live</span>
           <span className="underline-offset-4 group-hover:underline">{url.replace(/^https?:\/\//, "")} ↗</span>
         </a>
+      ) : published ? (
+        <span className="flex items-center gap-2 text-ink-soft">
+          <span className="label border border-ink-faint px-1.5 text-ink-soft">Not live yet</span>
+          Confirm your email to put it online
+        </span>
       ) : (
         <span className="flex items-center gap-2 text-ink-soft">
           <span className="label border border-ink-faint px-1.5 text-ink-soft">Offline</span>

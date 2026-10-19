@@ -54,7 +54,7 @@ async function SiteView({ params, searchParams }: PageProps<"/admin/sites/[subdo
     : isLive(user)
       ? "Live"
       : isPublished(user)
-        ? "Not live yet"
+        ? "Not live yet: waiting for the photographer to confirm their email"
         : "Offline (the photographer's choice)";
 
   return (

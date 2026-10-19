@@ -222,9 +222,26 @@ export async function deleteUser(id: string) {
   const subdomain = await db.transaction(async (query) => {
     const { rows } = await query<{ subdomain: string }>("delete from users where id = $1 returning subdomain", [id]);
     await query("delete from tokens where user_id = $1", [id]);
+    // Remember the address, so it stays unavailable for a while (subdomainOnHold).
+    if (rows[0]) {
+      await query(
+        "insert into released_subdomains (subdomain) values ($1) on conflict (subdomain) do update set released_at = now()",
+        [rows[0].subdomain],
+      );
+    }
     return rows[0]?.subdomain;
   });
   if (subdomain) siteChanged(subdomain);
+}
+
+// Whether the address belonged to an account closed in the last `months`.
+export async function subdomainOnHold(subdomain: string, months: number) {
+  const db = await database();
+  const { rows } = await db.query(
+    "select 1 from released_subdomains where subdomain = $1 and released_at > now() - make_interval(months => $2)",
+    [subdomain.toLowerCase(), months],
+  );
+  return rows.length > 0;
 }
 
 export async function addToken(token: Token) {

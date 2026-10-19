@@ -27,10 +27,21 @@ export function siteSubdomain(host: string) {
   return subdomain && subdomain !== "www" && !subdomain.includes(".") ? subdomain : null;
 }
 
+// Addresses nobody can sign up for: Folio's own (now or later), and names
+// that would look official on a photographer's site.
 export const RESERVED_SUBDOMAINS = new Set([
   "www", "app", "api", "admin", "dashboard", "login", "signup", "mail",
   "help", "support", "blog", "static", "assets", "cdn",
+  "folio", "about", "contact", "account", "accounts", "auth", "billing", "pay", "payments",
+  "legal", "terms", "privacy", "copyright", "dmca", "abuse", "report", "reports", "safety", "trust",
+  "security", "status", "news", "press", "docs", "dev", "staging", "test", "beta", "demo",
+  "email", "smtp", "imap", "webmail", "postmaster", "hostmaster", "webmaster", "noreply", "no-reply",
+  "media", "images", "img", "photos", "uploads", "files", "official", "team", "staff",
 ]);
+
+// How long a closed account's address stays unavailable, so nobody can take
+// it over and pass themselves off as its old owner.
+export const ADDRESS_HOLD_MONTHS = 12;
 
 export function validateSubdomain(value: string): string | null {
   if (!/^[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])$/.test(value)) {
@@ -49,10 +60,11 @@ export function isPublished(user: { published?: boolean }) {
   return user.published !== false;
 }
 
-// Whether visitors can see the site: the photographer has it online, and
+// Whether visitors can see the site: the photographer has it online and has
+// confirmed their email (so a throwaway address can't publish anything), and
 // Folio hasn't suspended it.
-export function isLive(user: { published?: boolean; suspended?: unknown }) {
-  return isPublished(user) && !user.suspended;
+export function isLive(user: { published?: boolean; emailVerified?: boolean; suspended?: unknown }) {
+  return isPublished(user) && Boolean(user.emailVerified) && !user.suspended;
 }
 
 // Album pages live at name.yourapp.com/<slug>; these paths are taken.
