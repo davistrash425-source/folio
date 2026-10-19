@@ -115,7 +115,7 @@ export async function finishPhotoUpload(file: string): Promise<ActionState> {
     // Storage failures aren't the photo's fault. Log them, or they're invisible.
     if (message.startsWith("R2 ")) {
       console.error("finishPhotoUpload:", err);
-      return { error: "couldn't be saved. Try again in a minute." };
+      return { error: "couldn't be saved, try again in a minute" };
     }
     if (message !== "BAD_PATH") console.warn("finishPhotoUpload:", err);
     return { error: "couldn't be read as an image" };

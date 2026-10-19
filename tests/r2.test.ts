@@ -14,13 +14,15 @@ const config: R2Config = {
 };
 const endpoint = "https://acct.r2.cloudflarestorage.com";
 
-type Sent = { method: string; url: string; headers: Headers; body: string };
+type Sent = { method: string; url: string; headers: Headers; body: string; bodyIsBytes: boolean };
 
 // Records every request; `reply` decides each response.
 function fakeR2(t: TestContext, reply: (req: Sent) => Response = () => new Response("")) {
   const sent: Sent[] = [];
-  t.mock.method(globalThis, "fetch", async (input: Request) => {
-    const req = { method: input.method, url: input.url, headers: input.headers, body: await input.text() };
+  t.mock.method(globalThis, "fetch", async (input: string | Request, init?: RequestInit) => {
+    const r = new Request(input, init);
+    const bodyIsBytes = !(input instanceof Request) && init?.body instanceof Uint8Array;
+    const req = { method: r.method, url: r.url, headers: r.headers, body: await r.text(), bodyIsBytes };
     sent.push(req);
     return reply(req);
   });
@@ -50,6 +52,8 @@ test("originals go to the private bucket, web copies to the public one", async (
   assert.equal(sent[0].method, "PUT");
   assert.equal(sent[0].url, `${endpoint}/folio-private/u1/abc.orig.jpg`);
   assert.equal(sent[0].body, "original");
+  // Next's fetch turns a Request's body into a stream with no Content-Length, which R2 refuses.
+  assert.ok(sent[0].bodyIsBytes, "the photo is handed to fetch as bytes, not inside a Request");
   assert.equal(sent[0].headers.get("content-type"), "image/jpeg");
   assert.equal(sent[0].headers.get("cache-control"), null, "originals aren't marked cacheable");
   assert.match(sent[0].headers.get("authorization") ?? "", /^AWS4-HMAC-SHA256 Credential=key\//, "requests are signed");
@@ -81,6 +85,13 @@ test("removing a file that's already gone is fine; other failures aren't", async
   await storage.remove("u1", "abc.orig.jpg");
   status = 500;
   await assert.rejects(storage.remove("u1", "abc.orig.jpg"), /500/);
+});
+
+test("a server error from R2 is retried a couple of times", async (t) => {
+  let calls = 0;
+  fakeR2(t, () => new Response("", { status: ++calls < 3 ? 503 : 200 }));
+  await r2Storage(config).put("u1", "abc-640.webp", Buffer.from("x"));
+  assert.equal(calls, 3);
 });
 
 test("removing everything deletes the user's files from both buckets, across pages, and nothing else", async (t) => {
