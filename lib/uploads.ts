@@ -270,14 +270,25 @@ export const PHOTO_ERRORS = new Set(["BAD_PATH", "NOT_UPLOADED", "TOO_LARGE", "N
 // After a direct upload: checks the original that arrived (a real image,
 // within the size limit) and makes its web copies. A bad file is deleted, but
 // not one that storage failed to handle, so trying again can still work.
-// Returns the fields for a new Photo record.
-export async function finishDirectUpload(userId: string, file: string): Promise<Omit<Photo, "createdAt">> {
+// Returns the fields for a new Photo record. `timings` collects how long each
+// step took, in ms.
+export async function finishDirectUpload(
+  userId: string,
+  file: string,
+  timings: Record<string, number> = {},
+): Promise<Omit<Photo, "createdAt">> {
   const match = ORIGINAL_NAME.exec(file);
   if (!match) throw new Error("BAD_PATH");
+  let started = performance.now();
+  const lap = (step: string) => {
+    timings[step] = performance.now() - started;
+    started = performance.now();
+  };
   const data = await storage.get(userId, file).catch((err) => {
     const missing = err?.code === "ENOENT" || err?.message === "R2 GET failed: 404";
     throw missing ? new Error("NOT_UPLOADED") : err;
   });
+  lap("read");
   let image: Awaited<ReturnType<typeof processImage>>;
   try {
     if (data.length > MAX_PHOTO_BYTES) throw new Error("TOO_LARGE");
@@ -286,7 +297,10 @@ export async function finishDirectUpload(userId: string, file: string): Promise<
     await storage.remove(userId, file).catch(() => {});
     throw new Error((err as Error).message === "TOO_LARGE" ? "TOO_LARGE" : "NOT_AN_IMAGE", { cause: err });
   }
-  return { id: match[1], ...(await saveVariants(userId, file, image)) };
+  lap("resize");
+  const saved = await saveVariants(userId, file, image);
+  lap("store");
+  return { id: match[1], ...saved };
 }
 
 async function saveVariants(userId: string, file: string, image: Awaited<ReturnType<typeof processImage>>) {

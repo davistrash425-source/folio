@@ -219,3 +219,14 @@ test("finishing doesn't make the server re-render the page for every photo", asy
   assert.equal(res.headers.get("content-type"), "application/json");
   assert.deepEqual(await res.json(), { ok: "Uploaded 1 photo." });
 });
+
+test("finishing says how long each step took, for diagnosing slow uploads", async () => {
+  const alice = await makeUser("Alice");
+  await signInAs(alice);
+  const file = original();
+  await storage.put(alice.id, file, await jpeg());
+  const res = await postJson(finishRoute, { file });
+  const steps = res.headers.get("server-timing")!.split(", ").map((s) => s.split(";")[0]);
+  assert.deepEqual(steps, ["auth", "read", "resize", "store", "save"]);
+  assert.match(res.headers.get("server-timing")!, /^auth;dur=\d+, read;dur=\d+/);
+});

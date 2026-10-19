@@ -30,7 +30,7 @@ import {
   isIOS,
   photoType,
 } from "@/lib/compress-image";
-import { UploadError, uploadDirect } from "@/lib/photo-upload";
+import { UploadError, finishDirect, sendDirect } from "@/lib/photo-upload";
 import type { User } from "@/lib/db";
 
 type UploadItem = {
@@ -46,6 +46,9 @@ type UploadItem = {
 // Photos sent at the same time. More keeps a fast connection busy while the
 // server works on earlier photos; too many slows each one down on a phone.
 const CONCURRENT_UPLOADS = 3;
+// Photos the server may be making web copies of at once. Twice the uploads,
+// so a slot that just finished sending is never kept waiting by the others.
+const MAX_FINISHING = CONCURRENT_UPLOADS * 2;
 
 const ACCEPT = UPLOAD_TYPES.join(",");
 // HEIC can be picked on a computer (it's converted in the browser), but not on
@@ -75,6 +78,8 @@ export function PhotoUploader() {
     // Converting or shrinking a photo takes a lot of memory on a phone, so
     // only one is done at a time even while others upload.
     let preparing: Promise<unknown> = Promise.resolve();
+    // Photos in storage that the server is still making web copies of.
+    const finishing = new Set<Promise<void>>();
     let uploaded = 0;
 
     async function send(i: number, file: File) {
@@ -104,26 +109,41 @@ export function PhotoUploader() {
         }
       }
 
+      const succeeded = () => {
+        uploaded++;
+        update(i, { status: "done", sent: toSend.size });
+      };
+      const failed = (err: unknown) => {
+        const known = err instanceof UploadError;
+        update(i, { status: "failed", reason: known ? err.message : "upload failed", retry: !known || err.retry });
+      };
+
       update(i, { status: "uploading" });
+      let stored: string | null;
       try {
-        const direct = await uploadDirect(toSend, sendType, {
-          progress: (sent) => update(i, { sent }),
-          finishing: () => update(i, { status: "processing", sent: toSend.size }),
-        });
+        stored = await sendDirect(toSend, sendType, (sent) => update(i, { sent }));
         // No direct uploads (local development): through the app instead.
-        if (!direct) {
+        if (!stored) {
           const fd = new FormData();
           fd.append("photos", new File([toSend], toSend.name, { type: sendType }));
           const result = await uploadPhotos({}, fd);
           // Its errors are written for a whole batch; only the limit one fits a single photo.
           if (result.error) throw new UploadError(/limit/.test(result.error) ? result.error : "couldn't be read as an image");
+          return succeeded();
         }
-        uploaded++;
-        update(i, { status: "done", sent: toSend.size });
       } catch (err) {
-        const known = err instanceof UploadError;
-        update(i, { status: "failed", reason: known ? err.message : "upload failed", retry: !known || err.retry });
+        return failed(err);
       }
+
+      // The server takes a few seconds to make the web copies. Meanwhile this
+      // upload slot moves on to the next photo, unless many are already
+      // waiting on the server (a fast connection outpacing it).
+      update(i, { status: "processing", sent: toSend.size });
+      const finish: Promise<void> = finishDirect(stored)
+        .then(succeeded, failed)
+        .finally(() => finishing.delete(finish));
+      finishing.add(finish);
+      while (finishing.size >= MAX_FINISHING) await Promise.race(finishing);
     }
 
     let next = 0;
@@ -135,6 +155,7 @@ export function PhotoUploader() {
     };
     try {
       await Promise.all(Array.from({ length: Math.min(CONCURRENT_UPLOADS, files.length) }, worker));
+      await Promise.all(finishing);
     } finally {
       running.current = false;
       if (inputRef.current) inputRef.current.value = "";
