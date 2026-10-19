@@ -40,6 +40,7 @@ async function Library({ searchParams }: { searchParams: PageProps<"/dashboard/m
       location: p.location ?? "",
       alt: p.alt ?? "",
       albumIds: albums.filter((a) => a.photoIds.includes(p.id)).map((a) => a.id),
+      removed: Boolean(p.removed),
     };
   });
   return (

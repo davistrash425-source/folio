@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { Suspense } from "react";
 import { requireUser } from "@/lib/auth";
+import { SUPPORT_EMAIL } from "@/lib/site";
 import { SideNav, SideNavView } from "../nav";
 import { VerifyEmailBanner } from "../panels";
 
@@ -28,5 +30,26 @@ async function SideNavWithCounts() {
 
 async function AccountNotices() {
   const user = await requireUser();
-  return user.emailVerified ? null : <VerifyEmailBanner email={user.email} />;
+  const takenDown = user.photos.filter((p) => p.removed).length;
+  return (
+    <>
+      {user.suspended && (
+        <p className="border-l-2 border-accent bg-card px-5 py-3 text-sm">
+          <span className="font-medium text-accent">Your site is suspended</span> because {user.suspended.reason}. Visitors
+          can’t see it, and you can’t upload photos. You can still download your data from Account. If you think this is
+          a mistake, write to {SUPPORT_EMAIL}.
+        </p>
+      )}
+      {takenDown > 0 && (
+        <p className="border-l-2 border-accent bg-card px-5 py-3 text-sm">
+          Folio took down {takenDown === 1 ? "1 of your photos" : `${takenDown} of your photos`} after a complaint. We
+          emailed you about it.{" "}
+          <Link href="/dashboard/manage/photos" className="underline">
+            See your photos
+          </Link>
+        </p>
+      )}
+      {!user.emailVerified && <VerifyEmailBanner email={user.email} />}
+    </>
+  );
 }

@@ -28,7 +28,7 @@ async function Editor() {
       draft={draftDesign(user)}
       published={publishedDesign(user)}
       canUndo={(user.designHistory?.length ?? 0) > 0}
-      photos={user.photos.map((p) => {
+      photos={user.photos.filter((p) => !p.removed).map((p) => {
         const src = photoSource(user.id, p);
         return { id: p.id, src: src.src, srcSet: src.srcSet, description: p.description ?? "", location: p.location ?? "" };
       })}

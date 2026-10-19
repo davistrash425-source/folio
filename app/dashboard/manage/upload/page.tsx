@@ -24,7 +24,7 @@ export default function UploadPage() {
 
 async function RecentUploads() {
   const user = await requireUser();
-  const recent = [...user.photos].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 12);
+  const recent = user.photos.filter((p) => !p.removed).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 12);
   if (recent.length === 0) return null;
   return (
     <Card title="Recently uploaded">

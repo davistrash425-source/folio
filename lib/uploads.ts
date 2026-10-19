@@ -316,10 +316,22 @@ async function saveVariants(userId: string, file: string, image: Awaited<ReturnT
 }
 
 export async function deletePhotoFiles(userId: string, photo: Photo) {
-  await Promise.all([
-    storage.remove(userId, photo.file),
-    ...(photo.variants ?? []).map((w) => storage.remove(userId, variantName(baseName(photo.file), w))),
-  ]);
+  await Promise.all([storage.remove(userId, photo.file), deleteWebCopies(userId, photo)]);
+}
+
+// Deletes only the public web copies, keeping the private original: what a
+// takedown does, so the photo can be put back. (Photos from before web copies
+// existed serve their original and have none to delete.)
+export async function deleteWebCopies(userId: string, photo: Photo) {
+  await Promise.all(
+    (photo.variants ?? []).map((w) => storage.remove(userId, variantName(baseName(photo.file), w))),
+  );
+}
+
+// Makes a photo's web copies again from its original, under the same names.
+// Returns the fields to update on the Photo record.
+export async function remakeWebCopies(userId: string, photo: Photo) {
+  return saveVariants(userId, photo.file, await processImage(await storage.get(userId, photo.file)));
 }
 
 export type PhotoSource = {

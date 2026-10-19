@@ -35,6 +35,10 @@ export type Photo = {
   width?: number;
   height?: number;
   variants?: number[]; // widths of the "<base>-<width>.webp" copies
+  // Set while the photo is taken down by Folio (app/actions/admin.ts): it's
+  // off the site and its web copies are deleted, but the private original is
+  // kept so it can be put back.
+  removed?: { at: string; reportId?: string; note?: string };
 };
 
 export type Album = {
@@ -86,6 +90,14 @@ export type User = {
   // Login cookies issued before this time (ms) no longer work. Set by a
   // password reset and by "sign out everywhere".
   sessionsValidFrom?: number;
+  // Set by Folio's admins (app/actions/admin.ts). A suspended site is hidden
+  // and can't take uploads. An account on legal hold keeps everything (its
+  // photos and the account can't be deleted), as evidence the law may
+  // require Folio to preserve. Strikes are upheld copyright notices, counted
+  // for the repeat-infringer policy.
+  suspended?: { at: string; reason: string };
+  legalHold?: { at: string; note: string };
+  strikes?: { at: string; reportId: string }[];
 };
 
 // One-time links for password resets and email verification. Only a hash of
@@ -269,4 +281,116 @@ export async function addReport(report: Report) {
     ],
   );
   return id;
+}
+
+// A report as the admin pages show it: open until an admin closes it.
+export type SavedReport = Report & {
+  id: string;
+  status: "open" | "closed";
+  note: string; // what the admin did about it
+  createdAt: string;
+  closedAt?: string;
+};
+
+type ReportRow = {
+  id: string;
+  subdomain: string;
+  reason: string;
+  details: string;
+  reporter_email: string;
+  notice: CopyrightNotice | null;
+  status: string;
+  note: string | null;
+  created_at: Date | string;
+  closed_at: Date | string | null;
+};
+const toReport = (r: ReportRow): SavedReport => ({
+  id: r.id,
+  subdomain: r.subdomain,
+  reason: r.reason,
+  details: r.details,
+  reporterEmail: r.reporter_email,
+  ...(r.notice ? { notice: r.notice } : {}),
+  status: r.status === "closed" ? "closed" : "open",
+  note: r.note ?? "",
+  createdAt: new Date(r.created_at).toISOString(),
+  ...(r.closed_at ? { closedAt: new Date(r.closed_at).toISOString() } : {}),
+});
+
+// Open reports first, then the most recently closed; newest first in each.
+export async function listReports(limit = 200) {
+  const db = await database();
+  const { rows } = await db.query<ReportRow>(
+    "select * from reports order by status = 'closed', coalesce(closed_at, created_at) desc limit $1",
+    [limit],
+  );
+  return rows.map(toReport);
+}
+
+export async function findReport(id: string) {
+  const db = await database();
+  const { rows } = await db.query<ReportRow>("select * from reports where id = $1", [id]);
+  return rows[0] ? toReport(rows[0]) : null;
+}
+
+export async function reportsForSite(subdomain: string) {
+  const db = await database();
+  const { rows } = await db.query<ReportRow>("select * from reports where subdomain = $1 order by created_at desc", [
+    subdomain.toLowerCase(),
+  ]);
+  return rows.map(toReport);
+}
+
+export async function setReportStatus(id: string, status: SavedReport["status"], note: string) {
+  const db = await database();
+  await db.query(
+    "update reports set status = $2, note = $3, closed_at = case when $2 = 'closed' then now() end where id = $1",
+    [id, status, note],
+  );
+}
+
+// Everything an admin does to an account, kept as a record that notices
+// were acted on and the repeat-infringer policy was applied.
+export type AdminAction = {
+  at: string;
+  adminEmail: string;
+  userId: string;
+  subdomain: string;
+  reportId?: string;
+  action: string; // e.g. "remove-photos"
+  detail: string; // in words, for people reading the log
+};
+
+export async function logAdminAction(entry: Omit<AdminAction, "at">) {
+  const db = await database();
+  await db.query(
+    "insert into admin_actions (id, admin_email, user_id, subdomain, report_id, action, detail) values ($1, $2, $3, $4, $5, $6, $7)",
+    [randomUUID(), entry.adminEmail, entry.userId, entry.subdomain, entry.reportId ?? null, entry.action, entry.detail],
+  );
+}
+
+// Newest first. Keyed by the account's id, so the log outlives a change of
+// site address.
+export async function adminActionsFor(userId: string) {
+  const db = await database();
+  const { rows } = await db.query<{
+    at: Date | string;
+    admin_email: string;
+    user_id: string;
+    subdomain: string;
+    report_id: string | null;
+    action: string;
+    detail: string;
+  }>("select * from admin_actions where user_id = $1 order by at desc", [userId]);
+  return rows.map(
+    (r): AdminAction => ({
+      at: new Date(r.at).toISOString(),
+      adminEmail: r.admin_email,
+      userId: r.user_id,
+      subdomain: r.subdomain,
+      ...(r.report_id ? { reportId: r.report_id } : {}),
+      action: r.action,
+      detail: r.detail,
+    }),
+  );
 }

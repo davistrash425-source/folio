@@ -14,6 +14,7 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   const type = typeof body?.type === "string" ? body.type : "";
   const size = typeof body?.size === "number" ? body.size : NaN;
+  if (user.suspended) return Response.json({ error: "your site is suspended, so you can't upload right now" });
   if (user.photos.length >= MAX_PHOTOS) return Response.json({ error: PHOTO_LIMIT_MESSAGE });
   try {
     const direct = await directUpload(user.id, type, size);

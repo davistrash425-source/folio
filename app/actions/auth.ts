@@ -11,7 +11,7 @@ import {
   hashPassword,
   verifyPassword,
 } from "@/lib/session";
-import { NEW_SITES_START_PUBLISHED, appUrl, validateSubdomain } from "@/lib/site";
+import { NEW_SITES_START_PUBLISHED, SUPPORT_EMAIL, appUrl, validateSubdomain } from "@/lib/site";
 import { createToken, redeemToken } from "@/lib/tokens";
 import { storage } from "@/lib/uploads";
 
@@ -169,6 +169,8 @@ export async function deleteAccount(_prev: FormState, formData: FormData): Promi
   if (!(await verifyPassword(password, user.passwordHash))) {
     return { error: "That password isn't right." };
   }
+  // Folio has been asked (or is required) to keep this account for now.
+  if (user.legalHold) return { error: `Your account can't be deleted right now. Write to ${SUPPORT_EMAIL} for help.` };
   await deleteUser(user.id);
   await storage.removeAll(user.id);
   await deleteSession();

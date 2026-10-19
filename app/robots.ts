@@ -14,7 +14,7 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
       userAgent: "*",
       allow: "/",
       // /sites/<name> is each site again under the app's address.
-      disallow: ["/dashboard", "/api/", "/site-preview", "/sites/", "/reset-password", "/verify-email"],
+      disallow: ["/dashboard", "/admin", "/api/", "/site-preview", "/sites/", "/reset-password", "/verify-email"],
     },
     sitemap: appUrl("/sitemap.xml"),
   };

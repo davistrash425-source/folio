@@ -14,6 +14,10 @@ export function appUrl(pathname = "/") {
 
 const rootHostname = ROOT_DOMAIN.split(":")[0];
 
+// Where photographers can write to Folio, e.g. support@folio.cam. It needs
+// an inbox (or a forward) on the root domain.
+export const SUPPORT_EMAIL = `support@${rootHostname}`;
+
 // The photographer's site a Host header points at ("alice" for
 // alice.yourapp.com), or null for the app itself and anything else.
 export function siteSubdomain(host: string) {
@@ -43,6 +47,12 @@ export const NEW_SITES_START_PUBLISHED = true;
 
 export function isPublished(user: { published?: boolean }) {
   return user.published !== false;
+}
+
+// Whether visitors can see the site: the photographer has it online, and
+// Folio hasn't suspended it.
+export function isLive(user: { published?: boolean; suspended?: unknown }) {
+  return isPublished(user) && !user.suspended;
 }
 
 // Album pages live at name.yourapp.com/<slug>; these paths are taken.

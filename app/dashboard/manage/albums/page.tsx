@@ -26,7 +26,7 @@ async function AlbumList() {
   const user = await requireUser();
   const albums = user.albums ?? [];
   if (albums.length === 0) return <p className="text-sm text-ink-soft">No albums yet.</p>;
-  const byId = new Map(user.photos.map((p) => [p.id, p]));
+  const byId = new Map(user.photos.filter((p) => !p.removed).map((p) => [p.id, p]));
   return (
     <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {albums.map((album) => {
