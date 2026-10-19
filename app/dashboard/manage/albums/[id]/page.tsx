@@ -25,7 +25,7 @@ async function Album({ params }: { params: PageProps<"/dashboard/manage/albums/[
   const user = await requireUser();
   const album = user.albums?.find((a) => a.id === id);
   if (!album) notFound();
-  const library = user.photos.map((p) => {
+  const library = user.photos.filter((p) => !p.removed).map((p) => {
     const src = photoSource(user.id, p);
     return { id: p.id, src: src.src, srcSet: src.srcSet, description: p.description ?? "" };
   });

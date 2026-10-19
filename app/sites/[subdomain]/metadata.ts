@@ -35,5 +35,7 @@ export function siteMetadata(subdomain: string, site: SiteData | null): Metadata
     openGraph: cover ? { title, images: [{ url: cover.src, alt: cover.alt }] } : { title },
     // A big photo, not a thumbnail, when the link is shared on X and the like.
     twitter: cover ? { card: "summary_large_image" } : undefined,
+    // The "noai" tags some image scrapers honor, alongside robots.txt.
+    other: site.allowAiTraining ? undefined : { robots: "noai, noimageai" },
   };
 }

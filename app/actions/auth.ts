@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
-import { createUser, deleteUser, findUserByEmail, findUserBySubdomain, updateUser } from "@/lib/db";
+import { createUser, deleteUser, findUserByEmail, findUserBySubdomain, subdomainOnHold, updateUser } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import {
@@ -11,7 +11,7 @@ import {
   hashPassword,
   verifyPassword,
 } from "@/lib/session";
-import { NEW_SITES_START_PUBLISHED, appUrl, validateSubdomain } from "@/lib/site";
+import { ADDRESS_HOLD_MONTHS, NEW_SITES_START_PUBLISHED, SUPPORT_EMAIL, appUrl, validateSubdomain } from "@/lib/site";
 import { createToken, redeemToken } from "@/lib/tokens";
 import { storage } from "@/lib/uploads";
 
@@ -46,6 +46,12 @@ export async function signup(_prev: FormState, formData: FormData): Promise<Form
   if (password.length < 8) return { error: "Password must be at least 8 characters.", fields };
   const subError = validateSubdomain(subdomain);
   if (subError) return { error: subError, fields };
+  if (await subdomainOnHold(subdomain, ADDRESS_HOLD_MONTHS)) {
+    return {
+      error: `That address belonged to a site that closed recently, so it's held for a year. Try another, or write to ${SUPPORT_EMAIL} if it was yours.`,
+      fields,
+    };
+  }
 
   if (await findUserByEmail(email)) {
     return { error: "An account with that email already exists.", fields };
@@ -169,6 +175,8 @@ export async function deleteAccount(_prev: FormState, formData: FormData): Promi
   if (!(await verifyPassword(password, user.passwordHash))) {
     return { error: "That password isn't right." };
   }
+  // Folio has been asked (or is required) to keep this account for now.
+  if (user.legalHold) return { error: `Your account can't be deleted right now. Write to ${SUPPORT_EMAIL} for help.` };
   await deleteUser(user.id);
   await storage.removeAll(user.id);
   await deleteSession();

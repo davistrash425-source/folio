@@ -24,7 +24,14 @@ export type SiteData = {
   albums: SiteAlbum[]; // every album; the design picks which appear
   path: string; // "" for home, else a page or album address
   preview: boolean; // links stay inside the dashboard preview
+  allowAiTraining: boolean; // false: AI training crawlers are asked to stay away
 };
+
+// The copyright line in every theme's footer: the photographer's own, or
+// "© <name>".
+export function copyrightLine(profile: Pick<User["profile"], "name" | "copyrightLine">) {
+  return profile.copyrightLine || `© ${profile.name}`;
+}
 
 // What the current address shows: one of the design's pages, or an album.
 // Pages win if a page and an album share an address.

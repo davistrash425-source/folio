@@ -54,6 +54,10 @@ So server actions (`app/actions/*`) and route handlers are called directly as fu
 **Per-host files.** `proxy.ts` doesn't rewrite `/robots.txt` and `/sitemap.xml`. `app/robots.ts` and `app/sitemap.ts` read the Host header (`siteSubdomain` in `lib/site.ts`) and answer for the app or for one site.
 
 **Limits and reports.** `MAX_PHOTOS` in `lib/uploads.ts` (2,000, a placeholder until plans exist) is checked before uploading and again inside `updateUser`. Every theme's footer has a `ReportLink` (`themes/report-link.tsx`) to `/report`; reports go into the `reports` table and to `REPORTS_EMAIL`. A `"use server"` file may only export async functions, so shared constants like `REPORT_REASONS` live in `lib/`.
+- Copyright complaints use `/report/copyright`, which collects a full DMCA notice (17 U.S.C. § 512(c)(3)) into `reports.notice`. Abuse reports are anonymous; copyright notices are shared with the photographer (minus the sender's address and phone).
+- **Admin.** Accounts whose email is in `ADMIN_EMAILS` get `/admin` (`requireAdmin()` in `lib/admin.ts`; everyone else gets a 404). Its actions (`app/actions/admin.ts`) take photos down (`Photo.removed`: off the site, web copies deleted, original kept), put them back, suspend a site (`User.suspended`), place a legal hold (`User.legalHold`: nothing can be deleted, never emailed), and close reports. A copyright takedown adds one strike per notice (`User.strikes`, limit `STRIKE_LIMIT`). Every action goes into `admin_actions`. Photographer emails are in `lib/admin-emails.ts` (legal wording: get it reviewed before changing).
+- **Live sites.** `isLive` in `lib/site.ts` (published, email confirmed, not suspended) decides what visitors see; use it rather than `isPublished` for anything public. A closed account's subdomain is held for `ADDRESS_HOLD_MONTHS` (`released_subdomains` table).
+- **Rights.** Web copies carry the photographer's name and copyright notice (EXIF + XMP, `PhotoRights` in `lib/images.ts`, built by `photoRights` in `lib/uploads.ts`); `Photo.copyright` records what was written. Sites ask `AI_TRAINING_CRAWLERS` to stay away unless `User.allowAiTraining`.
 
 **Public site caching.** `lib/public-site.ts` loads a site with `"use cache"` and tags it `site:<subdomain>`. `updateUser`, `createUser` and `deleteUser` in `lib/db.ts` invalidate that tag (`siteChanged`), so any account change refreshes the public site. Dashboard pages refresh with `revalidatePath("/dashboard", "layout")`. `next.config.ts` turns on `cacheComponents` and partial prerendering.
 
@@ -86,7 +90,8 @@ So server actions (`app/actions/*`) and route handlers are called directly as fu
 | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_PUBLIC_BUCKET`, `R2_PRIVATE_BUCKET`, `R2_PUBLIC_URL` | Photo storage on Cloudflare R2 (all six or none) | Local disk |
 | `RESEND_API_KEY`, `EMAIL_FROM` | Email through Resend | Console; production throws |
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Shared rate limits | In memory |
-| `REPORTS_EMAIL` | Inbox for site reports | Reports only saved in the database |
+| `REPORTS_EMAIL` | Inbox for site reports; also the reply-to of emails about takedowns | Reports only saved in the database |
+| `ADMIN_EMAILS` | Comma-separated login emails that can use `/admin` | Nobody can |
 
 `NEW_SITES_START_PUBLISHED` in `lib/site.ts` decides whether new sites start live or as drafts.
 
@@ -97,7 +102,7 @@ Chosen setup: Vercel for hosting (with a wildcard `*.domain`), Postgres on Neon,
 The order of work:
 1. Move off local disk: database, photo storage with direct uploads, email and rate limits. This is done on the `move-to-postgres` branch, pending CI and a merge into `main`.
 2. Deploy a staging copy on the real domain and run the smoke test against it.
-3. Add terms and privacy pages (which need the owner's business details), Sentry and backups. The photo limit, reporting, sign-out-everywhere and robots/sitemaps are done.
+3. Add terms and privacy pages (which need the owner's business details and a lawyer's review), Sentry and backups. The photo limit, reporting, sign-out-everywhere, robots/sitemaps, the DMCA notice form, admin takedown tools, email confirmation before going live, rights metadata and AI-crawler blocking are done. The owner still has to register a DMCA agent with the Copyright Office.
 4. Run a private beta.
 5. Add billing and custom domains, if wanted.
 

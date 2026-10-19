@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { logout } from "@/app/actions/auth";
 import { requireUser } from "@/lib/auth";
-import { isPublished, siteUrl } from "@/lib/site";
+import { isLive, isPublished, siteUrl } from "@/lib/site";
 import { DashboardTabs, DashboardTabsView } from "./nav";
 import { PublishToggle } from "./panels";
 
@@ -33,17 +33,31 @@ export default function DashboardLayout({ children }: LayoutProps<"/dashboard">)
 }
 
 // Whether the site is visible to the public, with a switch and a link to it.
+// A site Folio has suspended stays offline whatever the switch says.
 async function SiteStatus() {
   const user = await requireUser();
   const published = isPublished(user);
   const url = siteUrl(user.subdomain);
+  if (user.suspended) {
+    return (
+      <span className="flex items-center gap-2 text-accent">
+        <span className="label border border-accent px-1.5">Suspended</span>
+        Visitors can’t see your site
+      </span>
+    );
+  }
   return (
     <>
-      {published ? (
+      {isLive(user) ? (
         <a href={url} target="_blank" rel="noopener noreferrer" className="group flex items-center gap-2 text-ink">
           <span className="label bg-ink px-1.5 text-paper">Live</span>
           <span className="underline-offset-4 group-hover:underline">{url.replace(/^https?:\/\//, "")} ↗</span>
         </a>
+      ) : published ? (
+        <span className="flex items-center gap-2 text-ink-soft">
+          <span className="label border border-ink-faint px-1.5 text-ink-soft">Not live yet</span>
+          Confirm your email to put it online
+        </span>
       ) : (
         <span className="flex items-center gap-2 text-ink-soft">
           <span className="label border border-ink-faint px-1.5 text-ink-soft">Offline</span>

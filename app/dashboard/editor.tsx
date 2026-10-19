@@ -288,6 +288,7 @@ export type LibraryPhoto = {
   location: string;
   alt: string; // as entered; empty means "use the description"
   albumIds: string[];
+  removed?: boolean; // taken down by Folio: off the site, and its web copies are gone
 };
 
 type Filter = "all" | "no-album" | "no-description";
@@ -404,7 +405,11 @@ export function PhotoLibrary({
                 aria-label={`Edit photo${photo.description ? `: ${photo.description}` : ` ${i + 1}`}`}
                 className="block w-full bg-ink/5 outline-offset-2 hover:outline hover:outline-1 hover:outline-ink"
               >
-                <img src={photo.src} srcSet={photo.srcSet} sizes="240px" alt="" draggable={false} className="aspect-square w-full object-cover" />
+                {photo.removed ? (
+                  <span className="label flex aspect-square w-full items-center justify-center text-accent">Taken down</span>
+                ) : (
+                  <img src={photo.src} srcSet={photo.srcSet} sizes="240px" alt="" draggable={false} className="aspect-square w-full object-cover" />
+                )}
               </button>
               {/* Caption under the frame, like a contact sheet. */}
               <div className="pointer-events-none mt-2 text-xs">
@@ -482,7 +487,14 @@ function PhotoDrawer({ photo, albums, onClose, onPrev, onNext }: {
           </div>
           <button type="button" onClick={onClose} aria-label="Close" className="px-3 py-1 text-xl hover:bg-ink/5">×</button>
         </div>
-        <img src={photo.src} srcSet={photo.srcSet} sizes="448px" alt="" className="max-h-80 w-full bg-ink/5 object-contain" />
+        {photo.removed ? (
+          <p className="border-b border-rule bg-card px-5 py-4 text-sm">
+            <span className="font-medium text-accent">Taken down by Folio.</span> This photo isn’t on your site. We emailed
+            you why and what you can do; you can also delete it.
+          </p>
+        ) : (
+          <img src={photo.src} srcSet={photo.srcSet} sizes="448px" alt="" className="max-h-80 w-full bg-ink/5 object-contain" />
+        )}
         <form
           className="flex flex-1 flex-col gap-4 p-5"
           onSubmit={(e) => {
@@ -618,6 +630,16 @@ export function ProfileForm({ profile }: { profile: User["profile"] }) {
       <Field label="Website">
         <Input name="website" defaultValue={profile.social.website} placeholder="yourname.com" />
       </Field>
+      <div className="sm:col-span-2">
+        <Field label="Copyright line" hint="Shown at the bottom of your site, and saved inside the photos you upload from now on.">
+          <Input
+            name="copyrightLine"
+            maxLength={120}
+            defaultValue={profile.copyrightLine}
+            placeholder={`© ${profile.name || "Your Name"}. All rights reserved.`}
+          />
+        </Field>
+      </div>
       <div className="flex items-center gap-3 sm:col-span-2">
         <Button type="submit" disabled={pending}>{pending ? "Saving…" : "Save"}</Button>
         <Message error={state.error} ok={state.ok} />

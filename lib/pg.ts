@@ -42,6 +42,26 @@ const SCHEMA = `
     reporter_email text not null,
     created_at timestamptz not null default now()
   );
+  -- Columns added after launch. "if not exists" lets older databases catch up.
+  alter table reports add column if not exists notice jsonb; -- copyright notices (lib/reports.ts)
+  alter table reports add column if not exists status text not null default 'open';
+  alter table reports add column if not exists note text;
+  alter table reports add column if not exists closed_at timestamptz;
+  create table if not exists admin_actions (
+    id text primary key,
+    at timestamptz not null default now(),
+    admin_email text not null,
+    user_id text not null,
+    subdomain text not null,
+    report_id text,
+    action text not null,
+    detail text not null
+  );
+  create index if not exists admin_actions_user on admin_actions (user_id, at);
+  create table if not exists released_subdomains (
+    subdomain text primary key,
+    released_at timestamptz not null default now()
+  );
 `;
 
 async function connectPostgres(url: string): Promise<Database> {

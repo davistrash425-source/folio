@@ -19,17 +19,24 @@ import { RedirectError } from "./stubs/next-navigation.ts";
 
 let counter = 0;
 
-// A new account with a published site. Give `password` to log in with it
-// (hashing is slow, so it's off by default).
-export async function makeUser(name: string, opts: { password?: string; published?: boolean } = {}) {
+// A new account with a live site: published, with its email confirmed.
+// Give `password` to log in with it (hashing is slow, so it's off by default).
+export async function makeUser(
+  name: string,
+  opts: { password?: string; published?: boolean; verified?: boolean } = {},
+) {
   const n = ++counter;
   const handle = `${name.toLowerCase()}-${n}`;
-  return createUser({
+  const user = await createUser({
     name,
     email: `${handle}@example.com`,
     subdomain: handle,
     passwordHash: opts.password ? await hashPassword(opts.password) : "salt:hash",
     published: opts.published ?? true,
+  });
+  if (opts.verified === false) return user;
+  return updateUser(user.id, (u) => {
+    u.emailVerified = true;
   });
 }
 

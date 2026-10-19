@@ -1,7 +1,7 @@
 import { cacheLife, cacheTag } from "next/cache";
 import { findUserBySubdomain, type User } from "./db";
 import { readDesign } from "./design";
-import { isPublished } from "./site";
+import { isLive } from "./site";
 import { resolvePath, type SiteData } from "./site-data";
 import { photoSource } from "./uploads";
 
@@ -16,25 +16,30 @@ export function draftDesign(user: User) {
 }
 
 // Builds what the renderer draws. Returns null when the page shouldn't be
-// shown: a draft site viewed publicly, or an address with no page or album.
-// The preview shows the draft design; the live site the published one.
+// shown: a site that isn't live viewed publicly, or an address with no page
+// or album. The preview shows the draft design; the live site the published
+// one. Photos Folio has taken down are left out of both.
 export function siteData(user: User, opts: { path?: string; preview?: boolean } = {}): SiteData | null {
-  if (!opts.preview && !isPublished(user)) return null;
+  if (!opts.preview && !isLive(user)) return null;
+  const photos = user.photos.filter((p) => !p.removed);
+  const shown = new Set(photos.map((p) => p.id));
   const site: SiteData = {
     subdomain: user.subdomain,
     profile: user.profile,
     design: opts.preview ? draftDesign(user) : publishedDesign(user),
-    photos: user.photos.map((p) => photoSource(user.id, p)),
+    photos: photos.map((p) => photoSource(user.id, p)),
     albums: (user.albums ?? []).map((a) => ({
       id: a.id,
       slug: a.slug,
       title: a.title,
       description: a.description ?? "",
-      coverPhotoId: a.coverPhotoId,
-      photoIds: a.photoIds,
+      coverPhotoId: a.coverPhotoId && shown.has(a.coverPhotoId) ? a.coverPhotoId : undefined,
+      // An album left with no photos drops off the site, like an empty one.
+      photoIds: a.photoIds.filter((id) => shown.has(id)),
     })),
     path: opts.path ?? "",
     preview: Boolean(opts.preview),
+    allowAiTraining: Boolean(user.allowAiTraining),
   };
   // The preview may be showing a page that only exists in the editor's
   // unsaved design, so it renders anyway and falls back to home.

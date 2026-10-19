@@ -22,6 +22,7 @@ const needSignIn: Record<string, () => Promise<unknown>> = {
     siteActions.updatePhoto("some-id", { description: "hacked", location: "", alt: "", albumIds: [] }),
   setPublished: () => siteActions.setPublished(false),
   saveProfile: () => siteActions.saveProfile({}, formOf({ name: "Hacked" })),
+  saveAiTraining: () => siteActions.saveAiTraining({}, formOf({})),
   createAlbum: () => siteActions.createAlbum({}, formOf({ title: "Hacked" })),
   updateAlbum: () => siteActions.updateAlbum("some-id", {}, formOf({ title: "Hacked" })),
   setAlbumPhotos: () => siteActions.setAlbumPhotos("some-id", ["some-photo"]),

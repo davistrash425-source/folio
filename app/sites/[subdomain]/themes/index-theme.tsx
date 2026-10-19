@@ -6,7 +6,7 @@
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 import { visibleAlbums, type Section, type SitePage } from "@/lib/design";
-import { siteHref } from "@/lib/site-data";
+import { copyrightLine, siteHref } from "@/lib/site-data";
 import { readableOn, sortPhotos } from "@/lib/theme-utils";
 import type { PhotoSource } from "@/lib/uploads";
 import { ContactForm } from "../contact-form";
@@ -87,7 +87,7 @@ export function IndexTheme({ site }: ThemeProps) {
 
       <footer className={`${GUTTER} ${MONO} mt-auto flex flex-wrap justify-between gap-2 border-t border-[var(--fg)] py-5 text-[var(--muted)]`}>
         <span>
-          © {profile.name} · <ReportLink site={site} />
+          {copyrightLine(site.profile)} · <ReportLink site={site} />
         </span>
         <span>Index of {total} photographs</span>
       </footer>

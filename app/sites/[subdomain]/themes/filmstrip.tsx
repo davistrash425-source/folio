@@ -5,7 +5,7 @@
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 import { visibleAlbums, type Section, type SitePage } from "@/lib/design";
-import { siteHref, type SiteData } from "@/lib/site-data";
+import { copyrightLine, siteHref, type SiteData } from "@/lib/site-data";
 import type { PhotoSource } from "@/lib/uploads";
 import { ContactForm } from "../contact-form";
 import { Lightbox } from "../lightbox";
@@ -105,7 +105,7 @@ export function FilmstripTheme({ site }: ThemeProps) {
 
       <footer className={`${EDGE} mt-auto flex flex-wrap justify-between gap-2 border-t border-white/10 px-6 py-5 text-[var(--muted)] md:px-10`}>
         <span>
-          © {profile.name} · <ReportLink site={site} />
+          {copyrightLine(site.profile)} · <ReportLink site={site} />
         </span>
         <span className="text-[var(--edge)]">{stock.name} ▶ end of roll</span>
       </footer>

@@ -8,11 +8,12 @@ import { requireUser } from "@/lib/auth";
 import { draftDesign, publishedDesign } from "@/lib/public-site";
 import { sendEmail } from "@/lib/email";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
-import { appUrl, isPublished, slugify, validateSlug } from "@/lib/site";
+import { appUrl, isLive, slugify, validateSlug } from "@/lib/site";
 import {
   MAX_PHOTOS,
   PHOTO_LIMIT_MESSAGE,
   deletePhotoFiles,
+  photoRights,
   savePhoto,
   storage,
 } from "@/lib/uploads";
@@ -38,13 +39,15 @@ export async function uploadPhotos(_prev: ActionState, formData: FormData): Prom
     .getAll("photos")
     .filter((f): f is File => f instanceof File && f.size > 0);
   if (files.length === 0) return { error: "Choose at least one photo." };
+  if (user.suspended) return { error: "Your site is suspended, so you can't upload photos right now." };
   if (user.photos.length >= MAX_PHOTOS) return { error: PHOTO_LIMIT_MESSAGE };
 
   const saved: Awaited<ReturnType<typeof savePhoto>>[] = [];
   const skipped: string[] = [];
+  const rights = photoRights(user.profile);
   for (const file of files) {
     try {
-      saved.push(await savePhoto(userId, file));
+      saved.push(await savePhoto(userId, file, rights));
     } catch {
       skipped.push(file.name);
     }
@@ -87,6 +90,7 @@ export async function deletePhoto(photoId: string) {
   const userId = await currentUserId();
   let removed: Photo | undefined;
   await updateUser(userId, (u) => {
+    if (u.legalHold) return; // Folio must keep everything in this account for now
     removed = u.photos.find((p) => p.id === photoId);
     u.photos = u.photos.filter((p) => p.id !== photoId);
     for (const album of u.albums ?? []) album.photoIds = album.photoIds.filter((id) => id !== photoId);
@@ -170,7 +174,17 @@ export async function saveProfile(_prev: ActionState, formData: FormData): Promi
         facebook: cleanUrl(formData.get("facebook")),
         website: cleanUrl(formData.get("website")),
       },
+      copyrightLine: str("copyrightLine", 120).replace(/\s+/g, " "),
     };
+  });
+  return done("Saved.");
+}
+
+// Whether the site asks AI companies' crawlers to stay away (app/robots.ts).
+export async function saveAiTraining(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const userId = await currentUserId();
+  await updateUser(userId, (u) => {
+    u.allowAiTraining = !formData.get("blockAi");
   });
   return done("Saved.");
 }
@@ -284,7 +298,7 @@ export async function sendInquiry(
   }
 
   const owner = await findUserBySubdomain(subdomain);
-  if (!owner || !isPublished(owner)) return { error: "This site isn't accepting messages." };
+  if (!owner || !isLive(owner)) return { error: "This site isn't accepting messages." };
 
   await updateUser(owner.id, (u) => {
     u.inquiries ??= [];
