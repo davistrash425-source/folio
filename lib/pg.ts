@@ -42,6 +42,8 @@ const SCHEMA = `
     reporter_email text not null,
     created_at timestamptz not null default now()
   );
+  -- Columns added after launch. "if not exists" lets older databases catch up.
+  alter table reports add column if not exists notice jsonb; -- copyright notices (lib/reports.ts)
 `;
 
 async function connectPostgres(url: string): Promise<Database> {

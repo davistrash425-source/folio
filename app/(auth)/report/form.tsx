@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { reportSite } from "@/app/actions/report";
 import { REPORT_REASONS } from "@/lib/reports";
@@ -11,6 +12,13 @@ export function ReportForm({ site }: { site: string }) {
 
   return (
     <form action={action} className="space-y-4">
+      <p className="border-l-2 border-accent bg-card px-4 py-3 text-sm">
+        Your photos used without permission?{" "}
+        <Link href={`/report/copyright${site ? `?site=${encodeURIComponent(site)}` : ""}`} className="underline">
+          Send a copyright notice
+        </Link>{" "}
+        instead. It asks for the details the law requires before we can take photos down.
+      </p>
       <Field label="Site">
         <Input name="site" required defaultValue={site} placeholder="the name before the dot in its address" />
       </Field>

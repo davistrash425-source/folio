@@ -9,6 +9,7 @@ import { randomUUID } from "crypto";
 import { revalidateTag } from "next/cache";
 import { presetDesign, type SiteDesign } from "./design";
 import { database, type Query } from "./pg";
+import type { CopyrightNotice } from "./reports";
 import type { TemplateId } from "./templates";
 
 export { DATA_DIR } from "./pg";
@@ -243,15 +244,29 @@ export async function takeToken(hash: string, kind: Token["kind"]) {
 }
 
 // A visitor's report about a site (copyright, harmful content…), kept so
-// nothing is lost if the email about it fails.
-export type Report = { subdomain: string; reason: string; details: string; reporterEmail: string };
+// nothing is lost if the email about it fails. Copyright notices also keep
+// their parts separately in `notice`.
+export type Report = {
+  subdomain: string;
+  reason: string;
+  details: string;
+  reporterEmail: string;
+  notice?: CopyrightNotice;
+};
 
 export async function addReport(report: Report) {
   const db = await database();
   const id = randomUUID();
   await db.query(
-    "insert into reports (id, subdomain, reason, details, reporter_email) values ($1, $2, $3, $4, $5)",
-    [id, report.subdomain, report.reason, report.details, report.reporterEmail],
+    "insert into reports (id, subdomain, reason, details, reporter_email, notice) values ($1, $2, $3, $4, $5, $6)",
+    [
+      id,
+      report.subdomain,
+      report.reason,
+      report.details,
+      report.reporterEmail,
+      report.notice ? JSON.stringify(report.notice) : null,
+    ],
   );
   return id;
 }

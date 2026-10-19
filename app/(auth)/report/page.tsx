@@ -8,8 +8,7 @@ export default function ReportPage({ searchParams }: PageProps<"/report">) {
     <div className="space-y-4">
       <h1 className="font-display text-3xl">Report a site</h1>
       <p className="text-sm text-ink-soft">
-        Tell us about photos used without permission, or anything illegal or harmful. The site’s owner isn’t told who
-        reported it.
+        Tell us about anything illegal, abusive or harmful. The site’s owner isn’t told who reported it.
       </p>
       <Suspense fallback={<ReportForm site="" />}>
         <WithSite searchParams={searchParams} />
