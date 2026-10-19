@@ -60,6 +60,10 @@ GitHub Actions (`.github/workflows/ci.yml`) runs lint, type checks, `npm test`, 
 | Password reset, email confirmation, account deletion | `app/actions/auth.ts`, `lib/tokens.ts` |
 | Rate limiting | `lib/rate-limit.ts` |
 | Reporting a site (form, saved reports) | `app/(auth)/report`, `app/actions/report.ts`, `reports` table |
+| Copyright (DMCA) notices | `app/(auth)/report/copyright`, `reportCopyright` in `app/actions/report.ts` |
+| Admin: reports, takedowns, suspensions, legal holds | `app/admin`, `app/actions/admin.ts`, `lib/admin.ts`, emails in `lib/admin-emails.ts` |
+| Photographer's name and copyright inside photos | `lib/images.ts`, `photoRights` in `lib/uploads.ts` |
+| AI training crawlers | `AI_TRAINING_CRAWLERS` in `lib/site.ts`, `app/robots.ts` |
 | robots.txt and sitemaps, per host | `app/robots.ts`, `app/sitemap.ts` |
 | Signing out other devices | `sessionsValidFrom` on the account, checked in `lib/auth.ts` |
 | Data export (.zip) | `app/api/export`, `lib/zip.ts` |
@@ -78,7 +82,8 @@ GitHub Actions (`.github/workflows/ci.yml`) runs lint, type checks, `npm test`, 
 | `R2_PRIVATE_BUCKET` | Bucket for the originals. Never make it public. | |
 | `RESEND_API_KEY`, `EMAIL_FROM` | Resend key, and the sender, e.g. `Folio <hello@yourapp.com>` on a domain verified in Resend | printed to the console (refuses in production) |
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis, for rate limits shared by every server | in memory |
-| `REPORTS_EMAIL` | Where reports about sites (the "Report" link in every site's footer) are emailed | reports are only saved in the database |
+| `REPORTS_EMAIL` | Where reports about sites (the "Report" link in every site's footer) are emailed; photographers' replies about takedowns come here too | reports are only saved in the database |
+| `ADMIN_EMAILS` | Login emails (comma-separated) that can open `/admin` to handle reports | nobody can |
 
 Set all six R2 variables or none: a partial setup stops the app at startup.
 
@@ -138,6 +143,8 @@ Accounts and keys:
 - **Resend:** verify your domain (it gives you DNS records to add), then set `RESEND_API_KEY` and `EMAIL_FROM`.
 - **Upstash:** create a Redis database and set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`.
 - **Reports:** set `REPORTS_EMAIL` to the inbox that should hear about copyright and abuse reports. Every report is also kept in the `reports` table.
+- **Admin:** set `ADMIN_EMAILS` to your own login email, then open `/admin` to handle reports.
+- **Support inbox:** suspended photographers are told to write to `support@<root domain>`, so create that address (a forward is fine).
 - **Session secret:** generate one with `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"` and set it as `SESSION_SECRET`.
 
 Domain:
