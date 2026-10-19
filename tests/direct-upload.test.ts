@@ -61,7 +61,7 @@ test("a storage failure isn't blamed on the photo", async (t) => {
     throw new Error("R2 PUT failed: 403");
   });
   t.mock.method(console, "error", () => {});
-  assert.deepEqual(await finishPhotoUpload(file), { error: "couldn't be saved. Try again in a minute." });
+  assert.deepEqual(await finishPhotoUpload(file), { error: "couldn't be saved, try again in a minute" });
   assert.equal((await findUserById(alice.id))!.photos.length, 0);
 });
 

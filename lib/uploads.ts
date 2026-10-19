@@ -114,19 +114,34 @@ export function r2Storage(config: R2Config): Storage {
     secretAccessKey: config.secretAccessKey,
     service: "s3",
     region: "auto",
-    retries: 2, // R2 errors are retried, but not for long: someone is waiting
   });
   const endpoint = `https://${config.accountId}.r2.cloudflarestorage.com`;
   const bucketFor = (file: string) => (isPrivateFile(file) ? config.privateBucket : config.publicBucket);
   const objectUrl = (userId: string, file: string) =>
     `${endpoint}/${bucketFor(file)}/${encodeURIComponent(segment(userId))}/${encodeURIComponent(segment(file))}`;
 
+  // Signs with aws4fetch but sends the body itself. client.fetch passes fetch a
+  // Request, which Next's patched fetch rebuilds with the body as a stream: no
+  // Content-Length, and R2 refuses the PUT (411).
   async function send(url: string, init: RequestInit = {}) {
-    const res = await client.fetch(url, init);
-    if (!res.ok && !(init.method === "DELETE" && res.status === 404)) {
-      throw new Error(`R2 ${init.method ?? "GET"} failed: ${res.status}`);
+    const method = init.method ?? "GET";
+    let res: Response | undefined;
+    // R2 errors are retried, but not for long: someone is waiting.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt) await new Promise((r) => setTimeout(r, 50 * 2 ** attempt));
+      const signed = await client.sign(url, init);
+      try {
+        res = await fetch(signed.url, { method, headers: signed.headers, body: init.body, cache: "no-store" });
+      } catch (err) {
+        if (attempt === 2) throw err;
+        continue;
+      }
+      if (res.status < 500) break;
     }
-    return res;
+    if (!res!.ok && !(method === "DELETE" && res!.status === 404)) {
+      throw new Error(`R2 ${method} failed: ${res!.status}`);
+    }
+    return res!;
   }
 
   // Every key in `bucket` under the user's folder, following continuation pages.
