@@ -110,7 +110,14 @@ export async function finishPhotoUpload(file: string): Promise<ActionState> {
   let photo: Awaited<ReturnType<typeof finishDirectUpload>>;
   try {
     photo = await finishDirectUpload(userId, file);
-  } catch {
+  } catch (err) {
+    const message = (err as Error).message;
+    // Storage failures aren't the photo's fault. Log them, or they're invisible.
+    if (message.startsWith("R2 ")) {
+      console.error("finishPhotoUpload:", err);
+      return { error: "couldn't be saved. Try again in a minute." };
+    }
+    if (message !== "BAD_PATH") console.warn("finishPhotoUpload:", err);
     return { error: "couldn't be read as an image" };
   }
   let full = false;

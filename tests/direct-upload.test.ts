@@ -52,6 +52,19 @@ test("a file that isn't an image is refused and deleted", async () => {
   assert.equal((await findUserById(alice.id))!.photos.length, 0);
 });
 
+test("a storage failure isn't blamed on the photo", async (t) => {
+  const alice = await makeUser("Alice");
+  await signInAs(alice);
+  const file = original();
+  await storage.put(alice.id, file, await jpeg());
+  t.mock.method(storage, "put", async () => {
+    throw new Error("R2 PUT failed: 403");
+  });
+  t.mock.method(console, "error", () => {});
+  assert.deepEqual(await finishPhotoUpload(file), { error: "couldn't be saved. Try again in a minute." });
+  assert.equal((await findUserById(alice.id))!.photos.length, 0);
+});
+
 test("only names the server hands out can be finished", async () => {
   const alice = await makeUser("Alice");
   await signInAs(alice);
