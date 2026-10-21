@@ -15,6 +15,7 @@ import {
   applyLook,
   applyTheme,
   designSchema,
+  makeHomePage,
   newPage,
   newSection,
   sameDesign,
@@ -183,7 +184,7 @@ export function DesignEditor(props: {
               onAdd={addPage}
               disabled={design.pages.length >= 20}
             />
-            <p className="text-xs text-ink-soft">The first page is your home page. Menu order follows this list.</p>
+            <p className="text-xs text-ink-soft">The first page is your home page; open another page to make it the home page instead. Menu order follows this list.</p>
           </Group>
 
           <Group title={`Page: ${page.title || "Untitled"}`} key={page.id}>
@@ -196,6 +197,7 @@ export function DesignEditor(props: {
                 setDesign((d) => ({ ...d, pages: d.pages.filter((p) => p.id !== page.id) }));
                 setPageId(design.pages[0].id);
               }}
+              onMakeHome={() => update({ pages: makeHomePage(design.pages, page.id, albumSlugs) })}
               suggestSlug={(title) => uniqueSlug(title, [...design.pages.filter((p) => p.id !== page.id).map((p) => p.slug), ...albumSlugs])}
               albumSlugs={albumSlugs}
             />
@@ -408,11 +410,12 @@ export function DesignEditor(props: {
   );
 }
 
-function PageSettings({ page, isHome, onChange, onDelete, suggestSlug, albumSlugs }: {
+function PageSettings({ page, isHome, onChange, onDelete, onMakeHome, suggestSlug, albumSlugs }: {
   page: SitePage;
   isHome: boolean;
   onChange: (patch: Partial<SitePage>) => void;
   onDelete: () => void;
+  onMakeHome: () => void;
   suggestSlug: (title: string) => string;
   albumSlugs: string[];
 }) {
@@ -462,9 +465,14 @@ function PageSettings({ page, isHome, onChange, onDelete, suggestSlug, albumSlug
           Show in the site menu
         </label>
         {!isHome && (
-          <button type="button" onClick={onDelete} className="px-3 py-1.5 text-sm text-accent hover:bg-accent-soft">
-            Delete page
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={onMakeHome} className="border border-rule px-3 py-1.5 text-sm hover:border-ink">
+              Make this the home page
+            </button>
+            <button type="button" onClick={onDelete} className="px-3 py-1.5 text-sm text-accent hover:bg-accent-soft">
+              Delete page
+            </button>
+          </div>
         )}
       </div>
     </div>

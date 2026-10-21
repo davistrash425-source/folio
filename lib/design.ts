@@ -579,6 +579,20 @@ export function sameDesign(a: SiteDesign, b: SiteDesign) {
 }
 
 // A page address made from a title that doesn't clash with `taken`.
+// Makes a page the home page: it moves to the top of the list and takes the
+// address "/", and the old home page gets an address made from its name
+// (avoiding `taken`, e.g. album addresses) and the new home's old place.
+export function makeHomePage(pages: SitePage[], pageId: string, taken: string[] = []): SitePage[] {
+  const i = pages.findIndex((p) => p.id === pageId);
+  if (i <= 0) return pages;
+  const [home, chosen] = [pages[0], pages[i]];
+  const others = pages.filter((p) => p.id !== home.id && p.id !== chosen.id).map((p) => p.slug);
+  const next = [...pages];
+  next[i] = { ...home, slug: uniqueSlug(home.title, [...others, ...taken]) };
+  next[0] = { ...chosen, slug: "" };
+  return next;
+}
+
 export function uniqueSlug(title: string, taken: string[]) {
   const base =
     title

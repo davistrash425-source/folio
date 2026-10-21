@@ -9,6 +9,7 @@ import {
   applyTheme,
   designSchema,
   galleryPhotos,
+  makeHomePage,
   newPage,
   presetDesign,
   readDesign,
@@ -189,6 +190,17 @@ test("headers and About sections show the photographer's own text, or else their
 
   const edited = { ...d, pages: [{ ...home, sections: home.sections.map((s) => (s.type === "hero" ? { ...s, heading: "x".repeat(81) } : s)) }, about] };
   assert.equal(designSchema.safeParse(edited).success, false, "header titles are limited to 80 characters");
+});
+
+test("any page can become the home page, and the old home page gets its own address", () => {
+  const d = presetDesign();
+  const contact = { ...newPage("blank", "contact", makeId), title: "Contact" };
+  const pages = [{ ...d.pages[0], title: "Work" }, d.pages[1], contact];
+
+  const next = makeHomePage(pages, d.pages[1].id, ["work"]);
+  assert.deepEqual(next.map((p) => [p.title, p.slug]), [[d.pages[1].title, ""], ["Work", "work-2"], ["Contact", "contact"]]);
+  assert.ok(designSchema.safeParse({ ...d, pages: next }).success);
+  assert.equal(makeHomePage(next, next[0].id), next, "the home page stays as it is");
 });
 
 test("galleries show all photos, chosen photos or an album", () => {
