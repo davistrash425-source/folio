@@ -119,6 +119,10 @@ const designBase = z.object({
     accent: hex.describe("Links and buttons"),
   }),
   fonts: z.enum(FONTS).describe("mixed = serif headings with sans-serif text; mono = typewriter-style monospace"),
+  margins: z
+    .enum(["none", "medium", "wide"])
+    .optional()
+    .describe("Space on both sides of the content on large screens (Classic). Missing = none, edge to edge"),
   pages: z
     .array(pageSchema)
     .min(1)

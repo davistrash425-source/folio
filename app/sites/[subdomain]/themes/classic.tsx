@@ -42,6 +42,9 @@ function themeStyle(design: SiteDesign) {
   } as CSSProperties;
 }
 
+// The content's width on large screens; the background still fills the window.
+const MARGINS = { none: "", medium: "mx-auto w-full max-w-6xl", wide: "mx-auto w-full max-w-4xl" };
+
 // "mixed" puts headings in serif via a rule in app/globals.css.
 const BODY_FONT = { sans: "font-sans", serif: "font-serif", mixed: "font-sans", mono: "font-mono" };
 
@@ -58,11 +61,13 @@ export function ClassicTheme({ site }: Props) {
       data-fonts={design.fonts}
       className={`flex-1 bg-[var(--bg)] text-[var(--fg)] ${BODY_FONT[design.fonts]}`}
     >
-      <TopBar site={site} current={current} />
-      {target.page ? <PageBody site={site} page={target.page} /> : <AlbumPage site={site} album={target.album} />}
-      <footer className="px-6 py-10 text-center text-xs text-[var(--muted)] sm:px-10">
-        {copyrightLine(site.profile)} · <ReportLink site={site} />
-      </footer>
+      <div className={MARGINS[design.margins ?? "none"]}>
+        <TopBar site={site} current={current} />
+        {target.page ? <PageBody site={site} page={target.page} /> : <AlbumPage site={site} album={target.album} />}
+        <footer className="px-6 py-10 text-center text-xs text-[var(--muted)] sm:px-10">
+          {copyrightLine(site.profile)} · <ReportLink site={site} />
+        </footer>
+      </div>
     </div>
   );
 }

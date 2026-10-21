@@ -277,6 +277,17 @@ export function DesignEditor(props: {
                   ]}
                   onChange={(fonts) => update({ fonts })}
                 />
+                <Choice
+                  label="Side margins (large screens)"
+                  value={design.margins ?? "none"}
+                  options={[
+                    ["none", "None"],
+                    ["medium", "Medium"],
+                    ["wide", "Wide"],
+                  ]}
+                  // "none" is the same as no setting, so going back to it leaves nothing to save.
+                  onChange={(margins) => update({ margins: margins === "none" ? undefined : margins })}
+                />
               </>
             ) : (
               <>

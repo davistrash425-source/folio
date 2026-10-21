@@ -203,6 +203,13 @@ test("any page can become the home page, and the old home page gets its own addr
   assert.equal(makeHomePage(next, next[0].id), next, "the home page stays as it is");
 });
 
+test("Classic sites can have side margins, and older designs without the setting stay edge to edge", () => {
+  const d = presetDesign();
+  assert.equal(d.margins, undefined);
+  assert.ok(designSchema.safeParse({ ...d, margins: "wide" }).success);
+  assert.equal(designSchema.safeParse({ ...d, margins: "huge" }).success, false);
+});
+
 test("galleries show all photos, chosen photos or an album", () => {
   const photos = [{ id: "a" }, { id: "b" }, { id: "c" }];
   const albums = [{ id: "x", photoIds: ["c", "a"] }];
