@@ -85,7 +85,7 @@ So server actions (`app/actions/*`) and route handlers are called directly as fu
 | --- | --- | --- |
 | `DATABASE_URL` | Postgres connection (Neon in production) | PGlite in `<DATA_DIR>/pg`; production refuses to start |
 | `SESSION_SECRET` | Signs login cookies | Dev-only value; production refuses to start |
-| `NEXT_PUBLIC_ROOT_DOMAIN` | Domain the sites live under | `localhost:3000` |
+| `NEXT_PUBLIC_ROOT_DOMAIN` | Domain the sites live under (`folio.cam` in production) | `localhost:3000` |
 | `FOLIO_DATA_DIR` | Local data folder (PGlite database, uploaded photos) | `data/` (git-ignored) |
 | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_PUBLIC_BUCKET`, `R2_PRIVATE_BUCKET`, `R2_PUBLIC_URL` | Photo storage on Cloudflare R2 (all six or none) | Local disk |
 | `RESEND_API_KEY`, `EMAIL_FROM` | Email through Resend | Console; production throws |
@@ -97,10 +97,10 @@ So server actions (`app/actions/*`) and route handlers are called directly as fu
 
 ## Launch plan and current state
 
-Chosen setup: Vercel for hosting (with a wildcard `*.domain`), Postgres on Neon, Cloudflare R2 for photos (originals in a private bucket, web copies in a public one), Resend for email, and Upstash Redis for rate limits. The domain isn't bought yet (`folio.com` is taken), and whether Folio will be paid is undecided.
+Chosen setup: Vercel for hosting (with a wildcard `*.domain`), Postgres on Neon, Cloudflare R2 for photos (originals in a private bucket, web copies in a public one), Resend for email, and Upstash Redis for rate limits. The domain is `folio.cam` (owned), so sites live at `name.folio.cam`. Whether Folio will be paid is undecided.
 
 The order of work:
-1. Move off local disk: database, photo storage with direct uploads, email and rate limits. This is done on the `move-to-postgres` branch, pending CI and a merge into `main`.
+1. Move off local disk: database, photo storage with direct uploads, email and rate limits. Done and merged into `main`; production runs on folio.cam.
 2. Deploy a staging copy on the real domain and run the smoke test against it.
 3. Add terms and privacy pages (which need the owner's business details and a lawyer's review), Sentry and backups. The photo limit, reporting, sign-out-everywhere, robots/sitemaps, the DMCA notice form, admin takedown tools, email confirmation before going live, rights metadata and AI-crawler blocking are done. The owner still has to register a DMCA agent with the Copyright Office.
 4. Run a private beta.
