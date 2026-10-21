@@ -116,7 +116,8 @@ export function DesignEditor(props: {
 
   return (
     <div className="space-y-4">
-      <div className="sticky top-0 z-30 -mx-6 flex flex-wrap items-center gap-3 border-b border-rule bg-paper/95 px-6 py-3 backdrop-blur md:mx-0 md: md:border md:bg-paper/95">
+      {/* On phones, sits under the dashboard tabs, which are pinned too (55px tall). */}
+      <div className="sticky top-[55px] z-30 -mx-6 flex flex-wrap items-center gap-3 border-b border-rule bg-paper/95 px-6 py-3 backdrop-blur md:top-0 md:mx-0 md:border md:bg-paper/95">
         <span className={`flex items-center gap-2 text-sm ${unsaved || unpublished ? "text-accent" : "text-ink"}`} aria-live="polite">
           <span className={`h-2 w-2 rounded-full ${unsaved || unpublished ? "bg-accent" : "bg-ink"}`} aria-hidden="true" />
           {status}
@@ -147,7 +148,7 @@ export function DesignEditor(props: {
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[26rem_1fr]">
+      <div className="grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)] xl:grid-cols-[26rem_minmax(0,1fr)]">
         <div className="space-y-4">
           <AiPlaceholder />
 
@@ -383,7 +384,7 @@ export function DesignEditor(props: {
           </Group>
         </div>
 
-        <div className="space-y-3 xl:sticky xl:top-20 xl:self-start">
+        <div className="min-w-0 space-y-3 lg:sticky lg:top-20 lg:self-start">
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm text-ink-soft">
               Live preview: <span className="font-medium text-ink">{page.title}</span>

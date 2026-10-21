@@ -9,15 +9,18 @@ import { PublishToggle } from "./panels";
 export default function DashboardLayout({ children }: LayoutProps<"/dashboard">) {
   return (
     <div className="flex flex-1 flex-col">
-      <header className="border-b border-ink">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-6 px-6">
-          <div className="flex flex-wrap items-center gap-x-10">
+      {/* On phones the two wrappers drop out (`contents`), so the tabs pin to
+          the top of the screen on their own and the site status scrolls away
+          beneath them. From md up it's one ordinary bar. */}
+      <div className="contents md:block md:border-b md:border-ink">
+        <div className="contents md:mx-auto md:flex md:max-w-7xl md:flex-wrap md:items-center md:justify-between md:gap-x-6 md:px-6">
+          <header className="sticky top-0 z-40 flex items-center gap-x-6 border-b border-ink bg-paper px-6 md:static md:flex-wrap md:gap-x-10 md:border-0 md:bg-transparent md:px-0">
             <Link href="/dashboard/manage/photos" className="font-display text-2xl italic">Folio</Link>
             <Suspense fallback={<DashboardTabsView pathname="" />}>
               <DashboardTabs />
             </Suspense>
-          </div>
-          <div className="flex flex-wrap items-center gap-4 py-2 text-sm">
+          </header>
+          <div className="flex flex-wrap items-center gap-4 border-b border-rule px-6 py-2 text-sm md:border-0 md:px-0">
             <Suspense fallback={null}>
               <SiteStatus />
             </Suspense>
@@ -26,7 +29,7 @@ export default function DashboardLayout({ children }: LayoutProps<"/dashboard">)
             </form>
           </div>
         </div>
-      </header>
+      </div>
       {children}
     </div>
   );
