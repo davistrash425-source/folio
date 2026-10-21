@@ -33,6 +33,7 @@ async function Editor() {
         return { id: p.id, src: src.src, srcSet: src.srcSet, description: p.description ?? "", location: p.location ?? "" };
       })}
       albums={(user.albums ?? []).map((a) => ({ id: a.id, slug: a.slug, title: a.title, photoCount: a.photoIds.length }))}
+      profile={{ name: user.profile.name, location: user.profile.location, bio: user.profile.bio }}
     />
   );
 }

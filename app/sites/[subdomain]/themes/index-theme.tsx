@@ -14,7 +14,9 @@ import { Lightbox } from "../lightbox";
 import { archivo } from "./fonts";
 import { HoverPreview } from "./hover-preview";
 import {
+  aboutText,
   currentPage,
+  heroText,
   navItems,
   pad,
   pageGalleries,
@@ -98,18 +100,20 @@ export function IndexTheme({ site }: ThemeProps) {
 function Block({ section, page, site, block, total }: ThemeProps & { section: Section; page: SitePage; block?: GalleryBlock; total: number }) {
   const { profile } = site;
   switch (section.type) {
-    case "hero":
+    case "hero": {
+      const { heading, subheading } = heroText(site, page, section);
       return (
         <section className={`${GUTTER} pb-10 pt-10 md:pb-14 md:pt-16`}>
           <h1 className="font-idx break-words text-[clamp(3.25rem,15vw,13rem)] font-extrabold uppercase leading-[0.84] tracking-[-0.045em]">
-            {page.slug === "" ? profile.name : page.title}
+            {heading}
           </h1>
           <p className={`${MONO} mt-8 flex flex-wrap gap-x-10 gap-y-1 text-[var(--muted)]`}>
             <span>Index of {total} photographs</span>
-            {page.slug === "" && profile.location && <span>{profile.location}</span>}
+            {subheading && <span>{subheading}</span>}
           </p>
         </section>
       );
+    }
     case "gallery":
       return (
         <section aria-label={section.title || "Photos"}>
@@ -162,13 +166,15 @@ function Block({ section, page, site, block, total }: ThemeProps & { section: Se
         </section>
       );
     }
-    case "about":
-      if (!profile.bio) return null;
+    case "about": {
+      const bio = aboutText(site, section);
+      if (!bio) return null;
       return (
         <TextBlock title={section.title || "About"} big>
-          {profile.bio}
+          {bio}
         </TextBlock>
       );
+    }
     case "text":
       if (!section.title && !section.body) return null;
       return <TextBlock title={section.title}>{section.body}</TextBlock>;

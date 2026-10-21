@@ -5,6 +5,8 @@ import {
   galleryPhotos,
   showsCaption,
   visibleAlbums,
+  type AboutSection,
+  type HeroSection,
   type Section,
   type SiteDesign,
   type SitePage,
@@ -32,6 +34,21 @@ export function visibleSections(page: SitePage): Section[] {
     return [{ id: "page-title", type: "hero", visible: true, style: "title", coverPhotoId: null }, ...sections];
   }
   return sections;
+}
+
+// A header's text: what the photographer wrote in the editor, or else their
+// name and location on the home page and the page's name elsewhere.
+export function heroText(site: SiteData, page: SitePage, section: HeroSection) {
+  const isHome = page.slug === "";
+  return {
+    heading: section.heading || (isHome ? site.profile.name : page.title),
+    subheading: section.subheading || (isHome ? site.profile.location : ""),
+  };
+}
+
+// An About section's text: its own, or else the bio from the Account page.
+export function aboutText(site: SiteData, section: AboutSection) {
+  return section.body || site.profile.bio;
 }
 
 export type NavItem = { href: string; title: string; path: string };

@@ -9,7 +9,9 @@ import type { User } from "@/lib/db";
 import {
   galleryPhotos,
   visibleAlbums,
+  type AboutSection,
   type GallerySection,
+  type HeroSection,
   type Section,
   type SiteDesign,
   type SitePage,
@@ -18,7 +20,7 @@ import { copyrightLine, resolvePath, siteHref, type SiteAlbum, type SiteData } f
 import type { PhotoSource } from "@/lib/uploads";
 import { ContactForm } from "../contact-form";
 import { Lightbox } from "../lightbox";
-import { captionText } from "./shared";
+import { aboutText, captionText, heroText } from "./shared";
 import { ReportLink } from "./report-link";
 
 type Props = { site: SiteData };
@@ -88,7 +90,8 @@ function TopBar({ site, current }: Props & { current: string }) {
   // page's About or Contact section.
   const home = design.pages[0];
   if (!design.pages.slice(1).some((p) => p.showInNav)) {
-    const anchor = hasVisible(home, "about") && profile.bio ? "about" : hasVisible(home, "contact") ? "contact" : null;
+    const about = home.sections.find((s): s is AboutSection => s.type === "about" && s.visible);
+    const anchor = about && aboutText(site, about) ? "about" : hasVisible(home, "contact") ? "contact" : null;
     if (anchor) items.push({ href: `${current ? siteHref(site) : ""}#${anchor}`, title: "About & contact" });
   }
   const showMenu = items.length > 0;
@@ -144,10 +147,10 @@ function SectionHeading({ children }: { children: ReactNode }) {
 }
 
 function PageSection({ section, page, site }: Props & { section: Section; page: SitePage }) {
-  const { design, profile } = site;
+  const { design } = site;
   switch (section.type) {
     case "hero":
-      return <Hero site={site} page={page} style={section.style} coverPhotoId={section.coverPhotoId} />;
+      return <Hero site={site} page={page} section={section} />;
     case "gallery":
       return (
         <section aria-label={section.title || "Photos"} className="px-2 py-6 sm:px-6">
@@ -157,14 +160,16 @@ function PageSection({ section, page, site }: Props & { section: Section; page: 
       );
     case "albums":
       return <AlbumCards site={site} title={section.title || "Albums"} />;
-    case "about":
-      if (!profile.bio) return null;
+    case "about": {
+      const bio = aboutText(site, section);
+      if (!bio) return null;
       return (
         <section id="about" className="mx-auto max-w-2xl px-6 py-16 text-center">
           <SectionHeading>{section.title || "About"}</SectionHeading>
-          <p className="whitespace-pre-line text-lg leading-relaxed sm:text-xl">{profile.bio}</p>
+          <p className="whitespace-pre-line text-lg leading-relaxed sm:text-xl">{bio}</p>
         </section>
       );
+    }
     case "text":
       if (!section.title && !section.body) return null;
       return (
@@ -178,20 +183,14 @@ function PageSection({ section, page, site }: Props & { section: Section; page: 
   }
 }
 
-function Hero({ site, page, style, coverPhotoId }: Props & {
-  page: SitePage;
-  style: "cover" | "title";
-  coverPhotoId: string | null;
-}) {
-  const { profile } = site;
+function Hero({ site, page, section }: Props & { page: SitePage; section: HeroSection }) {
+  const { style, coverPhotoId } = section;
   const firstGallery = page.sections.find((s): s is GallerySection => s.type === "gallery" && s.visible);
   const cover =
     site.photos.find((p) => p.id === coverPhotoId) ??
     (firstGallery ? galleryPhotos(firstGallery, site.photos, site.albums)[0] : undefined) ??
     site.photos[0];
-  // The home page header shows the photographer's name; other pages their title.
-  const isHome = page.slug === "";
-  const title = isHome ? profile.name : page.title;
+  const { heading, subheading } = heroText(site, page, section);
 
   if (style === "cover" && cover) {
     return (
@@ -199,16 +198,16 @@ function Hero({ site, page, style, coverPhotoId }: Props & {
         <img src={cover.src} srcSet={cover.srcSet} sizes="100vw" alt={cover.alt} className="absolute inset-0 h-full w-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent" />
         <div className="absolute bottom-0 left-0 p-8 text-white sm:p-14">
-          <h1 className="text-5xl sm:text-7xl">{title}</h1>
-          {isHome && profile.location && <p className="mt-3 text-sm uppercase tracking-[0.3em]">{profile.location}</p>}
+          <h1 className="text-5xl sm:text-7xl">{heading}</h1>
+          {subheading && <p className="mt-3 text-sm uppercase tracking-[0.3em]">{subheading}</p>}
         </div>
       </section>
     );
   }
   return (
     <section className="px-6 pb-6 pt-10 sm:px-10 sm:pt-16">
-      <h1 className="text-4xl tracking-tight sm:text-6xl">{title}</h1>
-      {isHome && profile.location && <p className="mt-2 text-[var(--muted)]">{profile.location}</p>}
+      <h1 className="text-4xl tracking-tight sm:text-6xl">{heading}</h1>
+      {subheading && <p className="mt-2 text-[var(--muted)]">{subheading}</p>}
     </section>
   );
 }

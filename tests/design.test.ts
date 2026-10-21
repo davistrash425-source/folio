@@ -15,9 +15,13 @@ import {
   showsCaption,
   uniqueSlug,
   visibleAlbums,
+  type AboutSection,
   type GallerySection,
+  type HeroSection,
 } from "../lib/design.ts";
 import { TEMPLATES } from "../lib/templates.ts";
+import type { SiteData } from "../lib/site-data.ts";
+import { aboutText, heroText } from "../app/sites/[subdomain]/themes/shared.ts";
 
 let n = 0;
 const makeId = () => `t${++n}`;
@@ -165,6 +169,26 @@ test("an album can be drawn as a page that shows its photos", () => {
   const photos = [{ id: "p1" }, { id: "p2" }, { id: "p3" }];
   assert.deepEqual(galleryPhotos(gallery, photos, [{ id: "a1", photoIds: ["p3", "p1"] }]).map((p) => p.id), ["p3", "p1"]);
   assert.equal(albumAsPage({ ...album, description: "" }).sections[1].visible, false, "no empty description block");
+});
+
+test("headers and About sections show the photographer's own text, or else their name, location and bio", () => {
+  const site = { profile: { name: "Ana Lopes", location: "Lisbon", bio: "Account bio" } } as SiteData;
+  const d = presetDesign();
+  const [home, about] = d.pages;
+  const hero = home.sections.find((s) => s.type === "hero") as HeroSection;
+  const bio = about.sections.find((s) => s.type === "about") as AboutSection;
+
+  assert.deepEqual(heroText(site, home, hero), { heading: "Ana Lopes", subheading: "Lisbon" });
+  assert.deepEqual(heroText(site, about, hero), { heading: about.title, subheading: "" }, "other pages show their name");
+  assert.deepEqual(heroText(site, home, { ...hero, heading: "Light & Water", subheading: "Weddings in Portugal" }), {
+    heading: "Light & Water",
+    subheading: "Weddings in Portugal",
+  });
+  assert.equal(aboutText(site, bio), "Account bio");
+  assert.equal(aboutText(site, { ...bio, body: "My own words" }), "My own words");
+
+  const edited = { ...d, pages: [{ ...home, sections: home.sections.map((s) => (s.type === "hero" ? { ...s, heading: "x".repeat(81) } : s)) }, about] };
+  assert.equal(designSchema.safeParse(edited).success, false, "header titles are limited to 80 characters");
 });
 
 test("galleries show all photos, chosen photos or an album", () => {

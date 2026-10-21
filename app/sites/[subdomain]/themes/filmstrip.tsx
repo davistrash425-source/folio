@@ -10,7 +10,7 @@ import type { PhotoSource } from "@/lib/uploads";
 import { ContactForm } from "../contact-form";
 import { Lightbox } from "../lightbox";
 import { bebas, shareTech, specialElite } from "./fonts";
-import { captionText, currentPage, navItems, pad, pageGalleries, socialLinks, type GalleryBlock, visibleSections, type ThemeProps } from "./shared";
+import { aboutText, captionText, currentPage, heroText, navItems, pad, pageGalleries, socialLinks, type GalleryBlock, visibleSections, type ThemeProps } from "./shared";
 import { ReportLink } from "./report-link";
 
 const STOCKS = {
@@ -123,16 +123,18 @@ function Block({ section, page, site, block, total, stock, frameNumbers }: Theme
 }) {
   const { profile } = site;
   switch (section.type) {
-    case "hero":
+    case "hero": {
+      const { heading, subheading } = heroText(site, page, section);
       return (
         <section className="px-2 pb-6 pt-12 text-center md:pt-20">
           <p className={`${EDGE} text-[var(--edge)]`}>▶ Roll 01 · {total || site.photos.length} exposures</p>
           <h1 className="font-film-title mt-4 break-words text-[clamp(4rem,15vw,11rem)] uppercase leading-[0.9] tracking-[0.04em]">
-            {page.slug === "" ? profile.name : page.title}
+            {heading}
           </h1>
-          {page.slug === "" && profile.location && <p className={`${EDGE} mt-4 text-[var(--muted)]`}>{profile.location}</p>}
+          {subheading && <p className={`${EDGE} mt-4 text-[var(--muted)]`}>{subheading}</p>}
         </section>
       );
+    }
     case "gallery":
       return (
         <section aria-label={section.title || "Photos"} className="py-4">
@@ -187,13 +189,15 @@ function Block({ section, page, site, block, total, stock, frameNumbers }: Theme
         </section>
       );
     }
-    case "about":
-      if (!profile.bio) return null;
+    case "about": {
+      const bio = aboutText(site, section);
+      if (!bio) return null;
       return (
         <Note title={section.title || "About"}>
-          <p className="whitespace-pre-line text-lg leading-relaxed">{profile.bio}</p>
+          <p className="whitespace-pre-line text-lg leading-relaxed">{bio}</p>
         </Note>
       );
+    }
     case "text":
       if (!section.title && !section.body) return null;
       return (

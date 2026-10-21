@@ -33,6 +33,9 @@ import { DevicePreview, DeviceButtons, type Device } from "./device-preview";
 
 export type EditorPhoto = { id: string; src: string; srcSet?: string; description: string; location: string };
 export type EditorAlbum = { id: string; slug: string; title: string; photoCount: number };
+type Profile = { name: string; location: string; bio: string };
+// What a page's Header and About sections show when their boxes are empty.
+type SectionDefaults = { heading: string; subheading: string; bio: string };
 
 const SECTION_LABELS: Record<SectionType, string> = {
   hero: "Header",
@@ -58,6 +61,7 @@ export function DesignEditor(props: {
   canUndo: boolean;
   photos: EditorPhoto[];
   albums: EditorAlbum[];
+  profile: Profile;
 }) {
   const [design, setDesign] = useState(props.draft); // what's on screen
   const [saved, setSaved] = useState(props.draft); // the stored draft
@@ -208,6 +212,11 @@ export function DesignEditor(props: {
                     photos={props.photos}
                     albums={props.albums}
                     classic={design.theme === "classic"}
+                    defaults={{
+                      heading: page.slug === "" ? props.profile.name : page.title,
+                      subheading: page.slug === "" ? props.profile.location : "",
+                      bio: props.profile.bio,
+                    }}
                     onChange={(next) => setSections(page.sections.map((s) => (s.id === section.id ? next : s)))}
                     onMove={(to) => setSections(swap(page.sections, i, to))}
                     onRemove={() => setSections(page.sections.filter((s) => s.id !== section.id))}
@@ -462,13 +471,14 @@ function PageSettings({ page, isHome, onChange, onDelete, suggestSlug, albumSlug
   );
 }
 
-function SectionCard({ section, index, count, photos, albums, classic, onChange, onMove, onRemove }: {
+function SectionCard({ section, index, count, photos, albums, classic, defaults, onChange, onMove, onRemove }: {
   section: Section;
   index: number;
   count: number;
   photos: EditorPhoto[];
   albums: EditorAlbum[];
   classic: boolean; // Classic's header styles and gallery layouts apply
+  defaults: SectionDefaults;
   onChange: (next: Section) => void;
   onMove: (to: number) => void;
   onRemove: () => void;
@@ -497,7 +507,7 @@ function SectionCard({ section, index, count, photos, albums, classic, onChange,
       </div>
       {open && (
         <div className="space-y-4 border-t border-rule px-3 py-3">
-          <SectionSettings section={section} photos={photos} albums={albums} classic={classic} onChange={onChange} />
+          <SectionSettings section={section} photos={photos} albums={albums} classic={classic} defaults={defaults} onChange={onChange} />
         </div>
       )}
     </li>
@@ -522,11 +532,12 @@ function sectionSummary(section: Section, albums: EditorAlbum[]) {
   }
 }
 
-function SectionSettings({ section, photos, albums, classic, onChange }: {
+function SectionSettings({ section, photos, albums, classic, defaults, onChange }: {
   section: Section;
   photos: EditorPhoto[];
   albums: EditorAlbum[];
   classic: boolean;
+  defaults: SectionDefaults;
   onChange: (next: Section) => void;
 }) {
   const titleInput = (placeholder: string) =>
@@ -544,10 +555,37 @@ function SectionSettings({ section, photos, albums, classic, onChange }: {
     );
 
   switch (section.type) {
-    case "hero":
-      if (!classic) return <p className="text-xs text-ink-soft">Your theme styles the header, using your name (or the page’s name on other pages).</p>;
+    case "hero": {
+      // Empty fields fall back to the defaults, shown as placeholders.
+      const textFields = (
+        <>
+          <label className="block">
+            <span className="label text-ink-soft">Title</span>
+            <input
+              value={section.heading ?? ""}
+              maxLength={80}
+              placeholder={defaults.heading}
+              onChange={(e) => onChange({ ...section, heading: e.target.value || undefined })}
+              className={`mt-1 ${inputClass}`}
+            />
+          </label>
+          <label className="block">
+            <span className="label text-ink-soft">Subtitle</span>
+            <input
+              value={section.subheading ?? ""}
+              maxLength={120}
+              placeholder={defaults.subheading || "Optional"}
+              onChange={(e) => onChange({ ...section, subheading: e.target.value || undefined })}
+              className={`mt-1 ${inputClass}`}
+            />
+          </label>
+          <p className="text-xs text-ink-soft">Leave a box empty to use the grey text shown in it.</p>
+        </>
+      );
+      if (!classic) return textFields;
       return (
         <>
+          {textFields}
           <Choice
             label="Style"
             value={section.style}
@@ -578,6 +616,7 @@ function SectionSettings({ section, photos, albums, classic, onChange }: {
           )}
         </>
       );
+    }
     case "gallery":
       return (
         <>
@@ -666,7 +705,18 @@ function SectionSettings({ section, photos, albums, classic, onChange }: {
       return (
         <>
           {titleInput("About")}
-          <p className="text-xs text-ink-soft">Shows the bio from your Account page.</p>
+          <label className="block">
+            <span className="label text-ink-soft">Bio</span>
+            <textarea
+              value={section.body ?? ""}
+              rows={6}
+              maxLength={5000}
+              placeholder={defaults.bio || "A few lines about you and your work."}
+              onChange={(e) => onChange({ ...section, body: e.target.value || undefined })}
+              className={`mt-1 ${inputClass}`}
+            />
+          </label>
+          <p className="text-xs text-ink-soft">Leave it empty to use the bio from your Account page{defaults.bio ? " (shown in grey)" : ""}.</p>
         </>
       );
     case "albums":

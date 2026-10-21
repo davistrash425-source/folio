@@ -12,7 +12,7 @@ import { ContactForm } from "../contact-form";
 import { Lightbox } from "../lightbox";
 import { cormorant, jost } from "./fonts";
 import { SidewaysScroller } from "./sideways-scroller";
-import { currentPage, navItems, pad, pageGalleries, socialLinks, type GalleryBlock, visibleSections, type ThemeProps } from "./shared";
+import { aboutText, currentPage, heroText, navItems, pad, pageGalleries, socialLinks, type GalleryBlock, visibleSections, type ThemeProps } from "./shared";
 import { ReportLink } from "./report-link";
 
 const WALLS = {
@@ -105,11 +105,12 @@ function Section({ section, page, site, block }: ThemeProps & { section: Section
   switch (section.type) {
     case "hero": {
       const isHome = page.slug === "";
+      const { heading, subheading } = heroText(site, page, section);
       return (
         <Panel className="items-start md:w-[min(46rem,70vw)]">
           <p className={`${SMALL_CAPS} mb-6 text-[var(--muted)]`}>{isHome ? "Photographs by" : "Exhibition room"}</p>
-          <h1 className="font-exh-serif text-6xl italic leading-[0.95] md:text-8xl">{isHome ? profile.name : page.title}</h1>
-          {isHome && profile.location && <p className={`${SMALL_CAPS} mt-6 text-[var(--muted)]`}>{profile.location}</p>}
+          <h1 className="font-exh-serif text-6xl italic leading-[0.95] md:text-8xl">{heading}</h1>
+          {subheading && <p className={`${SMALL_CAPS} mt-6 text-[var(--muted)]`}>{subheading}</p>}
           <p className={`${SMALL_CAPS} mt-16 text-[var(--muted)]`}>
             Walk the wall <span className="hidden md:inline">→</span>
             <span className="md:hidden">↓</span>
@@ -157,13 +158,15 @@ function Section({ section, page, site, block }: ThemeProps & { section: Section
         </Panel>
       );
     }
-    case "about":
-      if (!profile.bio) return null;
+    case "about": {
+      const bio = aboutText(site, section);
+      if (!bio) return null;
       return (
         <WallText title={section.title || "About"}>
-          <p className="whitespace-pre-line font-exh-serif text-2xl leading-snug md:text-3xl">{profile.bio}</p>
+          <p className="whitespace-pre-line font-exh-serif text-2xl leading-snug md:text-3xl">{bio}</p>
         </WallText>
       );
+    }
     case "text":
       if (!section.title && !section.body) return null;
       return (

@@ -54,6 +54,8 @@ const heroSection = z.object({
   visible: z.boolean(),
   style: z.enum(["cover", "title"]).describe("cover = full-screen photo behind your name; title = large name only"),
   coverPhotoId: z.string().nullable().describe("null = first photo on the page"),
+  heading: z.string().max(80).optional().describe("Empty = your name on the home page, the page's name elsewhere"),
+  subheading: z.string().max(120).optional().describe("Empty = your location on the home page"),
 });
 
 const gallerySection = z.object({
@@ -72,7 +74,13 @@ const gallerySection = z.object({
 });
 
 const albumsSection = z.object({ id, type: z.literal("albums"), visible: z.boolean(), title: heading });
-const aboutSection = z.object({ id, type: z.literal("about"), visible: z.boolean(), title: heading });
+const aboutSection = z.object({
+  id,
+  type: z.literal("about"),
+  visible: z.boolean(),
+  title: heading,
+  body: z.string().max(5000).optional().describe("Empty = the bio from the Account page"),
+});
 const contactSection = z.object({ id, type: z.literal("contact"), visible: z.boolean(), title: heading });
 const textSection = z.object({
   id,
@@ -190,6 +198,8 @@ export type SitePage = SiteDesign["pages"][number];
 export type Section = SitePage["sections"][number];
 export type SectionType = Section["type"];
 export type GallerySection = Extract<Section, { type: "gallery" }>;
+export type HeroSection = Extract<Section, { type: "hero" }>;
+export type AboutSection = Extract<Section, { type: "about" }>;
 export type ThemeId = SiteDesign["theme"];
 
 // ── Themes and starting points ──────────────────────────────────────────
