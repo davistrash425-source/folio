@@ -46,6 +46,25 @@ input[type="radio"] {
   accent-color: var(--color-ink);
 }
 
+/* iPhones zoom in on any text box with text smaller than 16px, so there
+   they get 16px (unlayered, so it beats Tailwind's text-sm). The margins keep
+   a focused box clear of the dashboard's pinned bar and the keyboard's edge
+   (see app/ui/keep-field-in-view.tsx). */
+@supports (-webkit-touch-callout: none) {
+  input,
+  textarea,
+  select {
+    font-size: max(16px, 1em);
+  }
+}
+input,
+textarea,
+select,
+[contenteditable] {
+  scroll-margin-top: calc(var(--dash-bar, 0px) + 1rem);
+  scroll-margin-bottom: 1rem;
+}
+
 /* Small uppercase mono captions: section labels, counters, metadata. */
 @utility label {
   font-family: var(--font-label);

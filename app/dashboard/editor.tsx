@@ -479,7 +479,7 @@ function PhotoDrawer({ photo, albums, onClose, onPrev, onNext }: {
 
   return (
     <div className="fixed inset-0 z-40 flex justify-end bg-ink/30" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div role="dialog" aria-modal="true" aria-label="Photo details" className="flex h-full w-full max-w-md flex-col overflow-y-auto bg-card border-l border-ink">
+      <div role="dialog" aria-modal="true" aria-label="Photo details" className="flex h-full w-full max-w-md flex-col overflow-y-auto bg-card border-l border-ink pb-[var(--keyboard,0px)]">
         <div className="flex items-center justify-between border-b border-rule px-5 py-3">
           <div className="flex gap-1">
             <SmallButton label="Previous photo" disabled={!onPrev} onClick={() => (dirty ? save(onPrev) : onPrev?.())}>←</SmallButton>
