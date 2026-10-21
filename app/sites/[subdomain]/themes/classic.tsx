@@ -42,7 +42,8 @@ function themeStyle(design: SiteDesign) {
   } as CSSProperties;
 }
 
-// The content's width on large screens; the background still fills the window.
+// The content's width on large screens. The background, the menu bar and a
+// header photo still fill the window.
 const MARGINS = { none: "", medium: "mx-auto w-full max-w-6xl", wide: "mx-auto w-full max-w-4xl" };
 
 // "mixed" puts headings in serif via a rule in app/globals.css.
@@ -54,6 +55,7 @@ export function ClassicTheme({ site }: Props) {
   // happen in the editor preview after deleting or renaming a page.
   const target = resolvePath(site) ?? { page: design.pages[0] };
   const current = target.page ? target.page.slug : target.album.slug;
+  const width = MARGINS[design.margins ?? "none"];
 
   return (
     <div
@@ -61,13 +63,17 @@ export function ClassicTheme({ site }: Props) {
       data-fonts={design.fonts}
       className={`flex-1 bg-[var(--bg)] text-[var(--fg)] ${BODY_FONT[design.fonts]}`}
     >
-      <div className={MARGINS[design.margins ?? "none"]}>
-        <TopBar site={site} current={current} />
-        {target.page ? <PageBody site={site} page={target.page} /> : <AlbumPage site={site} album={target.album} />}
-        <footer className="px-6 py-10 text-center text-xs text-[var(--muted)] sm:px-10">
-          {copyrightLine(site.profile)} · <ReportLink site={site} />
-        </footer>
-      </div>
+      <TopBar site={site} current={current} />
+      {target.page ? (
+        <PageBody site={site} page={target.page} width={width} />
+      ) : (
+        <div className={width}>
+          <AlbumPage site={site} album={target.album} />
+        </div>
+      )}
+      <footer className="px-6 py-10 text-center text-xs text-[var(--muted)] sm:px-10">
+        {copyrightLine(site.profile)} · <ReportLink site={site} />
+      </footer>
     </div>
   );
 }
@@ -128,20 +134,27 @@ function navClass(active: boolean) {
   return active ? "text-[var(--fg)] underline underline-offset-4" : "text-[var(--muted)] hover:text-[var(--fg)]";
 }
 
-function PageBody({ site, page }: Props & { page: SitePage }) {
+function PageBody({ site, page, width }: Props & { page: SitePage; width: string }) {
   const sections = page.sections.filter((s) => s.visible);
   // Pages other than home show their title, unless they open with a header.
   const showTitle = page.slug !== "" && sections[0]?.type !== "hero";
   return (
     <main>
       {showTitle && (
-        <div className="px-6 pb-2 pt-8 sm:px-10">
+        <div className={`${width} px-6 pb-2 pt-8 sm:px-10`}>
           <h1 className="text-3xl tracking-tight sm:text-5xl">{page.title}</h1>
         </div>
       )}
-      {sections.map((s) => (
-        <PageSection key={s.id} section={s} page={page} site={site} />
-      ))}
+      {/* Headers place themselves, as a header photo spans the whole window. */}
+      {sections.map((s) =>
+        s.type === "hero" ? (
+          <Hero key={s.id} site={site} page={page} section={s} width={width} />
+        ) : (
+          <div key={s.id} className={width}>
+            <PageSection section={s} page={page} site={site} />
+          </div>
+        ),
+      )}
       {sections.length === 0 && <p className="py-20 text-center text-[var(--muted)]">This page is empty.</p>}
     </main>
   );
@@ -188,7 +201,7 @@ function PageSection({ section, page, site }: Props & { section: Section; page: 
   }
 }
 
-function Hero({ site, page, section }: Props & { page: SitePage; section: HeroSection }) {
+function Hero({ site, page, section, width = "" }: Props & { page: SitePage; section: HeroSection; width?: string }) {
   const { style, coverPhotoId } = section;
   const firstGallery = page.sections.find((s): s is GallerySection => s.type === "gallery" && s.visible);
   const cover =
@@ -210,7 +223,7 @@ function Hero({ site, page, section }: Props & { page: SitePage; section: HeroSe
     );
   }
   return (
-    <section className="px-6 pb-6 pt-10 sm:px-10 sm:pt-16">
+    <section className={`${width} px-6 pb-6 pt-10 sm:px-10 sm:pt-16`}>
       <h1 className="text-4xl tracking-tight sm:text-6xl">{heading}</h1>
       {subheading && <p className="mt-2 text-[var(--muted)]">{subheading}</p>}
     </section>

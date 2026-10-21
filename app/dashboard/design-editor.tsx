@@ -20,6 +20,7 @@ import {
   newSection,
   sameDesign,
   uniqueSlug,
+  type HeroSection,
   type PageTemplate,
   type Section,
   type SectionType,
@@ -201,6 +202,13 @@ export function DesignEditor(props: {
               suggestSlug={(title) => uniqueSlug(title, [...design.pages.filter((p) => p.id !== page.id).map((p) => p.slug), ...albumSlugs])}
               albumSlugs={albumSlugs}
             />
+            {design.theme === "classic" && (
+              <PageHeaderPhoto
+                page={page}
+                photos={props.photos}
+                onChange={setSections}
+              />
+            )}
             <div>
               <p className="label mb-2 text-ink-soft">Sections, top to bottom</p>
               {page.sections.length === 0 && <p className="mb-2 text-sm text-ink-soft">This page has no sections yet.</p>}
@@ -536,7 +544,7 @@ function SectionCard({ section, index, count, photos, albums, classic, defaults,
 function sectionSummary(section: Section, albums: EditorAlbum[]) {
   switch (section.type) {
     case "hero":
-      return section.style === "cover" ? "cover photo" : "large title";
+      return section.style === "cover" ? "with photo" : "no photo";
     case "gallery": {
       const what =
         section.source.kind === "all"
@@ -605,34 +613,7 @@ function SectionSettings({ section, photos, albums, classic, defaults, onChange 
       return (
         <>
           {textFields}
-          <Choice
-            label="Style"
-            value={section.style}
-            options={[
-              ["title", "Large title"],
-              ["cover", "Full-screen cover photo"],
-            ]}
-            onChange={(style) => onChange({ ...section, style })}
-          />
-          {section.style === "cover" && (
-            <div>
-              <p className="label mb-2 text-ink-soft">Cover photo</p>
-              <button
-                type="button"
-                aria-pressed={section.coverPhotoId === null}
-                onClick={() => onChange({ ...section, coverPhotoId: null })}
-                className={`mb-2 px-3 py-1 text-xs border ${section.coverPhotoId === null ? "bg-ink text-paper border-ink" : "border-rule"}`}
-              >
-                Automatic (first photo on the page)
-              </button>
-              <PhotoPicker
-                photos={photos}
-                selected={section.coverPhotoId ? [section.coverPhotoId] : []}
-                single
-                onChange={([id]) => onChange({ ...section, coverPhotoId: id ?? null })}
-              />
-            </div>
-          )}
+          <HeaderPhotoSettings section={section} photos={photos} onChange={onChange} />
         </>
       );
     }
@@ -753,6 +734,82 @@ function SectionSettings({ section, photos, albums, classic, defaults, onChange 
         </>
       );
   }
+}
+
+// Whether a header shows a photo across the whole window, and which one.
+function HeaderPhotoSettings({ section, photos, onChange }: {
+  section: HeroSection;
+  photos: EditorPhoto[];
+  onChange: (next: HeroSection) => void;
+}) {
+  return (
+    <>
+      <Choice
+        label="Header photo"
+        value={section.style}
+        options={[
+          ["title", "No photo"],
+          ["cover", "Full-width photo"],
+        ]}
+        onChange={(style) => onChange({ ...section, style })}
+      />
+      {section.style === "cover" && (
+        <div>
+          <p className="label mb-2 text-ink-soft">Which photo</p>
+          <button
+            type="button"
+            aria-pressed={section.coverPhotoId === null}
+            onClick={() => onChange({ ...section, coverPhotoId: null })}
+            className={`mb-2 px-3 py-1 text-xs border ${section.coverPhotoId === null ? "bg-ink text-paper border-ink" : "border-rule"}`}
+          >
+            Automatic (first photo on the page)
+          </button>
+          <PhotoPicker
+            photos={photos}
+            selected={section.coverPhotoId ? [section.coverPhotoId] : []}
+            single
+            onChange={([id]) => onChange({ ...section, coverPhotoId: id ?? null })}
+          />
+        </div>
+      )}
+    </>
+  );
+}
+
+// The header photo for the page being edited, above its section list so it's
+// easy to find. It edits the page's Header section, adding one at the top if
+// the page has none.
+function PageHeaderPhoto({ page, photos, onChange }: {
+  page: SitePage;
+  photos: EditorPhoto[];
+  onChange: (sections: Section[]) => void;
+}) {
+  const hero = page.sections.find((s): s is HeroSection => s.type === "hero");
+  return (
+    <div className="space-y-3 border border-rule bg-paper p-3">
+      {hero ? (
+        <HeaderPhotoSettings
+          section={hero}
+          photos={photos}
+          // Choosing a photo shows the header if it was hidden.
+          onChange={(next) =>
+            onChange(page.sections.map((s) => (s.id === hero.id ? { ...next, visible: next.style === "cover" || next.visible } : s)))
+          }
+        />
+      ) : (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-ink-soft">This page has no header.</p>
+          <button
+            type="button"
+            onClick={() => onChange([{ ...(newSection("hero", makeId) as HeroSection), style: "cover" }, ...page.sections])}
+            className="border border-rule px-3 py-1.5 text-sm hover:border-ink"
+          >
+            Add a header photo
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function swap<T>(list: T[], a: number, b: number) {
