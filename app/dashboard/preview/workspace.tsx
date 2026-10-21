@@ -4,28 +4,19 @@ import Link from "next/link";
 import { useState } from "react";
 import { DevicePreview, DeviceButtons, type Device } from "../device-preview";
 
-export function PreviewWorkspace({ pages, liveUrl, hasUnpublishedDesign }: {
-  pages: { path: string; title: string }[];
+// The site as visitors see it, at a chosen device size. Its own menu and
+// links move between pages.
+export function PreviewWorkspace({ liveUrl, hasUnpublishedDesign }: {
   liveUrl: string | null;
   hasUnpublishedDesign: boolean;
 }) {
   const [device, setDevice] = useState<Device>("desktop");
-  const [path, setPath] = useState("");
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 px-6 py-6">
       <div className="flex flex-wrap items-center gap-3">
         <DeviceButtons device={device} onChange={setDevice} />
-        {pages.length > 1 && (
-          <label className="flex items-center gap-2 text-sm">
-            Page
-            <select value={path} onChange={(e) => setPath(e.target.value)} className="border border-rule bg-card px-2 py-1.5">
-              {pages.map((p) => (
-                <option key={p.path} value={p.path}>{p.title}</option>
-              ))}
-            </select>
-          </label>
-        )}
+        <p className="text-sm text-ink-soft">Click the menu and links in your site to move between pages.</p>
         <div className="ml-auto flex flex-wrap items-center gap-3 text-sm">
           {hasUnpublishedDesign && (
             <span className="text-accent">
@@ -43,8 +34,7 @@ export function PreviewWorkspace({ pages, liveUrl, hasUnpublishedDesign }: {
         </div>
       </div>
       <DevicePreview
-        key={path}
-        src={`/site-preview${path ? `?path=${path}` : ""}`}
+        src="/site-preview"
         device={device}
         className="min-h-[32rem] flex-1"
       />

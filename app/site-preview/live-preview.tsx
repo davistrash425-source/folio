@@ -30,9 +30,28 @@ export function LivePreview({ site }: { site: SiteData }) {
         window.scrollTo(0, 0);
       }
     }
+    // Links between the site's pages switch the page here rather than
+    // loading the address, so they work at once and keep any unsaved design.
+    function onClick(e: MouseEvent) {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const link = (e.target as Element).closest?.("a");
+      const href = link?.getAttribute("href");
+      if (!link || !href || href.startsWith("#")) return;
+      const url = new URL(link.href);
+      if (url.origin !== window.location.origin || url.pathname !== "/site-preview") return;
+      e.preventDefault();
+      e.stopPropagation(); // keeps the link's own navigation from running
+      setPath(url.searchParams.get("path") ?? "");
+      // A link to a section of another page (like "#about") goes there.
+      setTimeout(() => (url.hash ? document.getElementById(url.hash.slice(1))?.scrollIntoView() : window.scrollTo(0, 0)));
+    }
     window.addEventListener("message", onMessage);
+    document.addEventListener("click", onClick, true);
     if (window.parent !== window) window.parent.postMessage({ type: READY_MESSAGE }, window.location.origin);
-    return () => window.removeEventListener("message", onMessage);
+    return () => {
+      window.removeEventListener("message", onMessage);
+      document.removeEventListener("click", onClick, true);
+    };
   }, []);
 
   return <SiteRenderer site={{ ...site, design, path }} />;
