@@ -3,12 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { randomUUID } from "crypto";
-import { findUserBySubdomain, updateUser, type Photo } from "@/lib/db";
+import { changeSubdomain, findUserBySubdomain, subdomainOnHold, updateUser, type Photo } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { draftDesign, publishedDesign } from "@/lib/public-site";
 import { sendEmail } from "@/lib/email";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
-import { appUrl, isLive, slugify, validateSlug } from "@/lib/site";
+import { ADDRESS_HOLD_MONTHS, appUrl, isLive, siteUrl, slugify, validateSlug, validateSubdomain } from "@/lib/site";
 import {
   MAX_PHOTOS,
   PHOTO_LIMIT_MESSAGE,
@@ -187,6 +187,35 @@ export async function saveAiTraining(_prev: ActionState, formData: FormData): Pr
     u.allowAiTraining = !formData.get("blockAi");
   });
   return done("Saved.");
+}
+
+// ── Site address ────────────────────────────────────────────────────────
+
+const ADDRESS_TAKEN = "That address is taken — try another.";
+
+// Moves the site to name.<root domain>, if the name is free.
+export async function changeAddress(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await requireUser();
+  const subdomain = String(formData.get("subdomain") ?? "").trim().toLowerCase();
+  if (subdomain === user.subdomain) return { error: "That’s already your address." };
+  if (user.suspended) return { error: "A suspended site can’t change its address." };
+  const invalid = validateSubdomain(subdomain);
+  if (invalid) return { error: invalid };
+  if (await subdomainOnHold(subdomain, ADDRESS_HOLD_MONTHS, user.id)) {
+    return { error: "That address belonged to another site recently, so it’s held for a year. Try another." };
+  }
+  if (await findUserBySubdomain(subdomain)) return { error: ADDRESS_TAKEN };
+  // Every move holds the old address for a year, so don't allow many.
+  if (!(await rateLimit(`address:${user.id}`, 3, 24 * 60 * 60 * 1000))) {
+    return { error: "You’ve changed your address several times today. Try again tomorrow." };
+  }
+  try {
+    await changeSubdomain(user.id, subdomain);
+  } catch (err) {
+    if ((err as Error).message === "SUBDOMAIN_TAKEN") return { error: ADDRESS_TAKEN };
+    throw err;
+  }
+  return done(`Your site is now at ${siteUrl(subdomain).replace(/^https?:\/\//, "")}.`);
 }
 
 // ── Albums ──────────────────────────────────────────────────────────────

@@ -2,7 +2,7 @@
 
 import { useActionState, useState, useTransition } from "react";
 import { deleteAccount, resendVerification, signOutEverywhereElse, type FormState } from "@/app/actions/auth";
-import { deleteInquiry, saveAiTraining, setInquiryRead, setPublished } from "@/app/actions/site";
+import { changeAddress, deleteInquiry, saveAiTraining, setInquiryRead, setPublished } from "@/app/actions/site";
 import { Button, Field, Input, Message, buttonClass, secondaryButtonClass } from "@/app/ui/form";
 import type { Inquiry } from "@/lib/db";
 
@@ -137,6 +137,38 @@ export function AiTrainingForm({ blocked }: { blocked: boolean }) {
       </p>
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={pending}>{pending ? "Saving…" : "Save"}</Button>
+        <Message error={state.error} ok={state.ok} />
+      </div>
+    </form>
+  );
+}
+
+// `domain` is the part after the name, e.g. "folio.cam".
+export function AddressForm({ subdomain, domain }: { subdomain: string; domain: string }) {
+  const [state, action, pending] = useActionState(changeAddress, {});
+  return (
+    <form action={action} className="space-y-3">
+      <label className="block text-sm">
+        <span className="label text-ink-soft">Address</span>
+        <span className="mt-1 flex max-w-md items-center border border-rule bg-card focus-within:border-ink">
+          <input
+            name="subdomain"
+            required
+            defaultValue={subdomain}
+            maxLength={30}
+            autoCapitalize="none"
+            spellCheck={false}
+            className="min-w-0 flex-1 bg-transparent py-2 pl-3 text-sm outline-none"
+          />
+          <span className="pr-3 text-ink-faint">.{domain}</span>
+        </span>
+      </label>
+      <p className="text-sm text-ink-soft">
+        Your site moves to the new address straight away, and the old one stops working, so update any links you’ve
+        shared. Nobody else can take your old address for a year, and you can move back to it.
+      </p>
+      <div className="flex items-center gap-3">
+        <Button type="submit" disabled={pending}>{pending ? "Saving…" : "Change address"}</Button>
         <Message error={state.error} ok={state.ok} />
       </div>
     </form>

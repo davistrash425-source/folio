@@ -1,7 +1,8 @@
 import { Suspense } from "react";
 import { requireUser } from "@/lib/auth";
+import { ROOT_DOMAIN } from "@/lib/site";
 import { ProfileForm } from "../../editor";
-import { AccountSettings, AiTrainingForm } from "../../panels";
+import { AccountSettings, AddressForm, AiTrainingForm } from "../../panels";
 import { Card, Loading, PageHeader } from "../section";
 
 export const metadata = { title: "Account — Folio" };
@@ -30,6 +31,9 @@ async function Account({ searchParams }: { searchParams: PageProps<"/dashboard/m
           That confirmation link has expired or was already used. Send a new one from the banner above.
         </p>
       )}
+      <Card title="Site address" subtitle="Where visitors find your site.">
+        <AddressForm subdomain={user.subdomain} domain={ROOT_DOMAIN} />
+      </Card>
       <Card title="About you" subtitle="Your name, bio and contact details, shown on your site.">
         <ProfileForm profile={user.profile} />
       </Card>

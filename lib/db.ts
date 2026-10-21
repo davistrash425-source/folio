@@ -232,13 +232,47 @@ export async function deleteUser(id: string) {
     // Remember the address, so it stays unavailable for a while (subdomainOnHold).
     if (rows[0]) {
       await query(
-        "insert into released_subdomains (subdomain) values ($1) on conflict (subdomain) do update set released_at = now()",
+        "insert into released_subdomains (subdomain) values ($1) on conflict (subdomain) do update set released_at = now(), user_id = null",
         [rows[0].subdomain],
       );
     }
     return rows[0]?.subdomain;
   });
   if (subdomain) siteChanged(subdomain);
+}
+
+// Moves an account to a new address. As at sign-up, the unique column decides
+// who gets an address. The old one is held (subdomainOnHold) so nobody else
+// can take it and pass as this photographer, though they can move back to it.
+// Reports about the site follow it to the new address.
+export async function changeSubdomain(id: string, subdomain: string) {
+  const next = subdomain.toLowerCase();
+  const db = await database();
+  let previous: string;
+  try {
+    previous = await db.transaction(async (query) => {
+      const { rows } = await query<{ data: User }>("select data from users where id = $1 for update", [id]);
+      const user = rows[0]?.data;
+      if (!user) throw new Error("USER_NOT_FOUND");
+      const old = user.subdomain;
+      if (old === next) return old;
+      user.subdomain = next;
+      await save(query, user);
+      await query("delete from released_subdomains where subdomain = $1", [next]);
+      await query(
+        `insert into released_subdomains (subdomain, user_id) values ($1, $2)
+         on conflict (subdomain) do update set released_at = now(), user_id = $2`,
+        [old, id],
+      );
+      await query("update reports set subdomain = $2 where subdomain = $1", [old, next]);
+      return old;
+    });
+  } catch (err) {
+    if ((err as Error).message.includes("users_subdomain_key")) throw new Error("SUBDOMAIN_TAKEN");
+    throw err;
+  }
+  siteChanged(previous);
+  siteChanged(next);
 }
 
 // Every account's id, for maintenance that goes through all of them.
@@ -260,12 +294,15 @@ export async function photosWithoutRights() {
   return rows[0]?.count ?? 0;
 }
 
-// Whether the address belonged to an account closed in the last `months`.
-export async function subdomainOnHold(subdomain: string, months: number) {
+// Whether the address was given up in the last `months`, by a closed account
+// or one that moved. It isn't held from `forUserId` if that account moved away
+// from it.
+export async function subdomainOnHold(subdomain: string, months: number, forUserId?: string) {
   const db = await database();
   const { rows } = await db.query(
-    "select 1 from released_subdomains where subdomain = $1 and released_at > now() - make_interval(months => $2)",
-    [subdomain.toLowerCase(), months],
+    `select 1 from released_subdomains where subdomain = $1 and released_at > now() - make_interval(months => $2)
+     and (user_id is null or user_id is distinct from $3)`,
+    [subdomain.toLowerCase(), months, forUserId ?? null],
   );
   return rows.length > 0;
 }

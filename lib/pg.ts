@@ -62,6 +62,9 @@ const SCHEMA = `
     subdomain text primary key,
     released_at timestamptz not null default now()
   );
+  -- The account that moved away from the address (null for closed accounts),
+  -- which may move back to it.
+  alter table released_subdomains add column if not exists user_id text;
 `;
 
 async function connectPostgres(url: string): Promise<Database> {

@@ -23,6 +23,7 @@ const needSignIn: Record<string, () => Promise<unknown>> = {
   setPublished: () => siteActions.setPublished(false),
   saveProfile: () => siteActions.saveProfile({}, formOf({ name: "Hacked" })),
   saveAiTraining: () => siteActions.saveAiTraining({}, formOf({})),
+  changeAddress: () => siteActions.changeAddress({}, formOf({ subdomain: "hacked-address" })),
   createAlbum: () => siteActions.createAlbum({}, formOf({ title: "Hacked" })),
   updateAlbum: () => siteActions.updateAlbum("some-id", {}, formOf({ title: "Hacked" })),
   setAlbumPhotos: () => siteActions.setAlbumPhotos("some-id", ["some-photo"]),
