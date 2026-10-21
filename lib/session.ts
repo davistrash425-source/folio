@@ -49,10 +49,18 @@ export async function verifyPassword(password: string, stored: string) {
   return timingSafeEqual(expected, actual);
 }
 
-export async function createSession(userId: string) {
+// An admin working on one of their extra sites is signed in as that site, and
+// this second cookie says which admin they are (lib/auth.ts checks it).
+const MANAGER_COOKIE = "manager";
+
+// Each kind of cookie is signed differently, so one can't stand in for the
+// other. (Login cookies keep the plain form they've always had.)
+const signFor = (name: string, payload: string) => sign(name === COOKIE_NAME ? payload : `${name}:${payload}`);
+
+async function setSignedCookie(name: string, userId: string) {
   const expires = Date.now() + MAX_AGE * 1000;
   const payload = `${userId}.${expires}`;
-  (await cookies()).set(COOKIE_NAME, `${payload}.${sign(payload)}`, {
+  (await cookies()).set(name, `${payload}.${signFor(name, payload)}`, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -61,15 +69,36 @@ export async function createSession(userId: string) {
   });
 }
 
+export async function createSession(userId: string) {
+  await setSignedCookie(COOKIE_NAME, userId);
+}
+
 // The signed-in user's id and when their login cookie was issued, or null.
 // This only checks the cookie; lib/auth.ts also checks the account.
-export async function getSession(): Promise<{ userId: string; issuedAt: number } | null> {
+export async function getSession() {
+  return readSignedCookie(COOKIE_NAME);
+}
+
+export async function setManager(adminId: string) {
+  await setSignedCookie(MANAGER_COOKIE, adminId);
+}
+
+// The admin who switched to the site that's signed in, from their cookie.
+export async function getManager() {
+  return readSignedCookie(MANAGER_COOKIE);
+}
+
+export async function clearManager() {
+  (await cookies()).delete(MANAGER_COOKIE);
+}
+
+async function readSignedCookie(name: string): Promise<{ userId: string; issuedAt: number } | null> {
   await connection(); // the expiry check depends on the current time
-  const raw = (await cookies()).get(COOKIE_NAME)?.value;
+  const raw = (await cookies()).get(name)?.value;
   if (!raw) return null;
   const [userId, expires, sig] = raw.split(".");
   if (!userId || !expires || !sig) return null;
-  const expected = Buffer.from(sign(`${userId}.${expires}`));
+  const expected = Buffer.from(signFor(name, `${userId}.${expires}`));
   const given = Buffer.from(sig);
   if (expected.length !== given.length || !timingSafeEqual(expected, given)) {
     return null;
@@ -84,4 +113,5 @@ export async function getSessionUserId(): Promise<string | null> {
 
 export async function deleteSession() {
   (await cookies()).delete(COOKIE_NAME);
+  await clearManager();
 }

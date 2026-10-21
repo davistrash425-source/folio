@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { logout } from "@/app/actions/auth";
-import { requireUser } from "@/lib/auth";
+import { currentAdmin, requireUser } from "@/lib/auth";
+import { managedSites } from "@/lib/db";
 import { isLive, isPublished, siteUrl } from "@/lib/site";
-import { DashboardTabs, DashboardTabsView, StickyBar } from "./nav";
+import { DashboardTabs, DashboardTabsView, SiteSwitcher, StickyBar } from "./nav";
 import { PublishToggle } from "./panels";
 
 export default function DashboardLayout({ children }: LayoutProps<"/dashboard">) {
@@ -22,6 +23,9 @@ export default function DashboardLayout({ children }: LayoutProps<"/dashboard">)
           </header>
           <div className="flex flex-wrap items-center gap-4 border-b border-rule px-6 py-2 text-sm md:border-0 md:px-0">
             <Suspense fallback={null}>
+              <SiteMenu />
+            </Suspense>
+            <Suspense fallback={null}>
               <SiteStatus />
             </Suspense>
             <form action={logout}>
@@ -33,6 +37,15 @@ export default function DashboardLayout({ children }: LayoutProps<"/dashboard">)
       {children}
     </div>
   );
+}
+
+// Admins can have several sites; this menu switches between them.
+async function SiteMenu() {
+  const admin = await currentAdmin();
+  if (!admin) return null;
+  const user = await requireUser();
+  const sites = [admin, ...(await managedSites(admin.id))];
+  return <SiteSwitcher current={user.id} sites={sites.map((s) => ({ id: s.id, subdomain: s.subdomain, name: s.profile.name }))} />;
 }
 
 // Whether the site is visible to the public, with a switch and a link to it.

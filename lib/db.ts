@@ -105,6 +105,9 @@ export type User = {
   suspended?: { at: string; reason: string };
   legalHold?: { at: string; note: string };
   strikes?: { at: string; reportId: string }[];
+  // An admin's extra site: the admin's account id. It has no password and a
+  // made-up email; the admin reaches it by switching sites (app/actions/sites.ts).
+  managedBy?: string;
 };
 
 // One-time links for password resets and email verification. Only a hash of
@@ -227,13 +230,17 @@ export async function updateUser(id: string, fn: (user: User) => void) {
 export async function deleteUser(id: string) {
   const db = await database();
   const subdomain = await db.transaction(async (query) => {
-    const { rows } = await query<{ subdomain: string }>("delete from users where id = $1 returning subdomain", [id]);
+    const { rows } = await query<{ subdomain: string; manager: string | null }>(
+      "delete from users where id = $1 returning subdomain, data->>'managedBy' as manager",
+      [id],
+    );
     await query("delete from tokens where user_id = $1", [id]);
-    // Remember the address, so it stays unavailable for a while (subdomainOnHold).
+    // Remember the address, so it stays unavailable for a while
+    // (subdomainOnHold). An admin's extra site leaves it free for that admin.
     if (rows[0]) {
       await query(
-        "insert into released_subdomains (subdomain) values ($1) on conflict (subdomain) do update set released_at = now(), user_id = null",
-        [rows[0].subdomain],
+        "insert into released_subdomains (subdomain, user_id) values ($1, $2) on conflict (subdomain) do update set released_at = now(), user_id = $2",
+        [rows[0].subdomain, rows[0].manager],
       );
     }
     return rows[0]?.subdomain;
@@ -273,6 +280,16 @@ export async function changeSubdomain(id: string, subdomain: string) {
   }
   siteChanged(previous);
   siteChanged(next);
+}
+
+// An admin's extra sites (User.managedBy), by address.
+export async function managedSites(adminId: string) {
+  const db = await database();
+  const { rows } = await db.query<{ data: User }>(
+    "select data from users where data->>'managedBy' = $1 order by subdomain",
+    [adminId],
+  );
+  return rows.map((r) => r.data);
 }
 
 // Every account's id, for maintenance that goes through all of them.

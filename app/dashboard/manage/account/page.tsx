@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { requireUser } from "@/lib/auth";
+import { managedSites } from "@/lib/db";
 import { ROOT_DOMAIN } from "@/lib/site";
 import { ProfileForm } from "../../editor";
 import { AccountSettings, AddressForm, AiTrainingForm } from "../../panels";
@@ -40,9 +41,15 @@ async function Account({ searchParams }: { searchParams: PageProps<"/dashboard/m
       <Card title="AI training" subtitle="Whether AI companies may collect your site and photos.">
         <AiTrainingForm blocked={!user.allowAiTraining} />
       </Card>
-      <Card title="Account" subtitle={`Signed in as ${user.email}.`}>
-        <AccountSettings />
-      </Card>
+      {user.managedBy ? (
+        <Card title="This site" subtitle="An extra site on your admin account.">
+          <AccountSettings extraSite={user.subdomain} />
+        </Card>
+      ) : (
+        <Card title="Account" subtitle={`Signed in as ${user.email}.`}>
+          <AccountSettings extraSites={(await managedSites(user.id)).length} />
+        </Card>
+      )}
     </>
   );
 }

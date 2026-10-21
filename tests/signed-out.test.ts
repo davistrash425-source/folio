@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import * as authActions from "../app/actions/auth.ts";
 import * as designActions from "../app/actions/design.ts";
 import * as siteActions from "../app/actions/site.ts";
+import * as sitesActions from "../app/actions/sites.ts";
 import { deleteUser } from "../lib/db.ts";
 import { presetDesign } from "../lib/design.ts";
 import { databaseText, filesOf, formOf, formWith, jpegFile, makeUser, redirectedTo, resetRequest, signInAs, signOut } from "./helpers.ts";
@@ -38,13 +39,20 @@ const needSignIn: Record<string, () => Promise<unknown>> = {
   resendVerification: () => authActions.resendVerification(),
   signOutEverywhereElse: () => authActions.signOutEverywhereElse(),
   deleteAccount: () => authActions.deleteAccount({}, formOf({ password: "anything" })),
+  createSite: () => sitesActions.createSite({}, formOf({ name: "Hacked", subdomain: "hacked-site" })),
+  switchSite: () => sitesActions.switchSite("some-id"),
 };
 
 // Actions anyone may call: visitors leaving a message, and the sign-in forms.
 const open = ["sendInquiry", "signup", "login", "logout", "requestPasswordReset", "resetPassword"];
 
 test("every server action is listed here as needing a login or as open to everyone", () => {
-  const exported = [...Object.keys(siteActions), ...Object.keys(designActions), ...Object.keys(authActions)];
+  const exported = [
+    ...Object.keys(siteActions),
+    ...Object.keys(sitesActions),
+    ...Object.keys(designActions),
+    ...Object.keys(authActions),
+  ];
   assert.deepEqual(exported.sort(), [...Object.keys(needSignIn), ...open].sort());
 });
 

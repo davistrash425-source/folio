@@ -2,10 +2,11 @@
 
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
-import { createUser, deleteUser, findUserByEmail, findUserBySubdomain, subdomainOnHold, updateUser } from "@/lib/db";
+import { createUser, deleteUser, findUserByEmail, findUserBySubdomain, managedSites, subdomainOnHold, updateUser } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import {
+  clearManager,
   createSession,
   deleteSession,
   hashPassword,
@@ -168,17 +169,34 @@ export async function signOutEverywhereElse(): Promise<FormState> {
   return { ok: "Signed out everywhere else." };
 }
 
+// Deletes the signed-in account, confirmed with its password. An admin's
+// extra site has none, so it's confirmed by typing its address, and the admin
+// goes back to their own site. Deleting an admin's account deletes their
+// extra sites too.
 export async function deleteAccount(_prev: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser();
-  const password = String(formData.get("password") ?? "");
   if (!(await rateLimit(`delete:${user.id}`, 5, 15 * 60 * 1000))) return { error: TOO_MANY };
-  if (!(await verifyPassword(password, user.passwordHash))) {
+  if (user.managedBy) {
+    if (String(formData.get("confirm") ?? "").trim().toLowerCase() !== user.subdomain) {
+      return { error: "Type the site's address to confirm." };
+    }
+  } else if (!(await verifyPassword(String(formData.get("password") ?? ""), user.passwordHash))) {
     return { error: "That password isn't right." };
   }
+  const extraSites = user.managedBy ? [] : await managedSites(user.id);
   // Folio has been asked (or is required) to keep this account for now.
-  if (user.legalHold) return { error: `Your account can't be deleted right now. Write to ${SUPPORT_EMAIL} for help.` };
-  await deleteUser(user.id);
-  await storage.removeAll(user.id);
+  if ([user, ...extraSites].some((u) => u.legalHold)) {
+    return { error: `Your account can't be deleted right now. Write to ${SUPPORT_EMAIL} for help.` };
+  }
+  for (const account of [...extraSites, user]) {
+    await deleteUser(account.id);
+    await storage.removeAll(account.id);
+  }
+  if (user.managedBy) {
+    await createSession(user.managedBy);
+    await clearManager();
+    redirect("/dashboard/manage/photos");
+  }
   await deleteSession();
   redirect("/?deleted=1");
 }

@@ -3,6 +3,7 @@
 import { useActionState, useState, useTransition } from "react";
 import { deleteAccount, resendVerification, signOutEverywhereElse, type FormState } from "@/app/actions/auth";
 import { changeAddress, deleteInquiry, saveAiTraining, setInquiryRead, setPublished } from "@/app/actions/site";
+import { createSite } from "@/app/actions/sites";
 import { Button, Field, Input, Message, buttonClass, secondaryButtonClass } from "@/app/ui/form";
 import type { Inquiry } from "@/lib/db";
 
@@ -143,26 +144,32 @@ export function AiTrainingForm({ blocked }: { blocked: boolean }) {
   );
 }
 
-// `domain` is the part after the name, e.g. "folio.cam".
+// A site address box: the name, then `domain` (e.g. "folio.cam") after it.
+function AddressInput({ defaultValue, domain }: { defaultValue: string; domain: string }) {
+  return (
+    <label className="block text-sm">
+      <span className="label text-ink-soft">Address</span>
+      <span className="mt-1 flex max-w-md items-center border border-rule bg-card focus-within:border-ink">
+        <input
+          name="subdomain"
+          required
+          defaultValue={defaultValue}
+          maxLength={30}
+          autoCapitalize="none"
+          spellCheck={false}
+          className="min-w-0 flex-1 bg-transparent py-2 pl-3 text-sm outline-none"
+        />
+        <span className="pr-3 text-ink-faint">.{domain}</span>
+      </span>
+    </label>
+  );
+}
+
 export function AddressForm({ subdomain, domain }: { subdomain: string; domain: string }) {
   const [state, action, pending] = useActionState(changeAddress, {});
   return (
     <form action={action} className="space-y-3">
-      <label className="block text-sm">
-        <span className="label text-ink-soft">Address</span>
-        <span className="mt-1 flex max-w-md items-center border border-rule bg-card focus-within:border-ink">
-          <input
-            name="subdomain"
-            required
-            defaultValue={subdomain}
-            maxLength={30}
-            autoCapitalize="none"
-            spellCheck={false}
-            className="min-w-0 flex-1 bg-transparent py-2 pl-3 text-sm outline-none"
-          />
-          <span className="pr-3 text-ink-faint">.{domain}</span>
-        </span>
-      </label>
+      <AddressInput defaultValue={subdomain} domain={domain} />
       <p className="text-sm text-ink-soft">
         Your site moves to the new address straight away, and the old one stops working, so update any links you’ve
         shared. Nobody else can take your old address for a year, and you can move back to it.
@@ -175,7 +182,30 @@ export function AddressForm({ subdomain, domain }: { subdomain: string; domain: 
   );
 }
 
-export function AccountSettings() {
+// Starts one of an admin's extra sites (app/actions/sites.ts).
+export function NewSiteForm({ domain }: { domain: string }) {
+  const [state, action, pending] = useActionState(createSite, {});
+  return (
+    <form action={action} className="space-y-4">
+      <Field label="Site name" hint="Shown at the top of the site. You can change it later.">
+        <Input name="name" required maxLength={80} defaultValue={state.fields?.name} />
+      </Field>
+      <AddressInput defaultValue={state.fields?.subdomain ?? ""} domain={domain} />
+      <p className="text-sm text-ink-soft">
+        The new site starts with no photos and the standard design. Messages from its contact form go to your email.
+      </p>
+      <div className="flex items-center gap-3">
+        <Button type="submit" disabled={pending}>{pending ? "Creating…" : "Create site"}</Button>
+        <Message error={state.error} />
+      </div>
+    </form>
+  );
+}
+
+// `extraSite` is the address of an admin's extra site, which has no password
+// or login of its own: it's deleted by typing that address. `extraSites` is
+// how many extra sites an admin's account has (deleted along with it).
+export function AccountSettings({ extraSite, extraSites = 0 }: { extraSite?: string; extraSites?: number }) {
   const [state, action, pending] = useActionState(deleteAccount, {});
   const [confirming, setConfirming] = useState(false);
 
@@ -188,16 +218,28 @@ export function AccountSettings() {
           Download .zip
         </a>
       </div>
-      <SignOutEverywhere />
+      {!extraSite && <SignOutEverywhere />}
       <div>
-        <h3 className="font-medium text-accent">Delete account</h3>
-        <p className="mb-3 text-sm text-ink-soft">Permanently deletes your site, photos and messages. This can’t be undone.</p>
+        <h3 className="font-medium text-accent">{extraSite ? "Delete this site" : "Delete account"}</h3>
+        <p className="mb-3 text-sm text-ink-soft">
+          {extraSite
+            ? "Permanently deletes this site, its photos and messages. Your other sites stay. This can’t be undone."
+            : `Permanently deletes your site, photos and messages${
+                extraSites ? `, and your ${extraSites === 1 ? "other site" : `${extraSites} other sites`}` : ""
+              }. This can’t be undone.`}
+        </p>
         {confirming ? (
           <form action={action} className="flex flex-wrap items-end gap-3">
             <div className="min-w-48 flex-1">
-              <Field label="Enter your password to confirm">
-                <Input name="password" type="password" required autoComplete="current-password" />
-              </Field>
+              {extraSite ? (
+                <Field label={`Type ${extraSite} to confirm`}>
+                  <Input name="confirm" required autoCapitalize="none" spellCheck={false} />
+                </Field>
+              ) : (
+                <Field label="Enter your password to confirm">
+                  <Input name="password" type="password" required autoComplete="current-password" />
+                </Field>
+              )}
             </div>
             <Button type="submit" disabled={pending} className="bg-accent hover:bg-ink">
               {pending ? "Deleting…" : "Delete everything"}
@@ -213,7 +255,7 @@ export function AccountSettings() {
             onClick={() => setConfirming(true)}
             className="h-10 border border-accent px-5 text-sm font-medium text-accent hover:bg-accent-soft"
           >
-            Delete my account…
+            {extraSite ? "Delete this site…" : "Delete my account…"}
           </button>
         )}
       </div>

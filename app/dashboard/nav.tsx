@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, type MouseEvent, type ReactNode } from "react";
+import { switchSite } from "@/app/actions/sites";
 
 // The dashboard's top bar, pinned to the top of the screen. On phones only its
 // <header> is pinned; from md up the whole bar is. Whichever part is pinned,
@@ -26,6 +27,46 @@ export function StickyBar({ className, children }: { className: string; children
     <div ref={ref} className={className}>
       {children}
     </div>
+  );
+}
+
+export type SiteChoice = { id: string; subdomain: string; name: string };
+
+// For admins, who can have several sites: which one the dashboard is showing,
+// and a menu to switch to another or start a new one.
+export function SiteSwitcher({ current, sites }: { current: string; sites: SiteChoice[] }) {
+  const close = (e: MouseEvent<HTMLElement>) => e.currentTarget.closest("details")?.removeAttribute("open");
+  return (
+    <details className="relative">
+      <summary className="flex h-8 cursor-pointer list-none items-center gap-2 border border-rule px-2.5 text-sm hover:border-ink">
+        <span className="label text-ink-faint">Site</span>
+        <span className="font-medium">{sites.find((s) => s.id === current)?.subdomain}</span>
+        <span aria-hidden="true" className="text-ink-faint">▾</span>
+      </summary>
+      <div className="absolute left-0 top-full z-50 mt-1 w-72 border border-ink bg-paper py-1 shadow-lg">
+        <p className="label px-3 py-1.5 text-ink-faint">Your sites</p>
+        <ul>
+          {sites.map((s) => (
+            <li key={s.id}>
+              <form action={switchSite.bind(null, s.id)}>
+                <button
+                  disabled={s.id === current}
+                  aria-current={s.id === current ? "true" : undefined}
+                  className="flex w-full items-baseline gap-2 px-3 py-1.5 text-left text-sm hover:bg-card disabled:cursor-default disabled:hover:bg-transparent"
+                >
+                  <span className="w-3 text-accent">{s.id === current ? "✓" : ""}</span>
+                  <span className="flex-1 truncate font-medium">{s.subdomain}</span>
+                  <span className="max-w-[45%] truncate text-xs text-ink-faint">{s.name}</span>
+                </button>
+              </form>
+            </li>
+          ))}
+        </ul>
+        <Link href="/dashboard/sites/new" onClick={close} className="block border-t border-rule px-3 py-2 text-sm hover:bg-card">
+          + New site
+        </Link>
+      </div>
+    </details>
   );
 }
 
