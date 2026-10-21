@@ -2,6 +2,32 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef, type ReactNode } from "react";
+
+// The dashboard's top bar, pinned to the top of the screen. On phones only its
+// <header> is pinned; from md up the whole bar is. Whichever part is pinned,
+// its height goes in --dash-bar so other pinned things (the side menu, the
+// design editor's toolbar) can sit just below it, even when the bar wraps.
+export function StickyBar({ className, children }: { className: string; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const bar = ref.current!;
+    const header = bar.querySelector("header")!;
+    const measure = () => {
+      const pinned = getComputedStyle(bar).position === "sticky" ? bar : header;
+      document.documentElement.style.setProperty("--dash-bar", `${pinned.offsetHeight}px`);
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(bar);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
+  return (
+    <div ref={ref} className={className}>
+      {children}
+    </div>
+  );
+}
 
 const TABS = [
   { href: "/dashboard/manage", label: "Manage website" },
@@ -39,11 +65,14 @@ export function DashboardTabsView({ pathname }: { pathname: string }) {
   );
 }
 
-const SECTIONS = [
-  { href: "/dashboard/manage/upload", label: "Upload photos" },
-  { href: "/dashboard/manage/photos", label: "All photos" },
-  { href: "/dashboard/manage/albums", label: "Albums" },
-  { href: "/dashboard/manage/design", label: "Web design" },
+// The steps to a finished site, in order. Each hint is shown under its label
+// on wide screens.
+const STEPS = [
+  { href: "/dashboard/manage/upload", label: "Upload photos", hint: "Add pictures from your computer" },
+  { href: "/dashboard/manage/photos", label: "All photos", hint: "Describe each photo" },
+  { href: "/dashboard/manage/albums", label: "Albums", hint: "Group photos into collections" },
+  { href: "/dashboard/manage/design", label: "Web design", hint: "Choose how your site looks" },
+  { href: "/dashboard/manage/publish", label: "Go live", hint: "Put your site online" },
 ];
 
 const SECONDARY = [
@@ -56,19 +85,43 @@ export function SideNav({ unread }: { unread: number }) {
 }
 
 export function SideNavView({ unread, pathname }: { unread: number; pathname: string }) {
-  // Numbered like frames on a contact sheet.
-  const item = (s: { href: string; label: string }, n: number) => {
+  // Numbered like frames on a contact sheet, each in its own box so they read
+  // as steps. The boxes are all one size (tall enough for a two-line hint)
+  // rather than fitting their text.
+  const step = (s: (typeof STEPS)[number], n: number) => {
     const active = pathname.startsWith(s.href);
     return (
       <li key={s.href} className="shrink-0">
         <Link
           href={s.href}
           aria-current={active ? "page" : undefined}
-          className={`flex items-baseline gap-3 border-b-2 py-2 text-sm transition-colors md:border-b-0 md:border-l-2 md:py-1.5 md:pl-3 ${
-            active ? "border-accent font-medium text-ink" : "border-transparent text-ink-soft hover:text-ink"
+          className={`flex w-40 items-baseline gap-3 border px-3 py-2 text-sm transition-colors md:h-20 md:w-auto md:py-2.5 ${
+            active
+              ? "border-accent bg-card text-ink"
+              : "border-rule text-ink-soft hover:border-ink-faint hover:bg-card hover:text-ink"
           }`}
         >
           <span className={`label ${active ? "text-accent" : "text-ink-faint"}`}>{String(n).padStart(2, "0")}</span>
+          <span className="flex-1">
+            <span className={`block ${active ? "font-medium" : ""}`}>{s.label}</span>
+            <span className="mt-0.5 hidden text-xs leading-snug text-ink-faint md:block">{s.hint}</span>
+          </span>
+        </Link>
+      </li>
+    );
+  };
+  // Messages and Account aren't steps, so they're plain links without numbers.
+  const other = (s: (typeof SECONDARY)[number]) => {
+    const active = pathname.startsWith(s.href);
+    return (
+      <li key={s.href} className="shrink-0">
+        <Link
+          href={s.href}
+          aria-current={active ? "page" : undefined}
+          className={`flex items-baseline gap-3 px-3 py-2 text-sm transition-colors md:py-1.5 ${
+            active ? "font-medium text-accent" : "text-ink-soft hover:text-ink"
+          }`}
+        >
           <span className="flex-1">{s.label}</span>
           {s.label === "Messages" && unread > 0 && (
             <span className="label bg-accent px-1.5 text-paper">{unread} new</span>
@@ -78,12 +131,12 @@ export function SideNavView({ unread, pathname }: { unread: number; pathname: st
     );
   };
   return (
-    <nav aria-label="Manage website" className="md:sticky md:top-8">
+    <nav aria-label="Manage website" className="md:sticky md:top-[calc(var(--dash-bar,4rem)+2rem)]">
       {/* A sidebar on wide screens; a scrolling row of links on phones. */}
-      <ul className="-mx-6 flex gap-5 overflow-x-auto border-b border-rule px-6 md:mx-0 md:flex-col md:gap-0.5 md:overflow-visible md:border-b-0 md:px-0">
-        {SECTIONS.map((s, i) => item(s, i + 1))}
-        <li aria-hidden="true" className="hidden md:my-4 md:block md:border-t md:border-rule" />
-        {SECONDARY.map((s, i) => item(s, SECTIONS.length + i + 1))}
+      <ul className="-mx-6 flex gap-2 overflow-x-auto px-6 pb-1 md:mx-0 md:flex-col md:overflow-visible md:px-0 md:pb-0">
+        {STEPS.map((s, i) => step(s, i + 1))}
+        <li aria-hidden="true" className="hidden md:my-3 md:block md:border-t md:border-rule" />
+        {SECONDARY.map(other)}
       </ul>
     </nav>
   );
