@@ -1,7 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { currentUser } from "@/lib/auth";
 import { updateUser } from "@/lib/db";
-import { photoLimit, photoLimitMessage } from "@/lib/plans";
+import { uploadBlock } from "@/lib/plans";
 import {
   PHOTO_ERRORS,
   deletePhotoFiles,
@@ -58,12 +58,12 @@ export async function POST(req: Request) {
   }
   started = performance.now();
 
-  let full = false;
+  let blocked: string | null = null;
   try {
     await updateUser(user.id, (u) => {
       if (u.photos.some((p) => p.id === photo.id)) return; // finished twice
-      full = u.photos.length >= photoLimit(u);
-      if (!full) u.photos.push({ ...photo, createdAt: new Date().toISOString() });
+      blocked = uploadBlock(u, photo.bytes);
+      if (!blocked) u.photos.push({ ...photo, createdAt: new Date().toISOString() });
     });
   } catch (err) {
     // The account was deleted while the photo was uploading (say, from
@@ -73,9 +73,9 @@ export async function POST(req: Request) {
     return signedOut();
   }
   lap("save");
-  if (full) {
+  if (blocked) {
     await deletePhotoFiles(user.id, { ...photo, createdAt: "" });
-    return answer({ error: photoLimitMessage(user) });
+    return answer({ error: blocked });
   }
   // The browser refreshes the page itself once the whole batch is done.
   revalidatePath("/dashboard", "layout");

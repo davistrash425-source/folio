@@ -1,6 +1,6 @@
 import { currentUser } from "@/lib/auth";
 import { rateLimit } from "@/lib/rate-limit";
-import { photoLimit, photoLimitMessage } from "@/lib/plans";
+import { uploadBlock } from "@/lib/plans";
 import { directUpload } from "@/lib/uploads";
 
 export const UPLOAD_STARTS_PER_HOUR = 500;
@@ -19,7 +19,8 @@ export async function POST(req: Request) {
   const type = typeof body?.type === "string" ? body.type : "";
   const size = typeof body?.size === "number" ? body.size : NaN;
   if (user.suspended) return Response.json({ error: "your site is suspended, so you can't upload right now" });
-  if (user.photos.length >= photoLimit(user)) return Response.json({ error: photoLimitMessage(user) });
+  const blocked = uploadBlock(user, Number.isFinite(size) ? Math.max(0, size) : 0);
+  if (blocked) return Response.json({ error: blocked });
   // Every start hands out an address that can fill storage, and one that is
   // never finished leaves its file behind. A big batch of photos is a few
   // hundred starts, so this is generous for people and small for abuse.

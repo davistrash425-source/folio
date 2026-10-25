@@ -11,6 +11,34 @@ export function photoLimit(user: Pick<User, "plan">) {
   return user.plan === "pro" ? PRO_PHOTO_LIMIT : FREE_PHOTO_LIMIT;
 }
 
+// Storage: the originals plus the web copies, as recorded in Photo.bytes.
+// Free is only a safety net (150 photos of at most 20 MB already fit well
+// inside it); Pro's 50 GB is the advertised limit.
+const GB = 1024 ** 3;
+export const FREE_STORAGE_LIMIT = 5 * GB;
+export const PRO_STORAGE_LIMIT = 50 * GB;
+
+export function storageLimit(user: Pick<User, "plan">) {
+  return user.plan === "pro" ? PRO_STORAGE_LIMIT : FREE_STORAGE_LIMIT;
+}
+
+// Photos uploaded before sizes were recorded count as 0 until a backfill.
+export function storageUsed(user: Pick<User, "photos">) {
+  return user.photos.reduce((total, p) => total + (p.bytes ?? 0), 0);
+}
+
+export function storageLimitMessage(user: Pick<User, "plan">) {
+  return `You've used all ${storageLimit(user) / GB} GB of storage. Delete some photos to make room.`;
+}
+
+// Why one more photo of `extraBytes` can't be added right now, or null if it
+// can. Checked before an upload starts and again when it is saved.
+export function uploadBlock(user: Pick<User, "plan" | "photos">, extraBytes = 0): string | null {
+  if (user.photos.length >= photoLimit(user)) return photoLimitMessage(user);
+  if (storageUsed(user) + extraBytes > storageLimit(user)) return storageLimitMessage(user);
+  return null;
+}
+
 // Client galleries are a Pro feature.
 export const PRO_GALLERY_LIMIT = 20;
 export function galleryLimit(user: Pick<User, "plan">) {

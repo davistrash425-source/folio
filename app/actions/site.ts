@@ -6,7 +6,7 @@ import { randomUUID } from "crypto";
 import { z } from "zod";
 import { changeSubdomain, findUserBySubdomain, subdomainOnHold, updateUser, type Photo } from "@/lib/db";
 import { impersonationBlock, requireUser } from "@/lib/auth";
-import { photoLimit, photoLimitMessage } from "@/lib/plans";
+import { uploadBlock } from "@/lib/plans";
 import { draftDesign, publishedDesign } from "@/lib/public-site";
 import { sendEmail } from "@/lib/email";
 import { cleanSocial, cleanWebsite } from "@/lib/social";
@@ -43,7 +43,8 @@ export async function uploadPhotos(_prev: ActionState, formData: FormData): Prom
     .filter((f): f is File => f instanceof File && f.size > 0);
   if (files.length === 0) return { error: "Choose at least one photo." };
   if (user.suspended) return { error: "Your site is suspended, so you can't upload photos right now." };
-  if (user.photos.length >= photoLimit(user)) return { error: photoLimitMessage(user) };
+  const blockedAtStart = uploadBlock(user);
+  if (blockedAtStart) return { error: blockedAtStart };
 
   const saved: Awaited<ReturnType<typeof savePhoto>>[] = [];
   const skipped: string[] = [];
@@ -56,14 +57,22 @@ export async function uploadPhotos(_prev: ActionState, formData: FormData): Prom
     }
   }
   let overLimit: typeof saved = [];
+  let blocked = "";
   if (saved.length) {
     try {
       await updateUser(userId, (u) => {
         const now = new Date().toISOString();
         // Checked again here, as another tab may have filled the space meanwhile.
-        const room = Math.max(0, photoLimit(u) - u.photos.length);
-        overLimit = saved.slice(room);
-        u.photos.push(...saved.slice(0, room).map((photo) => ({ ...photo, createdAt: now })));
+        overLimit = [];
+        for (const photo of saved) {
+          const reason = overLimit.length ? "full" : uploadBlock(u, photo.bytes);
+          if (reason) {
+            blocked ||= reason === "full" ? "" : reason;
+            overLimit.push(photo);
+          } else {
+            u.photos.push({ ...photo, createdAt: now });
+          }
+        }
       });
     } catch (err) {
       // The account was deleted while the files were uploading (say, from
@@ -74,7 +83,7 @@ export async function uploadPhotos(_prev: ActionState, formData: FormData): Prom
     }
   }
   await Promise.all(overLimit.map((photo) => deletePhotoFiles(userId, { ...photo, createdAt: "" })));
-  if (overLimit.length === saved.length && saved.length) return { error: photoLimitMessage(user) };
+  if (overLimit.length === saved.length && saved.length) return { error: blocked };
   if (skipped.length && !saved.length) {
     return { error: "Those files couldn't be uploaded. Use JPG, PNG, WebP, GIF or AVIF under 20 MB." };
   }
@@ -82,7 +91,7 @@ export async function uploadPhotos(_prev: ActionState, formData: FormData): Prom
   return done(
     `Uploaded ${added} photo${added === 1 ? "" : "s"}.` +
       (skipped.length ? ` Skipped: ${skipped.join(", ")}.` : "") +
-      (overLimit.length ? ` ${overLimit.length} more didn't fit: ${photoLimitMessage(user)}` : ""),
+      (overLimit.length ? ` ${overLimit.length} more didn't fit: ${blocked}` : ""),
   );
 }
 
