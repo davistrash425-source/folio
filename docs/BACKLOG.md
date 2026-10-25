@@ -21,6 +21,22 @@ Every suggestion from the code review, the landing-page critique and the dashboa
 
 **Waiting on the owner:** `CRON_SECRET` in Vercel; Turnstile hostnames; browser-console CSP check; test photo upload on folio.cam; legal text and review; DMCA agent registration with the Copyright Office; photo domain; example site photos; payment provider choice.
 
+## Owner to-do (Claude can't do these)
+
+The working list for picking up Folio one task per session. Step-by-step instructions for each item are in `docs/OWNER-CHECKLIST.md` (same numbers). Tick an item here, in the same edit as the Claude Doc, when the owner says it's done.
+
+- [ ] 1. Add `CRON_SECRET` in Vercel. The daily cleanup job doesn't run without it.
+- [ ] 2. Confirm Turnstile covers folio.cam and *.folio.cam.
+- [ ] 3. Check the browser console for CSP report-only messages, then enforce the policy.
+- [ ] 4. Test a photo upload on folio.cam. R2 CORS is unverified.
+- [ ] 5. Get a lawyer to review the Terms, Privacy and Copyright pages, then set `LEGAL_DRAFT=false`.
+- [ ] 6. Register a DMCA agent with the Copyright Office.
+- [ ] 7. Set up the photo domain on Cloudflare and update `R2_PUBLIC_URL`.
+- [ ] 8. Supply photos for the example sites.
+- [ ] 9. Choose a payment provider. Stripe may not accept Israeli businesses, so Paddle or Lemon Squeezy may fit better. Vercel's free tier also forbids commercial use.
+- [ ] 10. Decide whether client galleries get a "Made with Folio" footer and whether Pro removes it.
+- [ ] 11. Launch the Free plan, then Pro.
+
 ## Everything checklist, by phase
 
 Every item in this doc, in the order you chose: design → security → legal → speed. Tick items here; the sections further down keep the longer explanations.

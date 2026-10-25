@@ -4,6 +4,10 @@
 
 **Goal:** Ship the phases in `docs/BACKLOG.md` (design polish -> security -> legal -> speed), now working through Phase 4 (Folio Pro). Owner may be away: skip items that need them and move on; they gave full permission for code work. Don't change production settings (Vercel env, DNS) and don't spend money.
 
+**Latest (Oct 25, 2026):** Claude Doc backlog synced with `docs/BACKLOG.md`. Wrote `docs/OWNER-CHECKLIST.md` (uncommitted): step-by-step guide for the owner-only items. Read-only Vercel check found `CRON_SECRET` is NOT set in production; Turnstile keys and all six `R2_*` vars are set (`R2_PUBLIC_URL` is an r2.dev address). Next: owner works the checklist; Claude then enforces the CSP, flips `LEGAL_DRAFT`, etc. when told.
+
+**Owner to-do list (Oct 25, 2026):** added as the "Owner to-do (Claude can't do these)" section in `docs/BACKLOG.md` and the Claude Doc (items 1-11, unticked). The owner starts a new session per item; when one is done, tick it in BOTH places, and update `docs/OWNER-CHECKLIST.md` if its steps change.
+
 ## Done (all on `main`)
 - Phase 1 design polish; Phase 2 security (trusted IP, login limits, Turnstile, daily cron, headers, full CSP still report-only); Phase 3 (150-photo Free limit in `lib/plans.ts`, sign-up consent checkbox + `User.termsAcceptedAt`, DRAFT Terms/Privacy/Copyright pages in `app/(legal)` controlled by `LEGAL_DRAFT` in `lib/legal.ts`, Playwright test `npm run test:e2e`, big editor files split into `app/dashboard/design/*`, `photo-uploader.tsx`, `photo-drawer.tsx`).
 - Phase 4: Pro limits (1,500 photos, 20 galleries, 50 GB) in `lib/plans.ts`; password-protected client galleries (`User.galleries`, `lib/galleries.ts`, `app/actions/galleries.ts`, dashboard `app/dashboard/manage/galleries` + `galleries.tsx`, public `app/sites/[subdomain]/g/[gallery]`, cookie in `lib/session.ts`); staff can switch an account to Pro/Free (`setPlan` in `app/actions/admin.ts`).
