@@ -1,6 +1,6 @@
 # Handoff
 
-**Status: Phase 3 code work is DONE (owner-only items remain); extra Phase 5 items done. Branch on branch `phase-3-launch` (cut from `phase-2-security`, which is still NOT merged to main).**
+**Status: Phase 3 code work is DONE (owner-only items remain); extra Phase 5 items done. Phases 2 and 3 plus client galleries are MERGED into `main` (Oct 25, 2026).**
 
 **Goal:** Do Phase 3 (legal & launch, Free plan) from `docs/BACKLOG.md`, then keep going with the next backlog items. Owner is away: never block on them; skip items needing their input and move on. Owner gave full permission; still don't merge to main or touch production settings. Keep this file and the backlog ticks current.
 
@@ -26,7 +26,8 @@ Remaining and skipped (needs owner or risky unattended): DB schema at deploy tim
 
 ## Decisions / gotchas
 - Some files are CRLF, some LF; edit with care (scripts must preserve endings).
-- Phase 2 owner checks still pending (see `git show phase-2-security:HANDOFF.md`).
+- Phase 2 owner checks still pending (CRON_SECRET, Turnstile hostnames, CSP console check, upload test on folio.cam).
+- Backlog is mirrored in the Claude Doc "Folio — Improvement Backlog"; edit both (see CLAUDE.md Conventions).
 
 ## Open questions
 - Policy text for Terms/Privacy; second domain for photos.

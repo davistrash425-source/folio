@@ -123,6 +123,8 @@ Each storage piece swaps one module whose interface the rest of the app already 
 
 ## Conventions
 
+- **The backlog lives in two places and both are edited together.** `docs/BACKLOG.md` and the Claude Doc "Folio — Improvement Backlog" (https://claude.ai/artifact/2GPiZULFPDtucJhJ5WCXXF, doc id `0a3f4b76-c114-422c-a3f5-1f7c452c175a`, tabs: backlog and "Agent context"). Whenever you tick, add or reword an item, or change the status, make the same change in both (the doc through the Claude Docs connector: `read` the tab, then `update` by block id). There is no automatic sync.
+
 - Server actions return `{ error?, ok? }` for the form to show, and use `redirect()` for navigation.
 - Tests are named as plain-English statements of behavior. Many check that one user can't reach another user's data (`tests/ownership.test.ts`, `tests/signed-out.test.ts`); add to those when adding an action.
 - `npm run backfill-photos` and `npm run import-json` (copies an old `data/db.json` into Postgres) are one-time migration scripts in `scripts/`.

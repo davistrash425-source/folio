@@ -14,12 +14,12 @@ Every suggestion from the code review, the landing-page critique and the dashboa
 | --- | --- |
 | 0 Setup | Done |
 | 1 Design polish | Done and live on `main`, except two small items (demo sites per theme, Instagram link in footer) |
-| 2 Security | Built on branch `phase-2-security`, **not merged**; waiting on the owner checks below |
-| 3 Legal & launch (Free) | Code done on branch `phase-3-launch` (built on Phase 2), **not merged**. Left: lawyer-reviewed Terms/Privacy, photo domain, example sites, launch |
-| 4 Folio Pro | Started on `phase-3-launch`: 1,500-photo limit, 20-gallery limit, password-protected client galleries, staff can switch an account to Pro. Left: editable special themes, more themes, payments, 50 GB limit, lawyer review, launch |
+| 2 Security | Merged into `main`; waiting on the owner checks below |
+| 3 Legal & launch (Free) | Code done and merged. Left: lawyer-reviewed Terms/Privacy, photo domain, example sites, launch |
+| 4 Folio Pro | Started: 1,500-photo limit, 20-gallery limit, password-protected client galleries, staff can switch an account to Pro. Left: editable special themes, more themes, payments, 50 GB limit, lawyer review, launch |
 | 5 Speed & scale | Four items done (image decode, private changes keep the cache, streaming export, per-page photos). Left: split tables, schema at deploy, fonts, staging and stress tests |
 
-**Waiting on the owner:** `CRON_SECRET` in Vercel; Turnstile hostnames; browser-console CSP check; merge Phase 2 then Phase 3 and test uploads; legal text and review; DMCA agent registration with the Copyright Office; photo domain; example site photos; payment provider choice.
+**Waiting on the owner:** `CRON_SECRET` in Vercel; Turnstile hostnames; browser-console CSP check; test photo upload on folio.cam; legal text and review; DMCA agent registration with the Copyright Office; photo domain; example site photos; payment provider choice.
 
 ## Everything checklist, by phase
 
@@ -145,7 +145,7 @@ Every item in this doc, in the order you chose: design → security → legal �
 - [ ] Add `CRON_SECRET` in Vercel so the daily cleanup job runs
 - [ ] Make sure the Turnstile widget covers `folio.cam` and `*.folio.cam`; test sign-up and a contact form
 - [ ] Check the browser console on folio.cam for report-only CSP messages, then enforce the full policy
-- [ ] Merge `phase-2-security` and test photo upload on folio.cam
+- [ ] Test photo upload on folio.cam (Phase 2 and 3 are merged)
 - [ ] Optional: CAPTCHA after repeated failed logins; Vercel Firewall rule for floods of unknown subdomains
 
 ### Phase 3 — Legal & launch (Free plan)
@@ -480,7 +480,7 @@ Run them on a separate staging copy: a Vercel preview deployment with its own Ne
 
 # Agent context
 
-Everything a coding agent needs to implement this backlog without re-deriving it. Read this, then the repo's `CLAUDE.md` and `AGENTS.md`, before writing code. Snapshot as of Oct 25, 2026. Phase 1 is on `main`; Phase 2 is on `phase-2-security` and Phase 3 plus the start of Phase 4 on `phase-3-launch` (neither merged).
+Everything a coding agent needs to implement this backlog without re-deriving it. Read this, then the repo's `CLAUDE.md` and `AGENTS.md`, before writing code. Snapshot as of Oct 25, 2026. Phases 1 to 3 and the start of Phase 4 are all merged into `main` (Oct 25, 2026).
 
 ## 1. Project snapshot
 
@@ -511,9 +511,9 @@ Everything a coding agent needs to implement this backlog without re-deriving it
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Set | Yes (`lib/rate-limit.ts`) |
 | `REPORTS_EMAIL`, `ADMIN_EMAILS` | Set | Yes |
 | `NEXT_PUBLIC_SENTRY_DSN` | Set | Yes (`lib/sentry.ts`) |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Set | Yes, on `phase-2-security` (not merged) |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Set | Yes |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Set. Google app in Testing mode; redirect URIs `https://folio.cam/api/auth/google/callback` and `http://localhost:3000/api/auth/google/callback` | Yes (Continue with Google) |
-| `CRON_SECRET` | **Not set yet** (owner) | Yes, on `phase-2-security`: daily cleanup job |
+| `CRON_SECRET` | **Not set yet** (owner) | Yes: daily cleanup job |
 
 Open infra item: photo domain. folio.cam DNS must stay on Vercel (wildcard certs), so R2 needs a second domain on Cloudflare (e.g. `img.foliocdn.com`), then update `R2_PUBLIC_URL`.
 
