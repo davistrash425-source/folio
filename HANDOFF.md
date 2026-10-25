@@ -10,10 +10,11 @@
 - Sign-up consent: required `terms` checkbox on both sign-up forms, `User.termsAcceptedAt`, tests updated (384 pass, lint/tsc/build OK).
 - Draft legal pages /terms /privacy /copyright in `app/(legal)` (banner controlled by `LEGAL_DRAFT` in `lib/legal.ts`); footer links on landing. package.json renamed "folio".
 
+- Split `design-editor.tsx` into `app/dashboard/design/{types,ui,pickers,themes,sections}`; split `editor.tsx` into `photo-uploader.tsx` + `photo-drawer.tsx`. Checks pass.
+
 ## In progress / next (code-only, no owner input)
-3. One site / four themes / special themes locked on Free (check what exists first).
 4. Update CLAUDE.md/README for plans + consent + legal pages.
-5. Split `design-editor.tsx` / `editor.tsx`; browser tests.
+5. Browser tests (Playwright) for sign-up -> upload -> design -> publish; then Phase 4 items that need no owner input (Pro limits are in lib/plans.ts already).
 Skip (needs owner): policy text/lawyer, photo domain on Cloudflare, 3 example sites.
 
 ## Decisions / gotchas

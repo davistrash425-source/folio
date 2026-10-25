@@ -144,7 +144,7 @@ Every item in this doc, in the order you chose: design → security → legal �
 - [ ] Build 3 polished example sites + "Made with Folio" section
 - [x] Free plan limit: 150 photos (lib/plans.ts); one site (extra sites are admin-only) and the four themes with uneditable special themes already match Free
 - [ ] Browser tests for sign-up → upload → design → publish
-- [ ] Split `design-editor.tsx` and `editor.tsx` into smaller components
+- [x] Split `design-editor.tsx` (done) and `editor.tsx` (done: photo-uploader.tsx, photo-drawer.tsx) into smaller components
 - [ ] Update Folio.md and HANDOFF.md (package.json renamed to "folio": done)
 - [ ] **Launch the Free plan**
 
