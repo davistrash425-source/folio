@@ -5,7 +5,7 @@
 // (Colors stay right: sharp converts photos with their own color profile,
 // like an iPhone's Display P3, to standard sRGB.)
 // Uses relative imports only, so scripts/ can run it directly with Node.
-import sharp from "sharp";
+import sharp, { type Sharp } from "sharp";
 
 // Widths the public site picks from with srcset.
 export const VARIANT_WIDTHS = [640, 1280, 2048] as const;
@@ -36,10 +36,28 @@ export async function processImage(input: Buffer, rights?: PhotoRights): Promise
   const widths: number[] = VARIANT_WIDTHS.filter((w) => w < width);
   if (width <= VARIANT_WIDTHS[VARIANT_WIDTHS.length - 1]) widths.push(width);
 
+  // Decode the original once, at the largest size needed, and make the smaller
+  // copies from that, instead of decoding the full photo for every width.
+  // Animated images keep every frame, which a raw buffer can't hold, so each
+  // of their copies is made from the original.
+  const animated = (meta.pages ?? 1) > 1;
+  let source: () => Sharp;
+  if (animated) {
+    source = () => sharp(input, { animated: true }).rotate();
+  } else {
+    // rotate() with no angle applies the EXIF orientation before it is dropped.
+    const { data, info } = await sharp(input, { failOn: "error" })
+      .rotate()
+      .resize({ width: Math.max(...widths), withoutEnlargement: true })
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const raw = { width: info.width, height: info.height, channels: info.channels };
+    source = () => sharp(data, { raw });
+  }
+
   const variants = await Promise.all(
     widths.map(async (w) => {
-      // rotate() with no angle applies the EXIF orientation before it is dropped.
-      let image = sharp(input, { animated: true }).rotate().resize({ width: w });
+      let image = source().resize({ width: w });
       if (rights) {
         image = image
           .withExif({ IFD0: { Artist: rights.artist, Copyright: rights.copyright } })

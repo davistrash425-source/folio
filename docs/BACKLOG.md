@@ -164,7 +164,7 @@ Every item in this doc, in the order you chose: design → security → legal �
 - [ ] Send only the photos each public page shows
 - [ ] Stop private changes clearing the public cache
 - [ ] Run database setup at deploy time, not on cold starts
-- [ ] Decode each image once; lower `limitInputPixels`
+- [x] Decode each image once (done); lower `limitInputPixels` (left as is: needs a real-world photo-size decision)
 - [ ] Stream the account export
 - [ ] Load Folio's own fonts only on Folio's pages
 - [ ] Set up a staging copy (Vercel preview + Neon branch + separate R2 buckets)
