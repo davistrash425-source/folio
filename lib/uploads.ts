@@ -294,7 +294,7 @@ export async function savePhoto(userId: string, file: File, rights?: PhotoRights
 export async function storePhoto(userId: string, file: string, data: Buffer, rights?: PhotoRights) {
   const image = await processImage(data, rights); // throws on files that aren't images
   await storage.put(userId, file, data);
-  return saveVariants(userId, file, image, rights);
+  return saveVariants(userId, file, image, rights, data.length);
 }
 
 // The name the browser uploads an original under: server-chosen, so it can't
@@ -352,7 +352,7 @@ export async function finishDirectUpload(
     throw new Error((err as Error).message === "TOO_LARGE" ? "TOO_LARGE" : "NOT_AN_IMAGE", { cause: err });
   }
   lap("resize");
-  const saved = await saveVariants(userId, file, image, rights);
+  const saved = await saveVariants(userId, file, image, rights, data.length);
   lap("store");
   return { id: match[1], ...saved };
 }
@@ -361,7 +361,8 @@ async function saveVariants(
   userId: string,
   file: string,
   image: Awaited<ReturnType<typeof processImage>>,
-  rights?: PhotoRights,
+  rights: PhotoRights | undefined,
+  originalBytes: number,
 ) {
   await Promise.all(
     image.variants.map((v) => storage.put(userId, variantName(baseName(file), v.width), v.data)),
@@ -371,6 +372,7 @@ async function saveVariants(
     width: image.width,
     height: image.height,
     variants: image.variants.map((v) => v.width),
+    bytes: originalBytes + image.variants.reduce((n, v) => n + v.data.length, 0),
     ...(rights ? { copyright: rights.copyright } : {}),
   };
 }
@@ -391,8 +393,9 @@ export async function deleteWebCopies(userId: string, photo: Photo) {
 // Makes a photo's web copies again from its original, under the same names.
 // Returns the fields to update on the Photo record.
 export async function remakeWebCopies(userId: string, photo: Photo, rights?: PhotoRights) {
-  const image = await processImage(await storage.get(userId, photo.file), rights);
-  return saveVariants(userId, photo.file, image, rights);
+  const data = await storage.get(userId, photo.file);
+  const image = await processImage(data, rights);
+  return saveVariants(userId, photo.file, image, rights, data.length);
 }
 
 export type PhotoSource = {

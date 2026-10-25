@@ -36,6 +36,9 @@ export type Photo = {
   height?: number;
   variants?: number[]; // widths of the "<base>-<width>.webp" copies
   copyright?: string; // the notice written into the web copies (lib/images.ts)
+  // Storage used: the original plus every web copy, in bytes. Photos from
+  // before this was recorded have none and count as 0 (lib/plans.ts).
+  bytes?: number;
   // Set while the photo is taken down by Folio (app/actions/admin.ts): it's
   // off the site and its web copies are deleted, but the private original is
   // kept so it can be put back.
