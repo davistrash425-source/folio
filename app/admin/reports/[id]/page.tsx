@@ -8,6 +8,7 @@ import { requireAdmin } from "@/lib/admin";
 import { findReport, findUserBySubdomain } from "@/lib/db";
 import { REASON_LABELS, noticeText } from "@/lib/reports";
 import { siteUrl } from "@/lib/site";
+import { ViewerNote } from "../../parts";
 
 export default function AdminReportPage({ params, searchParams }: PageProps<"/admin/reports/[id]">) {
   return (
@@ -20,7 +21,7 @@ export default function AdminReportPage({ params, searchParams }: PageProps<"/ad
 const when = (iso: string) => `${new Date(iso).toUTCString().slice(5, 22)} UTC`;
 
 async function ReportView({ params, searchParams }: PageProps<"/admin/reports/[id]">) {
-  await requireAdmin();
+  const staff = await requireAdmin();
   const { id } = await params;
   const { done } = await searchParams;
   const report = await findReport(id);
@@ -65,27 +66,30 @@ async function ReportView({ params, searchParams }: PageProps<"/admin/reports/[i
         )}
       </Card>
 
-      <Card title={report.status === "open" ? "Close it" : "Closed"}>
-        {report.status === "open" ? (
-          <form action={closeReport} className="flex max-w-xl flex-wrap items-end gap-3">
-            <input type="hidden" name="reportId" value={report.id} />
-            <div className="min-w-60 flex-1">
-              <Field label="What you did (kept with the report)">
-                <Input name="note" placeholder="e.g. Not on the site any more" />
-              </Field>
-            </div>
-            <Button type="submit">Close report</Button>
-          </form>
-        ) : (
-          <form action={reopenReport} className="space-y-3">
-            <input type="hidden" name="reportId" value={report.id} />
-            <p className="text-sm">
-              {report.note || "No note."} {report.closedAt && <span className="text-ink-soft">Closed {when(report.closedAt)}.</span>}
-            </p>
-            <SecondaryButton type="submit">Reopen</SecondaryButton>
-          </form>
-        )}
-      </Card>
+      {staff.role !== "admin" && <ViewerNote />}
+      {(staff.role === "admin" || report.status === "closed") && (
+        <Card title={report.status === "open" ? "Close it" : "Closed"}>
+          {report.status === "open" ? (
+            <form action={closeReport} className="flex max-w-xl flex-wrap items-end gap-3">
+              <input type="hidden" name="reportId" value={report.id} />
+              <div className="min-w-60 flex-1">
+                <Field label="What you did (kept with the report)">
+                  <Input name="note" placeholder="e.g. Not on the site any more" />
+                </Field>
+              </div>
+              <Button type="submit">Close report</Button>
+            </form>
+          ) : (
+            <form action={reopenReport} className="space-y-3">
+              <input type="hidden" name="reportId" value={report.id} />
+              <p className="text-sm">
+                {report.note || "No note."} {report.closedAt && <span className="text-ink-soft">Closed {when(report.closedAt)}.</span>}
+              </p>
+              {staff.role === "admin" && <SecondaryButton type="submit">Reopen</SecondaryButton>}
+            </form>
+          )}
+        </Card>
+      )}
     </>
   );
 }

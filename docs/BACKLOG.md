@@ -93,7 +93,8 @@ Every item in this doc, in the order you chose: design → security → legal �
 
 **Go live, Account & Messages**
 
-- [x] New sites start as drafts + reminder email if not published after a few days
+- [x] New sites start as drafts
+- [ ] Reminder email if a site is still a draft after a few days (needs Vercel Cron, Phase 2)
 - [ ] Optional quality checks on Go live: captions, About text, contact details
 - [x] "Take offline" shown once, on Go live only
 - [ ] Move name, bio and contact details into Web design (About page)
@@ -122,7 +123,7 @@ Every item in this doc, in the order you chose: design → security → legal �
 - [ ] Security headers: CSP, HSTS, `frame-ancestors`
 - [ ] Cheap "not found" caching + limits for random subdomains
 - [ ] Turnstile on the contact form and sign-up
-- [ ] Keep the login email off public site data
+- [x] Keep the login email off public site data
 - [x] Sentry and the crash page are live; still add `error.tsx` and a root `not-found.tsx`
 - [ ] Log and retry storage cleanup when an account is deleted
 
@@ -206,7 +207,7 @@ Every item in this doc, in the order you chose: design → security → legal �
 - [ ] **Add security headers.** No CSP, HSTS or `frame-ancestors`, so the dashboard (including delete account) can be framed by another site. Set them in `next.config.ts` headers.
 - [ ] **Guard against random-subdomain floods.** With wildcard DNS, every made-up `xyz.folio.cam` costs a database lookup and a cache entry. Cache "not found" cheaply and rate-limit unknown hosts.
 - [ ] **Stronger contact-form spam protection.** A hidden honeypot field and a per-IP limit won't stop distributed spam. Add Turnstile or similar.
-- [ ] **Keep the login email off public sites by default.** `contactEmail` starts as the sign-up email and is sent in the site data. Ask for a public contact email, or hide it until set.
+- [x] **Keep the login email off public sites by default.** `contactEmail` starts as the sign-up email and is sent in the site data. Ask for a public contact email, or hide it until set.
 
 ## Performance & scaling
 
@@ -221,7 +222,7 @@ Every item in this doc, in the order you chose: design → security → legal �
 
 ## Reliability & code health
 
-- [ ] **Add `error.tsx` and a root `not-found.tsx`.** A crash or unknown URL shows the default black Next.js screen.
+- [x] **Add `error.tsx` and a root `not-found.tsx`.** A crash or unknown URL shows the default black Next.js screen.
 - [x] **Install error monitoring.** Sentry is connected to your account but not to the app, so production errors are invisible.
 - [ ] **Add browser tests.** Unit tests cover the server only. A Playwright run of signup → upload → design → publish would catch broken flows.
 - [ ] **Split the editor files.** `design-editor.tsx` is 47 KB and `editor.tsx` is 26 KB; break them into smaller components.
@@ -229,76 +230,76 @@ Every item in this doc, in the order you chose: design → security → legal �
 
 ## Landing page
 
-- [ ] Make the "yourname.folio.cam" box at the bottom a real input that checks availability as you type and carries the name into sign-up. Right now it looks typeable but isn't.
-- [ ] Stop theme previews showing empty boxes while scrolling (blank Exhibition print, empty Film Strip, a blank screen on phones). Use placeholders and load them before they scroll into view.
+- [x] Make the "yourname.folio.cam" box at the bottom a real input that checks availability as you type and carries the name into sign-up. Right now it looks typeable but isn't.
+- [x] Stop theme previews showing empty boxes while scrolling (blank Exhibition print, empty Film Strip, a blank screen on phones). Use placeholders and load them before they scroll into view.
 - [ ] Make each theme preview clickable, opening a full demo site in that theme.
 - [ ] Add real example sites ("Made with Folio").
-- [ ] Replace the duplicate hero "Log in" button with "See an example".
-- [ ] Add pricing / FAQ, even just "Free. Pro coming soon."
+- [x] Replace the duplicate hero "Log in" button with "See an example".
+- [x] Add pricing / FAQ, even just "Free. Pro coming soon."
 - [ ] Fill the footer: Terms, Privacy, contact, Instagram.
 - [x] Shorten the hero on phones so the contact sheet shows on the first screen.
 
 ## Sign-up & log in
 
-- [ ] **Link labels to inputs.** Correction: the fields are already labelled (Field wraps them in a label); only hints still need linking. Optional: `htmlFor`/`id` pairs.
-- [ ] Check the site address live as people type (✓ / ✗), instead of finding out it's reserved or taken after submitting.
-- [ ] Keep the password filled in after a failed submit, and focus the field that's wrong.
-- [ ] Replace the browser's orange validation bubble with Folio-styled inline errors.
-- [ ] Give the field in error a red border, not just small red text under it.
-- [ ] Add a show-password toggle and a reassuring hint under the address ("you can change it later").
-- [ ] Add Terms/Privacy consent, and consider "Continue with Google".
-- [ ] Give each page its own tab title ("Create your site · Folio").
+- [x] **Link labels to inputs.** Correction: the fields are already labelled (Field wraps them in a label); only hints still need linking. Optional: `htmlFor`/`id` pairs.
+- [x] Check the site address live as people type (✓ / ✗), instead of finding out it's reserved or taken after submitting.
+- [x] Keep the password filled in after a failed submit, and focus the field that's wrong.
+- [x] Replace the browser's orange validation bubble with Folio-styled inline errors.
+- [x] Give the field in error a red border, not just small red text under it.
+- [x] Add a show-password toggle and a reassuring hint under the address ("you can change it later").
+- [ ] Add Terms/Privacy consent (Phase 3). "Continue with Google" is done.
+- [x] Give each page its own tab title ("Create your site · Folio").
 
 ## Error & empty pages
 
-- [ ] Replace the default black 404 with a branded page linking home and to sign-up.
-- [ ] On "This site doesn't exist yet", add "Want this address? Claim it →".
-- [ ] Show "This portfolio is temporarily offline" for offline sites, instead of the same page as a site that never existed.
-- [ ] Tell photographers clearly when their site is hidden because their email isn't verified.
+- [x] Replace the default black 404 with a branded page linking home and to sign-up.
+- [x] On "This site doesn't exist yet", add "Want this address? Claim it →".
+- [x] Show "This portfolio is temporarily offline" for offline sites, instead of the same page as a site that never existed.
+- [x] Tell photographers clearly when their site is hidden because their email isn't verified.
 
 ## Dashboard frame & navigation
 
-- [ ] Move "Take offline" out of the header (it's on every page); put "View site ↗" or "Publish" there instead.
-- [ ] Slim the pinned header: logo bar, site row, a lone "Log out" row and the step strip take about 180 px.
-- [ ] Put "Log out" in an account menu instead of its own line.
+- [x] Move "Take offline" out of the header (it's on every page); put "View site ↗" or "Publish" there instead.
+- [x] Slim the pinned header: logo bar, site row, a lone "Log out" row and the step strip take about 180 px.
+- [x] Put "Log out" in an account menu instead of its own line.
 - [ ] Keep the header the same on every page (the site switcher disappears on Account).
-- [ ] Stop the step strip scrolling sideways with a visible scrollbar at narrower widths; collapse to numbers or a select.
-- [ ] Show ✓ on finished steps and "2 of 5 done".
-- [ ] Send new users to Upload (step 1), not the empty All photos page.
+- [x] Stop the step strip scrolling sideways with a visible scrollbar at narrower widths; collapse to numbers or a select.
+- [x] Show ✓ on finished steps and "2 of 5 done".
+- [x] Send new users to Upload (step 1), not the empty All photos page.
 - [ ] Turn the "Preview website" tab into a button, and label whether it shows the draft or the live site.
-- [ ] Make the site switcher close on outside click and work with arrow keys.
-- [ ] Show an unmissable "verify your email" banner until verified.
-- [ ] Replace browser `confirm()` pop-ups with Folio dialogs, or undo toasts ("Photo deleted · Undo").
+- [x] Make the site switcher close on outside click and work with arrow keys.
+- [x] Show an unmissable "verify your email" banner until verified.
+- [x] Replace browser `confirm()` pop-ups with Folio dialogs, or undo toasts ("Photo deleted · Undo").
 
 ## Photos & albums
 
-- [ ] Use a denser photo grid (4–6 per row) with a size slider; two huge columns makes reordering 21 photos painful.
-- [ ] Replace the red "No description" under every photo with a quiet marker; keep the filter as the nudge.
-- [ ] Add multi-select: caption, set location, or add to an album for many photos at once.
-- [ ] Autosave in the photo drawer when moving to the next photo.
-- [ ] Use neutral placeholders ("Add a caption…") instead of fake-looking ones like "Couple on the beach at sunset".
-- [ ] Trap focus in the photo drawer and return it on close (it already has a dialog role and linked labels).
-- [ ] Show an Albums empty state explaining why to make one, with the create form in a dialog.
-- [ ] Add "New album from selection" in the photo grid.
-- [ ] Tell users when a delete didn't happen (for example, during a legal hold).
+- [x] Use a denser photo grid (4–6 per row) with a size slider; two huge columns makes reordering 21 photos painful.
+- [x] Replace the red "No description" under every photo with a quiet marker; keep the filter as the nudge.
+- [x] Add multi-select: caption, set location, or add to an album for many photos at once.
+- [x] Autosave in the photo drawer when moving to the next photo.
+- [x] Use neutral placeholders ("Add a caption…") instead of fake-looking ones like "Couple on the beach at sunset".
+- [x] Trap focus in the photo drawer and return it on close (it already has a dialog role and linked labels).
+- [x] Show an Albums empty state explaining why to make one, with the create form in a dialog.
+- [x] Add "New album from selection" in the photo grid.
+- [x] Tell users when a delete didn't happen (for example, during a legal hold).
 
 ## Web design editor
 
-- [ ] Keep the live preview visible while editing at every width; below about 1,000 px it sits at the bottom of a 3,000 px scroll.
-- [ ] Put Theme first, before Pages and Sections.
-- [ ] Show the previous render or a labeled spinner instead of a blank/black preview while it loads.
-- [ ] Remove the disabled "Describe a change … coming soon" box until it works.
-- [ ] Autosave drafts; reduce Undo / Discard / Save draft / Publish to a "Draft saved" status and one Publish button.
-- [ ] Show "3 unpublished changes" instead of a bare "Live on your site".
+- [x] Keep the live preview visible while editing at every width; below about 1,000 px it sits at the bottom of a 3,000 px scroll.
+- [x] Put Theme first, before Pages and Sections.
+- [x] Show the previous render or a labeled spinner instead of a blank/black preview while it loads.
+- [x] Remove the disabled "Describe a change … coming soon" box until it works.
+- [x] Autosave drafts; reduce Undo / Discard / Save draft / Publish to a "Draft saved" status and one Publish button.
+- [x] Show "3 unpublished changes" instead of a bare "Live on your site".
 - [x] **Already done in code: named theme buttons** and selected options marked (`aria-pressed`).
-- [ ] Explain on each theme card, before it's picked, that Exhibition, Index and Film Strip set their own layout and colors.
+- [x] Explain on each theme card, before it's picked, that Exhibition, Index and Film Strip set their own layout and colors.
 
 ## Go live, Account & Messages
 
 **Go live**
 
 - [ ] Add optional quality checks: captions, About text, contact details (all 21 photos are uncaptioned but the checklist is all ✓).
-- [ ] Show "Take offline" once on this page only.
+- [x] Show "Take offline" once on this page only.
 
 **Account**
 
@@ -313,12 +314,12 @@ Every item in this doc, in the order you chose: design → security → legal �
 
 ## Public sites & lightbox
 
-- [ ] **Trap focus in the lightbox.** Tab currently moves to the hidden gallery behind the dialog.
-- [ ] **Give each photo a URL and history entry** (`?photo=3`), so photos can be shared and the phone Back button closes the viewer instead of leaving the site.
-- [ ] Preload the next and previous photos, and fade in from the small version instead of a black screen.
-- [ ] Make swipe follow the finger with motion, not an instant jump.
-- [ ] Put the ‹ › × controls on dark backing circles so they show on bright photos.
-- [ ] Add an "Inquire about this photo" / Contact button in the lightbox.
+- [x] **Trap focus in the lightbox.** Tab currently moves to the hidden gallery behind the dialog.
+- [x] **Give each photo a URL and history entry** (`?photo=3`), so photos can be shared and the phone Back button closes the viewer instead of leaving the site.
+- [x] Preload the next and previous photos, and fade in from the small version instead of a black screen.
+- [x] Make swipe follow the finger with motion, not an instant jump.
+- [x] Put the ‹ › × controls on dark backing circles so they show on bright photos.
+- [x] Add an "Inquire about this photo" / Contact button in the lightbox.
 
 ## Legal, business & housekeeping
 

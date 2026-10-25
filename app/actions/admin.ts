@@ -1,14 +1,19 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect, notFound } from "next/navigation";
-import { STRIKE_LIMIT, requireAdmin } from "@/lib/admin";
+import { randomUUID } from "crypto";
+import { STRIKE_LIMIT, requireFullAdmin } from "@/lib/admin";
 import { restoredEmail, suspendedEmail, takedownEmail, unsuspendedEmail } from "@/lib/admin-emails";
+import { adminRole, currentImpersonation, currentUser, requireUser } from "@/lib/auth";
 import {
   allUserIds,
+  deleteUser,
   findReport,
   findUserById,
   findUserBySubdomain,
   logAdminAction,
+  managedSites,
   photosWithoutRights,
   setReportStatus,
   updateUser,
@@ -16,8 +21,10 @@ import {
   type User,
 } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
+import { clearImpersonation, IMPERSONATION_MINUTES, startImpersonation as beginImpersonation } from "@/lib/session";
 import { siteUrl } from "@/lib/site";
-import { deleteWebCopies, photoRights, remakeWebCopies } from "@/lib/uploads";
+import { deleteWebCopies, photoRights, remakeWebCopies, storage } from "@/lib/uploads";
+import { sendVerificationEmail } from "@/lib/verify-email";
 
 // What Folio's admins can do to an account (the pages in app/admin). Every
 // action is logged, and goes back to the page with a message saying what
@@ -56,7 +63,7 @@ async function tellOwner(user: User, formData: FormData, email: { subject: strin
 // originals. With a copyright notice it also records a strike (one per
 // notice) and closes the notice.
 export async function takeDownPhotos(formData: FormData) {
-  const admin = await requireAdmin();
+  const admin = await requireFullAdmin();
   const user = await accountFrom(formData);
   const ids = new Set(formData.getAll("photo").map(String));
   const reportId = str(formData, "reportId", 100);
@@ -101,7 +108,7 @@ export async function takeDownPhotos(formData: FormData) {
 // Puts taken-down photos back, remaking their web copies. After a valid
 // counter-notice ("disputed"), the strikes from their notices are removed.
 export async function restorePhotos(formData: FormData) {
-  const admin = await requireAdmin();
+  const admin = await requireFullAdmin();
   const user = await accountFrom(formData);
   const ids = new Set(formData.getAll("photo").map(String));
   const disputed = Boolean(formData.get("disputed"));
@@ -152,7 +159,7 @@ export async function restorePhotos(formData: FormData) {
 
 // Hides the whole site and stops uploads, until unsuspended.
 export async function suspendSite(formData: FormData) {
-  const admin = await requireAdmin();
+  const admin = await requireFullAdmin();
   const user = await accountFrom(formData);
   const reason = str(formData, "reason") || "it breaks Folio's rules";
   await updateUser(user.id, (u) => {
@@ -170,7 +177,7 @@ export async function suspendSite(formData: FormData) {
 }
 
 export async function unsuspendSite(formData: FormData) {
-  const admin = await requireAdmin();
+  const admin = await requireFullAdmin();
   const user = await accountFrom(formData);
   await updateUser(user.id, (u) => {
     delete u.suspended;
@@ -189,7 +196,7 @@ export async function unsuspendSite(formData: FormData) {
 // Keeps everything in the account (no deleting photos or the account), for
 // a case where the law may require Folio to preserve evidence. Never emailed.
 export async function placeLegalHold(formData: FormData) {
-  const admin = await requireAdmin();
+  const admin = await requireFullAdmin();
   const user = await accountFrom(formData);
   const note = str(formData, "note");
   await updateUser(user.id, (u) => {
@@ -206,7 +213,7 @@ export async function placeLegalHold(formData: FormData) {
 }
 
 export async function releaseLegalHold(formData: FormData) {
-  const admin = await requireAdmin();
+  const admin = await requireFullAdmin();
   const user = await accountFrom(formData);
   await updateUser(user.id, (u) => {
     delete u.legalHold;
@@ -225,7 +232,7 @@ export async function releaseLegalHold(formData: FormData) {
 // them, dated with each photo's upload year. Does as many as it can in about
 // 40 seconds (the admin page allows 60); run it again until none are left.
 export async function addRightsToOlderPhotos() {
-  await requireAdmin();
+  await requireFullAdmin();
   const started = Date.now();
   const outOfTime = () => Date.now() - started > 40_000;
   let updated = 0;
@@ -276,7 +283,7 @@ export async function reopenReport(formData: FormData) {
 }
 
 async function setStatus(formData: FormData, status: "open" | "closed") {
-  const admin = await requireAdmin();
+  const admin = await requireFullAdmin();
   const report = await findReport(str(formData, "reportId", 100));
   if (!report) notFound();
   const note = status === "closed" ? str(formData, "note") : report.note;
@@ -293,4 +300,162 @@ async function setStatus(formData: FormData, status: "open" | "closed") {
     });
   }
   redirect(`/admin/reports/${report.id}?done=${encodeURIComponent(status === "closed" ? "Closed." : "Reopened.")}`);
+}
+
+// ── Account oversight ───────────────────────────────────────────────────
+
+// A private note about the account, for other staff. The photographer never
+// sees it (it isn't in their export either).
+export async function addAdminNote(formData: FormData) {
+  const admin = await requireFullAdmin();
+  const user = await accountFrom(formData);
+  const text = str(formData, "text", 1000);
+  if (!text) backTo(user, "Write something to save.");
+  await updateUser(
+    user.id,
+    (u) => {
+      (u.adminNotes ??= []).push({ id: randomUUID(), at: new Date().toISOString(), by: admin.email, text });
+    },
+    { publicChange: false },
+  );
+  await logAdminAction({
+    adminEmail: admin.email,
+    userId: user.id,
+    subdomain: user.subdomain,
+    action: "add-note",
+    detail: "Added a private note.",
+  });
+  backTo(user, "Saved the note.");
+}
+
+// Ends every login to the account, on every device.
+export async function signOutAccountEverywhere(formData: FormData) {
+  const admin = await requireFullAdmin();
+  const user = await accountFrom(formData);
+  await updateUser(
+    user.id,
+    (u) => {
+      u.sessionsValidFrom = Date.now();
+    },
+    { publicChange: false },
+  );
+  await logAdminAction({
+    adminEmail: admin.email,
+    userId: user.id,
+    subdomain: user.subdomain,
+    action: "sign-out-everywhere",
+    detail: "Signed the account out of every device.",
+  });
+  backTo(user, "Signed them out everywhere.");
+}
+
+// For someone stuck without their confirmation email. Their site can go live
+// once they've turned it on, so check who they are first.
+export async function verifyAccountEmail(formData: FormData) {
+  const admin = await requireFullAdmin();
+  const user = await accountFrom(formData);
+  if (user.emailVerified) backTo(user, "Their email is already confirmed.");
+  await updateUser(user.id, (u) => {
+    u.emailVerified = true;
+  });
+  await logAdminAction({
+    adminEmail: admin.email,
+    userId: user.id,
+    subdomain: user.subdomain,
+    action: "verify-email",
+    detail: `Marked the email ${user.email} as confirmed.`,
+  });
+  backTo(user, "Marked their email as confirmed.");
+}
+
+export async function resendAccountVerification(formData: FormData) {
+  const admin = await requireFullAdmin();
+  const user = await accountFrom(formData);
+  if (user.emailVerified) backTo(user, "Their email is already confirmed.");
+  try {
+    await sendVerificationEmail(user);
+  } catch (err) {
+    console.error("Admin verification email failed", err);
+    backTo(user, "The email couldn't be sent. Try again in a moment.");
+  }
+  await logAdminAction({
+    adminEmail: admin.email,
+    userId: user.id,
+    subdomain: user.subdomain,
+    action: "resend-verification",
+    detail: `Sent the confirmation email to ${user.email}.`,
+  });
+  backTo(user, `Sent a confirmation email to ${user.email}.`);
+}
+
+// Closes the account and deletes its photos, after typing the address. Never
+// while a legal hold is on it (or on one of an admin's extra sites), and never
+// for staff.
+export async function deleteAccountAsAdmin(formData: FormData) {
+  const admin = await requireFullAdmin();
+  const user = await accountFrom(formData);
+  if (str(formData, "confirm", 100).toLowerCase() !== user.subdomain) backTo(user, "Type the site's address to confirm.");
+  if (adminRole(user) || user.managedBy) backTo(user, "Staff accounts and their extra sites can't be deleted here.");
+  const accounts = [user, ...(await managedSites(user.id))];
+  if (accounts.some((a) => a.legalHold)) backTo(user, "This account is on legal hold, so it can't be deleted. Release the hold first.");
+
+  // Logged first, so the record exists even if clearing out the files fails.
+  await logAdminAction({
+    adminEmail: admin.email,
+    userId: user.id,
+    subdomain: user.subdomain,
+    action: "delete-account",
+    detail: `Deleted the account ${user.email} (${plural(user.photos.length)}${accounts.length > 1 ? `, and ${accounts.length - 1} extra site(s)` : ""}).`,
+  });
+  for (const account of accounts.reverse()) {
+    await deleteUser(account.id);
+    await storage.removeAll(account.id);
+  }
+  redirect(`/admin/accounts?done=${encodeURIComponent(`Deleted ${user.subdomain}.`)}`);
+}
+
+// ── Viewing an account as its owner ─────────────────────────────────────
+
+// "Log in as this user", to reproduce a problem. Full admins only, with a
+// reason that goes in the log; it lasts IMPERSONATION_MINUTES, is carried by
+// its own cookie (lib/session.ts), and the banner on every dashboard page
+// lets the admin stop. While it runs, the account's password, email,
+// address, sessions, export and deletion are off limits (see
+// impersonationBlock), as are all admin pages.
+export async function startImpersonation(formData: FormData) {
+  const admin = await requireFullAdmin();
+  const user = await accountFrom(formData);
+  const reason = str(formData, "reason", 200);
+  if (reason.length < 5) backTo(user, "Say why you need to see their account (a few words), then try again.");
+  if (adminRole(user) || user.managedBy || user.id === admin.id) backTo(user, "You can't view staff accounts or extra sites this way.");
+  if ((await currentUser())?.id !== admin.id) backTo(user, "Switch back to your own site first.");
+
+  await logAdminAction({
+    adminEmail: admin.email,
+    userId: user.id,
+    subdomain: user.subdomain,
+    action: "impersonation-started",
+    detail: `Started viewing the account as its owner (up to ${IMPERSONATION_MINUTES} minutes). Reason: ${reason}`,
+  });
+  await beginImpersonation(admin.id, user.id);
+  revalidatePath("/dashboard", "layout");
+  redirect("/dashboard/manage/photos");
+}
+
+// Works from the banner. It isn't an admin page (while it's on, the browser is
+// the photographer's), so it only needs the impersonation itself to be valid.
+export async function stopImpersonation() {
+  await requireUser();
+  const impersonation = await currentImpersonation();
+  if (!impersonation) notFound();
+  await logAdminAction({
+    adminEmail: impersonation.admin.email,
+    userId: impersonation.target.id,
+    subdomain: impersonation.target.subdomain,
+    action: "impersonation-ended",
+    detail: "Stopped viewing the account as its owner.",
+  });
+  await clearImpersonation();
+  revalidatePath("/dashboard", "layout");
+  redirect(`/admin/sites/${impersonation.target.subdomain}`);
 }

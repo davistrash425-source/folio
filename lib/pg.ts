@@ -58,6 +58,7 @@ const SCHEMA = `
     detail text not null
   );
   create index if not exists admin_actions_user on admin_actions (user_id, at);
+  create index if not exists admin_actions_at on admin_actions (at desc);
   create table if not exists released_subdomains (
     subdomain text primary key,
     released_at timestamptz not null default now()

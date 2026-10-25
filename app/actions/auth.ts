@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { requireUser } from "@/lib/auth";
+import { impersonationBlock, requireUser } from "@/lib/auth";
 import { createUser, deleteUser, findUserByEmail, findUserBySubdomain, managedSites, subdomainOnHold, updateUser } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
 import { clearGoogleSignup, readGoogleSignup } from "@/lib/google";
@@ -15,23 +15,11 @@ import {
 } from "@/lib/session";
 import { ADDRESS_HOLD_MONTHS, NEW_SITES_START_PUBLISHED, SUPPORT_EMAIL, appUrl, validateSubdomain } from "@/lib/site";
 import { createToken, redeemToken } from "@/lib/tokens";
+import { sendVerificationEmail } from "@/lib/verify-email";
 import { storage } from "@/lib/uploads";
 
 const HOUR = 60 * 60 * 1000;
 const TOO_MANY = "Too many attempts. Please wait a few minutes and try again.";
-
-async function sendVerificationEmail(user: { id: string; email: string }) {
-  const token = await createToken(user.id, "verify", 48 * HOUR);
-  await sendEmail({
-    to: user.email,
-    subject: "Confirm your email for Folio",
-    text: `Confirm your email address by opening this link:
-
-${appUrl(`/verify-email?token=${token}`)}
-
-The link works for 48 hours.`,
-  });
-}
 
 export type FormState = {
   error?: string;
@@ -205,6 +193,8 @@ export async function resetPassword(_prev: FormState, formData: FormData): Promi
 
 export async function resendVerification(): Promise<FormState> {
   const user = await requireUser();
+  const blocked = await impersonationBlock();
+  if (blocked) return { error: blocked };
   if (!(await rateLimit(`verify:${user.id}`, 3, HOUR))) return { error: TOO_MANY };
   if (user.emailVerified) return {};
   await sendVerificationEmail(user);
@@ -219,6 +209,8 @@ export async function resendVerification(): Promise<FormState> {
 // shared computer, anywhere.
 export async function signOutEverywhereElse(): Promise<FormState> {
   const user = await requireUser();
+  const blocked = await impersonationBlock();
+  if (blocked) return { error: blocked };
   await updateUser(user.id, (u) => {
     u.sessionsValidFrom = Date.now();
   });
@@ -232,6 +224,8 @@ export async function signOutEverywhereElse(): Promise<FormState> {
 // extra sites too.
 export async function deleteAccount(_prev: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser();
+  const blocked = await impersonationBlock();
+  if (blocked) return { error: blocked };
   if (!(await rateLimit(`delete:${user.id}`, 5, 15 * 60 * 1000))) return { error: TOO_MANY };
   // An admin's extra site has no password; neither does a Google-only account.
   // Both confirm by typing the site's address instead.
