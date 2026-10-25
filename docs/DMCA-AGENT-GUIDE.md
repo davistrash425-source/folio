@@ -24,6 +24,10 @@ Designated agent (the person or role that receives takedown notices):
 
 Account contacts: a primary contact (first and last name, phone, email) for the Office to reach you, plus the provider phone and email. A secondary contact is optional.
 
+## Which address to publish
+
+The agent's address is the one shown on `/copyright` and in the public directory. Rent a PO box or mailbox (about $10-20 a month) and use it as the **agent** address. Your home address still has to go in as the service provider's street address, but that is not the contact the directory is for; the FAQ doesn't say exactly which fields are public, so check the preview before paying. Note that `/copyright` and the Terms/Privacy pages already print your home address as the operator address (`OPERATOR_ADDRESS` in `lib/legal.ts`); if you'd rather not, switch that to the same PO box too.
+
 ## Steps (you do these, Claude must not)
 
 1. Go to dmca.copyright.gov and create an account (needs an email address and a password).
