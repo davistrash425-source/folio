@@ -153,6 +153,36 @@ async function readSignedCookie(name: string): Promise<{ userId: string; issuedA
   return { userId, issuedAt: Number(expires) - MAX_AGE * 1000 };
 }
 
+// ── Client galleries ────────────────────────────────────────────────────
+// Someone who typed a gallery's password gets a cookie for that gallery. It
+// is tied to the password, so changing the password closes every open door.
+const GALLERY_DAYS = 30;
+const galleryCookie = (galleryId: string) => `gallery_${galleryId}`;
+const galleryProof = (galleryId: string, passwordHash: string, expires: number) =>
+  sign(`gallery:${galleryId}:${passwordHash.slice(-24)}:${expires}`);
+
+export async function grantGalleryAccess(galleryId: string, passwordHash: string) {
+  const expires = Date.now() + GALLERY_DAYS * 24 * 60 * 60 * 1000;
+  (await cookies()).set(galleryCookie(galleryId), `${expires}.${galleryProof(galleryId, passwordHash, expires)}`, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: GALLERY_DAYS * 24 * 60 * 60,
+  });
+}
+
+export async function hasGalleryAccess(galleryId: string, passwordHash: string) {
+  await connection(); // the expiry check depends on the current time
+  const raw = (await cookies()).get(galleryCookie(galleryId))?.value;
+  if (!raw) return false;
+  const [expires, sig] = raw.split(".");
+  if (!expires || !sig || Number(expires) < Date.now()) return false;
+  const expected = Buffer.from(galleryProof(galleryId, passwordHash, Number(expires)));
+  const given = Buffer.from(sig);
+  return expected.length === given.length && timingSafeEqual(expected, given);
+}
+
 export async function getSessionUserId(): Promise<string | null> {
   return (await getSession())?.userId ?? null;
 }

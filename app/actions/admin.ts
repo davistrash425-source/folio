@@ -213,6 +213,24 @@ export async function placeLegalHold(formData: FormData) {
   backTo(user, "Froze the account: its photos and the account can't be deleted until you release it.");
 }
 
+// Puts an account on Pro or back on Free by hand, until payments exist.
+export async function setPlan(formData: FormData) {
+  const admin = await requireFullAdmin();
+  const user = await accountFrom(formData);
+  const plan = str(formData, "plan", 10) === "pro" ? "pro" : "free";
+  await updateUser(user.id, (u) => {
+    u.plan = plan;
+  }, { publicChange: false });
+  await logAdminAction({
+    adminEmail: admin.email,
+    userId: user.id,
+    subdomain: user.subdomain,
+    action: "set-plan",
+    detail: `Moved the account to the ${plan === "pro" ? "Pro" : "Free"} plan.`,
+  });
+  backTo(user, `The account is now on the ${plan === "pro" ? "Pro" : "Free"} plan.`);
+}
+
 export async function releaseLegalHold(formData: FormData) {
   const admin = await requireFullAdmin();
   const user = await accountFrom(formData);

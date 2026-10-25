@@ -11,6 +11,12 @@ export function photoLimit(user: Pick<User, "plan">) {
   return user.plan === "pro" ? PRO_PHOTO_LIMIT : FREE_PHOTO_LIMIT;
 }
 
+// Client galleries are a Pro feature.
+export const PRO_GALLERY_LIMIT = 20;
+export function galleryLimit(user: Pick<User, "plan">) {
+  return user.plan === "pro" ? PRO_GALLERY_LIMIT : 0;
+}
+
 export function photoLimitMessage(user: Pick<User, "plan">) {
   return `You've reached the limit of ${photoLimit(user).toLocaleString("en-US")} photos. Delete some to make room.`;
 }
