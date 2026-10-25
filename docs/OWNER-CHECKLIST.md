@@ -37,7 +37,7 @@ Why: the widget only works on hostnames listed for it. If `folio.cam` is missing
 3. Verify: open `https://folio.cam/signup` in a private window. The "verifying you're human" check should appear and clear. Then send a message from a photographer's contact form, e.g. `https://<subdomain>.folio.cam`.
 4. If it fails, the browser console shows a Turnstile error code (110200 = hostname not allowed).
 
-### 3. Test a photo upload on folio.cam (10 min)
+### 3. Test a photo upload on folio.cam (DONE Oct 25, 2026 by Claude)
 Why: R2 CORS is unverified. Uploads go straight from the browser to the private bucket with a signed PUT, so a missing CORS rule breaks them.
 1. Cloudflare → R2 → bucket `folio-originals` → Settings → CORS policy. It should contain:
    ```json
@@ -47,7 +47,7 @@ Why: R2 CORS is unverified. Uploads go straight from the browser to the private 
 2. Sign in at `https://folio.cam`, go to the dashboard, and upload one JPEG and one large one (over 20 MB, to test browser compression).
 3. Verify: the photo appears in the dashboard, and `folio-photos` holds three WebP sizes under your user id. If it errors, open DevTools → Console/Network and look for a CORS error on the PUT to `*.r2.cloudflarestorage.com`.
 
-### 4. Check the CSP in the browser console, then enforce it (20 min + Claude)
+### 4. Check the CSP in the browser console, then enforce it (DONE Oct 25, 2026 by Claude)
 Why: the full Content-Security-Policy is report-only, so it logs problems but blocks nothing.
 1. Open these in Chrome with DevTools → Console open: `folio.cam`, the sign-up page, the dashboard, the design editor with its preview, a published site, a client gallery, and `/admin`. Do an upload while you're there.
 2. Look for red lines starting "[Report Only] Refused to …". Note each one (which page, which address).
