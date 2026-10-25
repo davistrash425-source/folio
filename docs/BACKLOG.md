@@ -32,7 +32,7 @@ Every item in this doc, in the order you chose: design → security → legal �
 - [ ] Make each theme preview open a full demo site
 - [x] Replace the duplicate hero "Log in" with "See an example"
 - [x] Add a pricing / FAQ teaser ("Free. Pro coming soon.")
-- [ ] Fill the footer: Terms, Privacy, contact, Instagram
+- [ ] Fill the footer: Terms, Privacy, contact (done), Instagram (needs owner)
 - [x] Shorten the hero on phones so the contact sheet shows on the first screen
 
 **Sign-up & log in**
@@ -137,15 +137,15 @@ Every item in this doc, in the order you chose: design → security → legal �
 
 ### Phase 3 — Legal & launch (Free plan)
 
-- [ ] Terms and Privacy pages (from a policy generator)
-- [ ] Copyright / DMCA page from the existing takedown flow
-- [ ] Terms & Privacy consent at sign-up
+- [x] Terms and Privacy pages (DRAFT text in app/(legal); owner still wants a generator/lawyer pass, then set LEGAL_DRAFT=false in lib/legal.ts)
+- [x] Copyright / DMCA page from the existing takedown flow (/copyright)
+- [x] Terms & Privacy consent at sign-up (checkbox, User.termsAcceptedAt)
 - [ ] Photo domain: second domain on Cloudflare connected to R2; update `R2_PUBLIC_URL`
 - [ ] Build 3 polished example sites + "Made with Folio" section
 - [ ] Free plan limit: 150 photos (done, lib/plans.ts), one site, four themes, special themes locked
 - [ ] Browser tests for sign-up → upload → design → publish
 - [ ] Split `design-editor.tsx` and `editor.tsx` into smaller components
-- [ ] Update Folio.md and HANDOFF.md; rename `package.json` from "my-app"
+- [ ] Update Folio.md and HANDOFF.md (package.json renamed to "folio": done)
 - [ ] **Launch the Free plan**
 
 ### Phase 4 — Folio Pro
@@ -244,7 +244,7 @@ Every item in this doc, in the order you chose: design → security → legal �
 - [ ] Add real example sites ("Made with Folio").
 - [x] Replace the duplicate hero "Log in" button with "See an example".
 - [x] Add pricing / FAQ, even just "Free. Pro coming soon."
-- [ ] Fill the footer: Terms, Privacy, contact, Instagram.
+- [ ] Fill the footer: Terms, Privacy, contact (done), Instagram (needs owner).
 - [x] Shorten the hero on phones so the contact sheet shows on the first screen.
 
 ## Sign-up & log in
@@ -255,7 +255,7 @@ Every item in this doc, in the order you chose: design → security → legal �
 - [x] Replace the browser's orange validation bubble with Folio-styled inline errors.
 - [x] Give the field in error a red border, not just small red text under it.
 - [x] Add a show-password toggle and a reassuring hint under the address ("you can change it later").
-- [ ] Add Terms/Privacy consent (Phase 3). "Continue with Google" is done.
+- [x] Add Terms/Privacy consent (Phase 3). "Continue with Google" is done.
 - [x] Give each page its own tab title ("Create your site · Folio").
 
 ## Error & empty pages

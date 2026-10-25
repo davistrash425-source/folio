@@ -131,10 +131,10 @@ test("deleting an extra site takes the admin back to their own site and keeps it
   assert.equal((await currentUser())!.id, admin.id);
 
   fromIp("198.51.100.150");
-  const fields = { name: "Someone", email: "someone-else@example.com", password: "a long password", subdomain: extra.subdomain };
+  const fields = { name: "Someone", email: "someone-else@example.com", password: "a long password", subdomain: extra.subdomain, terms: "on" };
   assert.match((await signup({}, formOf(fields))).error!, /held for a year/);
   await signInAs(admin);
-  assert.equal(await redirectedTo(createSite({}, formOf({ name: "Again", subdomain: extra.subdomain }))), "/dashboard/manage/upload");
+  assert.equal(await redirectedTo(createSite({}, formOf({ name: "Again", subdomain: extra.subdomain, terms: "on" }))), "/dashboard/manage/upload");
 });
 
 test("deleting an admin's account deletes their extra sites too", async () => {

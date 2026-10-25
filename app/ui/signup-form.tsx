@@ -112,6 +112,13 @@ export function SignupForm({ initialSubdomain }: { initialSubdomain: string }) {
             <AddressHint status={status} message={message} checking={checking} />
           </span>
         </label>
+        <label className="flex items-start gap-2 text-sm text-ink-soft">
+          <input type="checkbox" name="terms" className="mt-0.5" />
+          <span>
+            I agree to the <Link href="/terms" target="_blank" className="underline">Terms</Link> and{" "}
+            <Link href="/privacy" target="_blank" className="underline">Privacy Policy</Link>.
+          </span>
+        </label>
         <Turnstile resetKey={state} />
         <Message error={state.error} />
         <Button type="submit" disabled={pending} className="w-full">

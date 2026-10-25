@@ -45,7 +45,7 @@ test("an old address is held from everyone else for a year, but its owner can mo
   await signInAs(mallory);
   assert.match((await moveTo(old)).error!, /held for a year/);
   fromIp("198.51.100.77");
-  const fields = { name: "Mallory", email: "mallory-signup@example.com", password: "a long password", subdomain: old };
+  const fields = { name: "Mallory", email: "mallory-signup@example.com", password: "a long password", subdomain: old, terms: "on" };
   assert.match((await signup({}, formOf(fields))).error!, /held for a year/);
 
   await signInAs(davi);

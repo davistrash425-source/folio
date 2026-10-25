@@ -174,6 +174,15 @@ export default function Home() {
             <a href={`mailto:${SUPPORT_EMAIL}`} className="underline-offset-4 hover:text-ink hover:underline">
               Contact
             </a>
+            <Link href="/terms" className="underline-offset-4 hover:text-ink hover:underline">
+              Terms
+            </Link>
+            <Link href="/privacy" className="underline-offset-4 hover:text-ink hover:underline">
+              Privacy
+            </Link>
+            <Link href="/copyright" className="underline-offset-4 hover:text-ink hover:underline">
+              Copyright
+            </Link>
             <Link href="/report" className="underline-offset-4 hover:text-ink hover:underline">
               Report a site
             </Link>
