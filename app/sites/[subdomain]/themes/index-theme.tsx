@@ -5,7 +5,7 @@
 // it to open it full screen.
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
-import { visibleAlbums, type Section, type SitePage } from "@/lib/design";
+import { visibleAlbums, type Section, type SiteDesign, type SitePage } from "@/lib/design";
 import { contactHref, copyrightLine, siteHref } from "@/lib/site-data";
 import { readableOn, sortPhotos } from "@/lib/theme-utils";
 import type { PhotoSource } from "@/lib/uploads";
@@ -31,6 +31,13 @@ import { ReportLink } from "./report-link";
 const MONO = "font-[family-name:var(--font-plex-mono)] text-xs uppercase tracking-[0.12em]";
 const GUTTER = "px-6 md:px-10";
 const ROW_GRID = "grid grid-cols-[2.25rem_1fr_3.5rem] items-baseline gap-x-4 md:grid-cols-[4rem_1fr_15rem_5rem]";
+
+// The Pro row sizes: the title type, then the row padding.
+const ROW_TYPE = {
+  compact: { title: "text-lg md:text-3xl", pad: "py-2 md:py-2.5" },
+  standard: { title: "text-2xl md:text-5xl", pad: "py-3 md:py-4" },
+  large: { title: "text-3xl md:text-7xl", pad: "py-4 md:py-7" },
+} as const;
 
 export function IndexTheme({ site }: ThemeProps) {
   const { design, profile } = site;
@@ -118,11 +125,11 @@ function Block({ section, page, site, block, total }: ThemeProps & { section: Se
       return (
         <section aria-label={section.title || "Photos"}>
           {section.title && <h2 className={`${GUTTER} ${MONO} pb-3 pt-8`}>{section.title}</h2>}
-          <ListHead columns={["№", "Title", "Location", "Added"]} />
+          <ListHead columns={["№", "Title", "Location", site.design.themeSettings.index.pro.showYear ? "Added" : ""]} />
           {block && block.photos.length > 0 ? (
             <ul>
               {block.photos.map((photo, i) => (
-                <PhotoRow key={`${photo.id}-${i}`} photo={photo} index={block.offset + i} number={i + 1} />
+                <PhotoRow key={`${photo.id}-${i}`} photo={photo} index={block.offset + i} number={i + 1} look={site.design.themeSettings.index.pro} />
               ))}
             </ul>
           ) : (
@@ -233,7 +240,8 @@ function ListHead({ columns }: { columns: string[] }) {
   );
 }
 
-function PhotoRow({ photo, index, number }: { photo: PhotoSource; index: number; number: number }) {
+function PhotoRow({ photo, index, number, look }: { photo: PhotoSource; index: number; number: number; look: SiteDesign["themeSettings"]["index"]["pro"] }) {
+  const type = ROW_TYPE[look.rowSize];
   const year = new Date(photo.createdAt).getFullYear();
   const untitled = !photo.description;
   return (
@@ -244,17 +252,17 @@ function PhotoRow({ photo, index, number }: { photo: PhotoSource; index: number;
         data-preview-src={photo.src}
         data-preview-ratio={photo.width && photo.height ? photo.width / photo.height : undefined}
         aria-label={`Open photo ${number}: ${photoTitle(photo, index)}`}
-        className={`${GUTTER} ${ROW_GRID} w-full cursor-zoom-in py-3 text-left hover:bg-[var(--accent)] hover:text-[var(--on-accent)] md:py-4`}
+        className={`${GUTTER} ${ROW_GRID} w-full cursor-zoom-in ${type.pad} text-left hover:bg-[var(--accent)] hover:text-[var(--on-accent)]`}
       >
         <span className={MONO}>{pad(number)}</span>
         <span className="min-w-0">
-          <span className={`block text-2xl font-semibold leading-tight tracking-tight md:text-5xl ${untitled ? "opacity-40" : ""}`}>
+          <span className={`block ${type.title} font-semibold leading-tight tracking-tight ${look.titleCase === "upper" ? "uppercase" : ""} ${untitled ? "opacity-40" : ""}`}>
             {photoTitle(photo, number - 1)}
           </span>
           <span className={`${MONO} mt-1 block text-[var(--muted)] md:hidden`}>{[photo.location, year].filter(Boolean).join(" · ")}</span>
         </span>
         <span className={`${MONO} hidden md:block`}>{photo.location}</span>
-        <span className={`${MONO} hidden text-right md:block`}>{year}</span>
+        {look.showYear ? <span className={`${MONO} hidden text-right md:block`}>{year}</span> : <span className="hidden md:block" />}
         {/* Phones can't hover, so each row carries a thumbnail. */}
         <img
           src={photo.src}

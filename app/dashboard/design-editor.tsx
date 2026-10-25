@@ -29,6 +29,7 @@ const SHOW_AI_BOX = false;
 
 export function DesignEditor(props: {
   draft: SiteDesign;
+  isPro: boolean; // Folio Pro unlocks the extra theme settings
   published: SiteDesign;
   canUndo: boolean;
   photos: EditorPhoto[];
@@ -245,7 +246,7 @@ export function DesignEditor(props: {
                 <p className="border-l-2 border-accent bg-card px-4 py-3 text-xs text-ink-soft">
                   This theme sets its own layout, colors and fonts. Your photos, pages, captions and albums carry over, and Classic’s settings are kept for when you switch back.
                 </p>
-                <ThemeSettings design={design} onChange={update} />
+                <ThemeSettings design={design} onChange={update} isPro={props.isPro} />
               </>
             )}
           </Group>

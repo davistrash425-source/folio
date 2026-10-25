@@ -54,11 +54,12 @@ export function AddMenu<T extends string>({ label, options, onAdd, disabled }: {
   );
 }
 
-export function Choice<T extends string>({ label, value, options, onChange }: {
+export function Choice<T extends string>({ label, value, options, onChange, locked }: {
   label: string;
   value: T;
   options: [T, string][];
   onChange: (value: T) => void;
+  locked?: boolean; // Pro-only and the account is on Free
 }) {
   return (
     <fieldset>
@@ -69,8 +70,9 @@ export function Choice<T extends string>({ label, value, options, onChange }: {
             key={v}
             type="button"
             aria-pressed={value === v}
+            disabled={locked}
             onClick={() => onChange(v)}
-            className={chipClass(value === v)}
+            className={`${chipClass(value === v)} ${locked ? "cursor-not-allowed opacity-50" : ""}`}
           >
             {text}
           </button>

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
 import { updateUser } from "@/lib/db";
-import { designSchema, type SiteDesign } from "@/lib/design";
+import { designSchema, withoutProSettings, type SiteDesign } from "@/lib/design";
 import { draftDesign, publishedDesign } from "@/lib/public-site";
 
 const HISTORY_LIMIT = 20;
@@ -34,22 +34,25 @@ const HISTORY_COALESCE_MS = 30_000;
 // publishDesign. The previous draft goes on the undo stack, except that
 // autosaves close together share one entry.
 export async function saveDraftDesign(input: unknown, opts?: { autosave?: boolean }): Promise<DesignResult> {
-  const userId = await currentUserId();
+  const account = await requireUser();
+  const userId = account.id;
   const parsed = designSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "That design isn't valid." };
+  // The extra theme settings are part of Folio Pro.
+  const design = account.plan === "pro" ? parsed.data : withoutProSettings(parsed.data);
   const autosave = opts?.autosave === true;
 
   const user = await updateUser(
     userId,
     (u) => {
       const previous = draftDesign(u);
-      if (JSON.stringify(previous) === JSON.stringify(parsed.data)) return;
+      if (JSON.stringify(previous) === JSON.stringify(design)) return;
       const now = Date.now();
       const joinsLastStep = autosave && u.designHistoryAt !== undefined && now - u.designHistoryAt < HISTORY_COALESCE_MS;
       if (!joinsLastStep) u.designHistory = [...(u.designHistory ?? []), previous].slice(-HISTORY_LIMIT);
       if (autosave) u.designHistoryAt = joinsLastStep ? u.designHistoryAt : now;
       else delete u.designHistoryAt;
-      u.draftDesign = parsed.data;
+      u.draftDesign = design;
     },
     { publicChange: false },
   );
@@ -62,7 +65,8 @@ export async function publishDesign(input: unknown): Promise<DesignResult> {
   if (saved.error || !saved.draft) return saved;
   const draft = saved.draft;
   const user = await updateUser(await currentUserId(), (u) => {
-    u.design = draft;
+    // The plan may have changed since the draft was saved.
+    u.design = u.plan === "pro" ? draft : withoutProSettings(draft);
   });
   revalidatePath(`/sites/${user.subdomain}`, "layout");
   return done(draftDesign(user), publishedDesign(user), user.designHistory?.length ?? 0);

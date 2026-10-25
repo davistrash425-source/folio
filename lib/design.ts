@@ -39,6 +39,14 @@ export const THEMES = ["classic", "exhibition", "index", "filmstrip"] as const;
 export const WALLS = ["charcoal", "plaster", "oxblood", "forest"] as const;
 export const FILM_STOCKS = ["gold", "mono", "slide"] as const;
 export const INDEX_SORTS = ["manual", "newest", "location"] as const;
+// Extra settings for the creative themes, editable on the Pro plan.
+export const EXHIBITION_FRAMES = ["cream", "white", "black", "none"] as const;
+export const PRINT_SIZES = ["compact", "standard", "large"] as const;
+export const LABEL_FONTS = ["serif", "sans"] as const;
+export const ROW_SIZES = ["compact", "standard", "large"] as const;
+export const TITLE_CASES = ["as-typed", "upper"] as const;
+export const FILM_FRAME_SIZES = ["small", "medium", "large"] as const;
+export const FILM_BORDERS = ["black", "edge", "none"] as const;
 export const FONTS = ["sans", "serif", "mixed", "mono"] as const;
 export const GALLERY_LAYOUTS = ["grid", "masonry", "column", "editorial"] as const;
 
@@ -165,6 +173,14 @@ const designBase = z.object({
   }),
 });
 
+// What the Pro-only settings are until a Pro account changes them. Today's
+// themes look exactly like this.
+const DEFAULT_PRO = {
+  exhibition: { frame: "cream", printSize: "standard", labelFont: "serif" },
+  index: { rowSize: "standard", titleCase: "as-typed", showYear: true },
+  filmstrip: { frameSize: "medium", border: "black", sprockets: true },
+} as const;
+
 // Settings for the creative themes. All of them are always stored, so
 // switching away from a theme and back keeps what was chosen.
 const themeSettingsSchema = z
@@ -172,14 +188,38 @@ const themeSettingsSchema = z
     exhibition: z.object({
       wall: z.enum(WALLS).describe("Wall color"),
       labels: z.enum(["below", "beside"]).describe("Where the wall label sits next to each photo"),
+      pro: z
+        .object({
+          frame: z.enum(EXHIBITION_FRAMES).describe("The mat around each print"),
+          printSize: z.enum(PRINT_SIZES),
+          labelFont: z.enum(LABEL_FONTS).describe("Typeface of the wall labels"),
+        })
+        .default(() => ({ ...DEFAULT_PRO.exhibition }))
+        .describe("Pro plan only; reset to the defaults for Free accounts"),
     }),
     index: z.object({
       accent: hex.describe("Hover and link color"),
       sort: z.enum(INDEX_SORTS).describe("manual = the order you set; newest = latest upload first; location = A–Z"),
+      pro: z
+        .object({
+          rowSize: z.enum(ROW_SIZES),
+          titleCase: z.enum(TITLE_CASES),
+          showYear: z.boolean().describe("The year column"),
+        })
+        .default(() => ({ ...DEFAULT_PRO.index }))
+        .describe("Pro plan only; reset to the defaults for Free accounts"),
     }),
     filmstrip: z.object({
       stock: z.enum(FILM_STOCKS).describe("The film's color and edge print"),
       frameNumbers: z.boolean(),
+      pro: z
+        .object({
+          frameSize: z.enum(FILM_FRAME_SIZES),
+          border: z.enum(FILM_BORDERS).describe("The line around each frame"),
+          sprockets: z.boolean().describe("The sprocket holes along the strip"),
+        })
+        .default(() => ({ ...DEFAULT_PRO.filmstrip }))
+        .describe("Pro plan only; reset to the defaults for Free accounts"),
     }),
   })
   .describe("Used only when that theme is chosen");
@@ -364,9 +404,23 @@ function counter(prefix: string) {
 
 export function defaultThemeSettings(): ThemeSettings {
   return {
-    exhibition: { wall: "charcoal", labels: "below" },
-    index: { accent: "#e5322d", sort: "manual" },
-    filmstrip: { stock: "gold", frameNumbers: true },
+    exhibition: { wall: "charcoal", labels: "below", pro: { ...DEFAULT_PRO.exhibition } },
+    index: { accent: "#e5322d", sort: "manual", pro: { ...DEFAULT_PRO.index } },
+    filmstrip: { stock: "gold", frameNumbers: true, pro: { ...DEFAULT_PRO.filmstrip } },
+  };
+}
+
+// Free accounts keep the basic settings; the Pro ones go back to the
+// defaults. Applied on the server whenever a design is saved.
+export function withoutProSettings(design: SiteDesign): SiteDesign {
+  const defaults = defaultThemeSettings();
+  return {
+    ...design,
+    themeSettings: {
+      exhibition: { ...design.themeSettings.exhibition, pro: defaults.exhibition.pro },
+      index: { ...design.themeSettings.index, pro: defaults.index.pro },
+      filmstrip: { ...design.themeSettings.filmstrip, pro: defaults.filmstrip.pro },
+    },
   };
 }
 

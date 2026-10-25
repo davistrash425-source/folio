@@ -27,6 +27,7 @@ async function Editor() {
     <DesignEditor
       draft={draftDesign(user)}
       published={publishedDesign(user)}
+      isPro={user.plan === "pro"}
       canUndo={(user.designHistory?.length ?? 0) > 0}
       photos={user.photos.filter((p) => !p.removed).map((p) => {
         const src = photoSource(user.id, p);
