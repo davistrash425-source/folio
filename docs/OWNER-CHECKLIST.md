@@ -8,7 +8,7 @@ Written Oct 25, 2026. Production is `folio.cam`, hosted on Vercel (team `davi-43
 | --- | --- |
 | `CRON_SECRET` | **Missing** |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Set (production and preview) |
-| All six `R2_*` variables | Set. `R2_PUBLIC_URL` is an `r2.dev` address, not a custom domain |
+| All six `R2_*` variables | Set. `R2_PUBLIC_URL` is `https://img.foliocdn.com` (custom domain, since Oct 26, 2026) |
 | `DATABASE_URL`, `SESSION_SECRET`, `NEXT_PUBLIC_ROOT_DOMAIN` (`folio.cam`) | Set |
 | `RESEND_API_KEY`, `EMAIL_FROM` | Set. Production and preview only |
 | `UPSTASH_REDIS_REST_*` | Set |
@@ -69,12 +69,10 @@ Why: US safe harbour for hosting users' content depends on a registered agent.
 3. Renew every three years.
 4. Tell Claude the agent's name and address. Claude adds them to the `/copyright` page (`app/(legal)`).
 
-### 7. Photo domain on Cloudflare (30 min)
-Why: `R2_PUBLIC_URL` is currently a rate-limited `r2.dev` address. A custom domain gives caching and a stable address.
-1. Cloudflare must hold DNS for a domain you choose. A second domain is the plan in the backlog, e.g. `folio-photos.<tld>`. Registering one costs money, so it's your decision. `folio.cam`'s DNS is wherever you set up the wildcard for Vercel, so check before moving anything.
-2. R2 → `folio-photos` → Settings → Custom Domains → Connect domain.
-3. In Vercel, change `R2_PUBLIC_URL` to `https://<that domain>` and redeploy.
-4. Existing photos keep working, because photo addresses are built from `R2_PUBLIC_URL` at read time. Verify with a published site and check the photo address in DevTools.
+### 7. Photo domain on Cloudflare (DONE Oct 26, 2026)
+Done: `foliocdn.com` (bought on Cloudflare) serves the public bucket at `img.foliocdn.com`, with a cache rule (edge TTL 1 day, browser TTL 1 year). `R2_PUBLIC_URL` in Vercel is `https://img.foliocdn.com` (Production and Preview), and photos load from it on folio.cam. `folio.cam` itself stays on Vercel's DNS.
+Optional, when you're ready: R2 → `folio-photos` → Settings → Public Development URL → Disable, to switch off the old rate-limited `r2.dev` address. To roll back instead, put `https://pub-92f7db47b99f413d8e69382fa98401db.r2.dev` back in Vercel and redeploy (only works while that address is enabled).
+A takedown can stay in Cloudflare's cache for up to a day. For an urgent one, purge the photo's address: Cloudflare → `foliocdn.com` → Caching → Configuration → Purge Cache → Custom Purge.
 
 ### 8. Photos for the example sites
 Put your chosen photos in `folio-homepage-photos/` (git-ignored). Then Claude can run `npm run homepage-photos`, which writes `public/home/` and `app/ui/home-photos.json`, and commits both. Building three polished example sites also needs you to pick which photographers or styles to show.
