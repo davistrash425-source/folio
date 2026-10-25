@@ -37,7 +37,7 @@ Why: the widget only works on hostnames listed for it. If `folio.cam` is missing
 3. Verify: open `https://folio.cam/signup` in a private window. The "verifying you're human" check should appear and clear. Then send a message from a photographer's contact form, e.g. `https://<subdomain>.folio.cam`.
 4. If it fails, the browser console shows a Turnstile error code (110200 = hostname not allowed).
 
-### 3. Test a photo upload on folio.cam (10 min)
+### 3. Test a photo upload on folio.cam (DONE Oct 25, 2026 by Claude: upload worked, R2 returned 200)
 Why: R2 CORS is unverified. Uploads go straight from the browser to the private bucket with a signed PUT, so a missing CORS rule breaks them.
 1. Cloudflare → R2 → bucket `folio-originals` → Settings → CORS policy. It should contain:
    ```json
