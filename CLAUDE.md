@@ -92,6 +92,7 @@ So server actions (`app/actions/*`) and route handlers are called directly as fu
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Shared rate limits | In memory |
 | `REPORTS_EMAIL` | Inbox for site reports; also the reply-to of emails about takedowns | Reports only saved in the database |
 | `ADMIN_EMAILS` | Comma-separated login emails that can use `/admin` | Nobody can |
+| `NEXT_PUBLIC_SENTRY_DSN` | Error reports to Sentry (`lib/sentry.ts`, `instrumentation.ts`, `instrumentation-client.ts`, `app/global-error.tsx`) | Nothing is sent |
 
 `NEW_SITES_START_PUBLISHED` in `lib/site.ts` decides whether new sites start live or as drafts.
 

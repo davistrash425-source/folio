@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "0.5.8",
+    "@sentry/nextjs": "11.8.0",
     "aws4fetch": "1.0.20",
     "next": "16.4.2",
     "pg": "8.23.1",
