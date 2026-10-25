@@ -50,8 +50,8 @@ export function photoLimitMessage(user: Pick<User, "plan">) {
 }
 
 // "Made with Folio" footer on client galleries.
-// PENDING OWNER DECISION (docs/OWNER-CHECKLIST.md item 10, docs/GALLERY-FOOTER-DECISION.md).
-// One-line switch: "always" | "free-only" | "never". Default is "free-only".
+// Decided Oct 25, 2026: "free-only" (docs/GALLERY-FOOTER-DECISION.md).
+// One-line switch: "always" | "free-only" | "never". Free galleries do not exist yet (galleryLimit is 0), so it only shows if that changes.
 export const GALLERY_FOLIO_BADGE: "always" | "free-only" | "never" = "free-only";
 
 export function showFolioBadge(

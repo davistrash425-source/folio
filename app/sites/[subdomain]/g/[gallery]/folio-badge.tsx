@@ -3,7 +3,7 @@ import { appUrl } from "@/lib/site";
 import type { User } from "@/lib/db";
 
 // Small "Made with Folio" line at the foot of a client gallery. Whether it
-// shows is decided by showFolioBadge in lib/plans.ts (pending owner decision).
+// shows is decided by showFolioBadge in lib/plans.ts (decided: free-only).
 export function FolioBadge({ owner }: { owner: Pick<User, "plan"> }) {
   if (!showFolioBadge(owner)) return null;
   return (

@@ -34,7 +34,7 @@ The working list for picking up Folio one task per session. Step-by-step instruc
 - [ ] 7. Set up the photo domain on Cloudflare and update `R2_PUBLIC_URL`.
 - [ ] 8. Supply photos for the example sites.
 - [ ] 9. Choose a payment provider. Stripe may not accept Israeli businesses, so Paddle or Lemon Squeezy may fit better. Vercel's free tier also forbids commercial use.
-- [ ] 10. Decide whether client galleries get a "Made with Folio" footer and whether Pro removes it.
+- [x] 10. Decide the "Made with Folio" footer on client galleries. (decided Oct 25, 2026: Free only, removed on Pro; `showFolioBadge` in `lib/plans.ts`. Free cannot make galleries today, so it rarely shows.)
 - [ ] 11. Launch the Free plan, then Pro.
 
 ## Everything checklist, by phase
@@ -185,7 +185,7 @@ Every item in this doc, in the order you chose: design → security → legal �
 - [x] Password-protected client galleries (Pro; dashboard "Client galleries", public link `name.folio.cam/g/<random>`, password cookie tied to the password, attempt limits, hidden from search; a link is private but the image files behind it are the same public web copies)
 - [x] Staff can move an account to Pro or Free by hand (admin site page, logged) until payments exist
 - [x] Client gallery follow-ups: download-all zip (web copies, rate limited), expiry date, client favourites (hearts, shown to the photographer), email the link to the client (never the password)
-- [ ] A "Made with Folio" footer on client galleries (undecided whether Pro removes it)
+- [x] A "Made with Folio" footer on client galleries (Free only; Pro removes it)
 - [ ] Payments + full pricing page
 - [ ] Lawyer review of Terms, Privacy and Copyright before charging
 - [ ] **Launch Pro**
