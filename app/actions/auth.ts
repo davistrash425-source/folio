@@ -14,9 +14,10 @@ import {
   verifyPassword,
 } from "@/lib/session";
 import { ADDRESS_HOLD_MONTHS, NEW_SITES_START_PUBLISHED, SUPPORT_EMAIL, appUrl, validateSubdomain } from "@/lib/site";
+import { removeAccountFiles } from "@/lib/cleanup";
 import { createToken, redeemToken } from "@/lib/tokens";
+import { NOT_HUMAN, TURNSTILE_FIELD, verifyTurnstile } from "@/lib/turnstile";
 import { sendVerificationEmail } from "@/lib/verify-email";
-import { storage } from "@/lib/uploads";
 
 const HOUR = 60 * 60 * 1000;
 const TOO_MANY = "Too many attempts. Please wait a few minutes and try again.";
@@ -36,7 +37,9 @@ export async function signup(_prev: FormState, formData: FormData): Promise<Form
   const subdomain = String(formData.get("subdomain") ?? "").trim().toLowerCase();
   const fields = { name, email, subdomain };
 
-  if (!(await rateLimit(`signup:${await clientIp()}`, 10, HOUR))) return { error: TOO_MANY, fields };
+  const ip = await clientIp();
+  if (!(await rateLimit(`signup:${ip}`, 10, HOUR))) return { error: TOO_MANY, fields };
+  if (!(await verifyTurnstile(formData.get(TURNSTILE_FIELD), ip))) return { error: NOT_HUMAN, fields };
   if (!name) return { error: "Please enter your name.", fields, field: "name" };
   if (!/^\S+@\S+\.\S+$/.test(email)) return { error: "Please enter a valid email.", fields, field: "email" };
   if (password.length < 8) return { error: "Password must be at least 8 characters.", fields, field: "password" };
@@ -128,14 +131,21 @@ export async function completeGoogleSignup(_prev: FormState, formData: FormData)
 export async function login(_prev: FormState, formData: FormData): Promise<FormState> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
-  // Limit per address (stops guessing one account's password) and per IP
-  // (stops trying one password across many accounts).
+  // Limits go by visitor address, never by account alone: a limit on the email
+  // by itself would let anyone lock the real owner out by typing wrong
+  // passwords. One address can try an account 5 times per 15 minutes, and
+  // 30 times in all (stops one password tried across many accounts).
   const ip = await clientIp();
-  if (!(await rateLimit(`login:${email}`, 5, 15 * 60 * 1000)) || !(await rateLimit(`login-ip:${ip}`, 30, 15 * 60 * 1000))) {
+  const window = 15 * 60 * 1000;
+  if (
+    !(await rateLimit(`login:${ip}:${email.slice(0, 200)}`, 5, window)) ||
+    !(await rateLimit(`login-ip:${ip}`, 30, window))
+  ) {
     return { error: TOO_MANY, fields: { email } };
   }
   const user = await findUserByEmail(email);
-  if (!user || !(await verifyPassword(password, user.passwordHash))) {
+  // verifyPassword takes the same time whether or not the account exists.
+  if (!(await verifyPassword(password, user?.passwordHash ?? "")) || !user) {
     return { error: "Wrong email or password.", fields: { email } };
   }
   await createSession(user.id);
@@ -244,7 +254,7 @@ export async function deleteAccount(_prev: FormState, formData: FormData): Promi
   }
   for (const account of [...extraSites, user]) {
     await deleteUser(account.id);
-    await storage.removeAll(account.id);
+    await removeAccountFiles(account.id);
   }
   if (user.managedBy) {
     await createSession(user.managedBy);

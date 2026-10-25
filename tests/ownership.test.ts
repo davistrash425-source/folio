@@ -143,6 +143,25 @@ test("Bob can't add his photos to Alice's album from his photo's details", async
   assert.equal(bob.photos[0].description, "mine");
 });
 
+test("nonsense sent to the photo actions is refused cleanly, not with a crash", async () => {
+  const w = await world();
+  const bob = await findUserById(w.bob.id);
+  const bad = (value: unknown) => value as never;
+  await reorderPhotos(bad("not a list"));
+  await reorderPhotos(bad([1, { x: 2 }]));
+  await reorderPhotos(bad(Array.from({ length: 50_000 }, (_, i) => `id-${i}`)));
+  for (const details of [
+    undefined,
+    { description: 5, location: "", alt: "", albumIds: [] },
+    { description: "x".repeat(100_000), location: "", alt: "", albumIds: [] },
+    { description: "", location: "", alt: "", albumIds: "all" },
+  ]) {
+    const result = await updatePhoto(w.b1.photo.id, bad(details));
+    assert.ok(result.error, "refused with a message");
+  }
+  assert.deepEqual(await findUserById(w.bob.id), bob, "nothing changed");
+});
+
 test("putting the same photo in a list twice doesn't duplicate it", async () => {
   const w = await world();
   await reorderPhotos([w.b2.photo.id, w.b2.photo.id, w.b1.photo.id, w.b2.photo.id]);

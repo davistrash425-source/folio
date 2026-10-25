@@ -68,8 +68,12 @@ export const AI_TRAINING_CRAWLERS = [
   "ImagesiftBot", // Hive, image collection
 ];
 
+// The shape every address has (validateSubdomain's first rule). Anything else
+// can't belong to an account, so there's no need to look it up.
+export const couldBeSubdomain = (value: string) => /^[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])$/.test(value);
+
 export function validateSubdomain(value: string): string | null {
-  if (!/^[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])$/.test(value)) {
+  if (!couldBeSubdomain(value)) {
     return "Use 3–30 lowercase letters, numbers or dashes (no dash at the start or end).";
   }
   if (RESERVED_SUBDOMAINS.has(value)) return "That name is reserved.";

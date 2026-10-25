@@ -10,6 +10,7 @@ import { draftDesign, publishedDesign } from "@/lib/public-site";
 import { sendEmail } from "@/lib/email";
 import { cleanSocial, cleanWebsite } from "@/lib/social";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { NOT_HUMAN, TURNSTILE_FIELD, verifyTurnstile } from "@/lib/turnstile";
 import { ADDRESS_HOLD_MONTHS, appUrl, isLive, siteUrl, slugify, validateSlug, validateSubdomain } from "@/lib/site";
 import {
   MAX_PHOTOS,
@@ -107,12 +108,26 @@ export async function deletePhoto(photoId: string): Promise<ActionState> {
   return done(`Deleted the photo.`);
 }
 
+// Server actions can be called with anything, not just what the page sends,
+// so the arguments are checked before they're used. The text limits are
+// generous: the fields cut text down to size afterwards, and these only stop
+// absurd requests.
+const reorderSchema = z.array(z.string().max(100)).max(MAX_PHOTOS * 2);
+const photoDetailsSchema = z.object({
+  description: z.string().max(5000),
+  location: z.string().max(5000),
+  alt: z.string().max(5000),
+  albumIds: z.array(z.string().max(100)).max(1000),
+});
+
 // Saves a new photo order. The first photo is the cover image.
-export async function reorderPhotos(photoIds: string[]) {
+export async function reorderPhotos(rawIds: string[]) {
   const userId = await currentUserId();
+  const photoIds = reorderSchema.safeParse(rawIds);
+  if (!photoIds.success) return; // not something the page sends; change nothing
   await updateUser(userId, (u) => {
     const byId = new Map(u.photos.map((p) => [p.id, p]));
-    const wanted = new Set(photoIds); // a photo listed twice still appears once
+    const wanted = new Set(photoIds.data); // a photo listed twice still appears once
     const ordered = [...wanted].flatMap((id) => byId.get(id) ?? []);
     // Keep anything the client didn't know about (e.g. uploaded in another tab).
     const rest = u.photos.filter((p) => !wanted.has(p.id));
@@ -124,9 +139,12 @@ export async function reorderPhotos(photoIds: string[]) {
 // Saves the details edited in the All photos drawer.
 export async function updatePhoto(
   photoId: string,
-  details: { description: string; location: string; alt: string; albumIds: string[] },
-) {
+  rawDetails: { description: string; location: string; alt: string; albumIds: string[] },
+): Promise<ActionState> {
   const userId = await currentUserId();
+  const parsed = photoDetailsSchema.safeParse(rawDetails);
+  if (typeof photoId !== "string" || !parsed.success) return { error: "Those details couldn't be saved." };
+  const details = parsed.data;
   await updateUser(userId, (u) => {
     const photo = u.photos.find((p) => p.id === photoId);
     if (!photo) return;
@@ -141,6 +159,7 @@ export async function updatePhoto(
     }
   });
   revalidatePath("/dashboard", "layout");
+  return {};
 }
 
 // ── Several photos at once (the multi-select toolbar) ──────────────────
@@ -427,9 +446,11 @@ export async function sendInquiry(
   if (!name || !message) return { error: "Please add your name and a message." };
   if (!/^\S+@\S+\.\S+$/.test(email)) return { error: "Please enter a valid email so they can reply." };
 
-  if (!(await rateLimit(`inquiry:${await clientIp()}`, 5, 60 * 60 * 1000))) {
+  const ip = await clientIp();
+  if (!(await rateLimit(`inquiry:${ip}`, 5, 60 * 60 * 1000))) {
     return { error: "You've sent several messages already. Please try again later." };
   }
+  if (!(await verifyTurnstile(formData.get(TURNSTILE_FIELD), ip))) return { error: NOT_HUMAN };
 
   const owner = await findUserBySubdomain(subdomain);
   if (!owner || !isLive(owner)) return { error: "This site isn't accepting messages." };

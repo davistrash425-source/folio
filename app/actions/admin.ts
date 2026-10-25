@@ -23,7 +23,8 @@ import {
 import { sendEmail } from "@/lib/email";
 import { clearImpersonation, IMPERSONATION_MINUTES, startImpersonation as beginImpersonation } from "@/lib/session";
 import { siteUrl } from "@/lib/site";
-import { deleteWebCopies, photoRights, remakeWebCopies, storage } from "@/lib/uploads";
+import { removeAccountFiles } from "@/lib/cleanup";
+import { deleteWebCopies, photoRights, remakeWebCopies } from "@/lib/uploads";
 import { sendVerificationEmail } from "@/lib/verify-email";
 
 // What Folio's admins can do to an account (the pages in app/admin). Every
@@ -409,7 +410,7 @@ export async function deleteAccountAsAdmin(formData: FormData) {
   });
   for (const account of accounts.reverse()) {
     await deleteUser(account.id);
-    await storage.removeAll(account.id);
+    await removeAccountFiles(account.id);
   }
   redirect(`/admin/accounts?done=${encodeURIComponent(`Deleted ${user.subdomain}.`)}`);
 }

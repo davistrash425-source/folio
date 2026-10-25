@@ -29,6 +29,12 @@ test("a live site's pages show, and an unknown page on it says so in the site's 
   assert.equal((await siteNotice(alice.subdomain))?.status, "no-page");
 });
 
+test("addresses that can't belong to any account are missing too", async () => {
+  for (const name of ["a", "-bad", "bad-", "under_score", "x".repeat(60), "Ünï"]) {
+    assert.deepEqual(await siteNotice(name), { status: "missing" }, name);
+  }
+});
+
 test("a draft site and one with an unconfirmed email are offline, not missing", async () => {
   const draft = await makeUser("Draft", { published: false });
   const unconfirmed = await makeUser("Unconfirmed", { verified: false });

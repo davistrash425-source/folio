@@ -66,6 +66,13 @@ const SCHEMA = `
   -- The account that moved away from the address (null for closed accounts),
   -- which may move back to it.
   alter table released_subdomains add column if not exists user_id text;
+  -- Accounts whose files still have to be deleted from storage. A row is added
+  -- when the account is deleted and removed once the files are gone; the daily
+  -- job (app/api/cron/daily) retries the ones left over.
+  create table if not exists storage_cleanup (
+    user_id text primary key,
+    queued_at timestamptz not null default now()
+  );
 `;
 
 async function connectPostgres(url: string): Promise<Database> {

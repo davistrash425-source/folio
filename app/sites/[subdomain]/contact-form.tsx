@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element -- user uploads are served by our own route */
 import { useActionState, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { sendInquiry } from "@/app/actions/site";
+import { Turnstile } from "@/app/ui/turnstile";
 import { INQUIRE_EVENT, INQUIRE_KEY } from "./lightbox";
 
 const never = () => () => {};
@@ -88,6 +89,7 @@ export function ContactForm({ subdomain, preview }: { subdomain: string; preview
           <input name="company" tabIndex={-1} autoComplete="off" />
         </label>
       </div>
+      {!preview && <Turnstile resetKey={state} />}
       <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
         <button
           type="submit"

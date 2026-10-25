@@ -55,12 +55,14 @@ test("different keys have separate limits", async () => {
   assert.equal(await rateLimit(b, 1, MINUTE), true);
 });
 
-test("clientIp uses the first forwarded address, then x-real-ip, then 'local'", async () => {
+test("clientIp trusts Vercel's headers first, then x-forwarded-for, then 'local'", async () => {
   assert.equal(await clientIp(), "local");
-  requestHeaders.set("x-real-ip", "198.51.100.7");
-  assert.equal(await clientIp(), "198.51.100.7");
   requestHeaders.set("x-forwarded-for", " 203.0.113.9 , 10.0.0.1");
   assert.equal(await clientIp(), "203.0.113.9");
+  requestHeaders.set("x-real-ip", "198.51.100.7");
+  assert.equal(await clientIp(), "198.51.100.7", "a visitor-supplied x-forwarded-for doesn't win over Vercel's header");
+  requestHeaders.set("x-vercel-forwarded-for", "192.0.2.55");
+  assert.equal(await clientIp(), "192.0.2.55");
 });
 
 // ── Shared counting in Upstash Redis (the network is faked) ────────────────
