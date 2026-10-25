@@ -48,3 +48,17 @@ export function galleryLimit(user: Pick<User, "plan">) {
 export function photoLimitMessage(user: Pick<User, "plan">) {
   return `You've reached the limit of ${photoLimit(user).toLocaleString("en-US")} photos. Delete some to make room.`;
 }
+
+// "Made with Folio" footer on client galleries.
+// Decided Oct 25, 2026: "free-only" (docs/GALLERY-FOOTER-DECISION.md).
+// One-line switch: "always" | "free-only" | "never". Free galleries do not exist yet (galleryLimit is 0), so it only shows if that changes.
+export const GALLERY_FOLIO_BADGE: "always" | "free-only" | "never" = "free-only";
+
+export function showFolioBadge(
+  user: Pick<User, "plan">,
+  mode: "always" | "free-only" | "never" = GALLERY_FOLIO_BADGE,
+) {
+  if (mode === "always") return true;
+  if (mode === "never") return false;
+  return user.plan !== "pro";
+}

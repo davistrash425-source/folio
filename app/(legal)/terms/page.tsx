@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ADDRESS_HOLD_MONTHS, SUPPORT_EMAIL } from "@/lib/site";
 import { STRIKE_LIMIT } from "@/lib/admin";
 import { FREE_PHOTO_LIMIT } from "@/lib/plans";
+import { GOVERNING_LAW, OPERATOR_ADDRESS, OPERATOR_NAME, OPERATOR_STATUS } from "@/lib/legal";
 
 export const metadata = { title: "Terms of Service — Folio" };
 
@@ -47,6 +48,15 @@ export default function TermsPage() {
         Folio is provided as it is. We work to keep it running and your files safe, but we can’t promise it will
         never be down or lose data, so keep your own copy of your originals (you can export everything from your
         account). To the extent the law allows, Folio is not liable for indirect or lost-profit damages.
+      </p>
+      <h2>Who runs Folio</h2>
+      <p>
+        Folio is run by {OPERATOR_NAME}, {OPERATOR_STATUS}, {OPERATOR_ADDRESS}.
+      </p>
+      <h2>Governing law</h2>
+      <p>
+        These terms are governed by the laws of {GOVERNING_LAW}, without regard to its conflict-of-law rules. Any
+        dispute will be brought in the state or federal courts located in Miami-Dade County, Florida.
       </p>
       <h2>Changes and contact</h2>
       <p>

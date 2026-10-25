@@ -85,7 +85,7 @@ Put your chosen photos in `folio-homepage-photos/` (git-ignored). Then Claude ca
 - Vercel's free (Hobby) plan forbids commercial use. Upgrade to Vercel Pro (about $20/mo) before charging.
 - Tell Claude which one. Claude can then build checkout, webhooks and the pricing page ($12/mo, $120/yr launch prices are in the backlog).
 
-### 10. Decide the "Made with Folio" footer on client galleries
+### 10. "Made with Folio" footer on client galleries (DONE Oct 25, 2026: Free shows it, Pro removes it)
 Options: always shown, shown on Free only, or never. Tell Claude. It's a small code change.
 
 ### 11. Launch decisions
