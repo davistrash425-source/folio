@@ -1,9 +1,12 @@
 // Headers sent with every page (next.config.ts).
 //
-// Enforced: the content policy (which scripts, images and connections are
-// allowed, and that the site can't be framed by another site), HTTPS is
-// remembered for two years, and the usual browser hardening. It was checked
-// report-only on folio.cam first (Oct 25, 2026).
+// Enforced: the dashboard (and delete account) can't be framed by another
+// site, HTTPS is remembered for two years, and the usual browser hardening.
+//
+// Report-only: the full content policy (which scripts, images and connections
+// are allowed). A browser logs what it WOULD have blocked in its console but
+// blocks nothing, so it can be checked on the real site before being enforced
+// (rename the header to Content-Security-Policy).
 type Env = Record<string, string | undefined>;
 
 const origin = (url: string | undefined) => {
@@ -47,7 +50,8 @@ export function contentPolicy(env: Env) {
 export function securityHeaders(env: Env = process.env) {
   return [
     // The editor's preview is the site in an iframe on the same address.
-    { key: "Content-Security-Policy", value: contentPolicy(env) },
+    { key: "Content-Security-Policy", value: "frame-ancestors 'self'; object-src 'none'; base-uri 'self'" },
+    { key: "Content-Security-Policy-Report-Only", value: contentPolicy(env) },
     { key: "X-Frame-Options", value: "SAMEORIGIN" },
     { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
     { key: "X-Content-Type-Options", value: "nosniff" },
