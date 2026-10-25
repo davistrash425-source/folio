@@ -11,10 +11,11 @@ test("pages can't be framed by other sites, and HTTPS is remembered", () => {
   assert.match(header(headers, "Strict-Transport-Security")!, /max-age=63072000; includeSubDomains/);
 });
 
-test("the full content policy is report-only, so it can't break the site while it's checked", () => {
+test("the full content policy is enforced, not report-only", () => {
   const headers = securityHeaders({});
-  assert.ok(header(headers, "Content-Security-Policy-Report-Only"));
-  assert.doesNotMatch(header(headers, "Content-Security-Policy")!, /script-src/);
+  assert.equal(header(headers, "Content-Security-Policy-Report-Only"), undefined);
+  assert.match(header(headers, "Content-Security-Policy")!, /script-src/);
+  assert.match(header(headers, "Content-Security-Policy")!, /frame-ancestors 'self'/);
 });
 
 test("the content policy allows the photo store, uploads, Sentry and Turnstile, and nothing else outside", () => {
