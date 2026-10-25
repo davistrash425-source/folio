@@ -12,9 +12,11 @@
 
 - Split `design-editor.tsx` into `app/dashboard/design/{types,ui,pickers,themes,sections}`; split `editor.tsx` into `photo-uploader.tsx` + `photo-drawer.tsx`. Checks pass.
 
+- Playwright browser test `tests/e2e/journey.spec.ts` (`npm run test:e2e`, config `playwright.config.ts`, dev server on port 3100) passes locally; added to CI after the smoke test (unverified on GitHub).
+
 ## In progress / next (code-only, no owner input)
 4. Update CLAUDE.md/README for plans + consent + legal pages.
-5. Browser tests (Playwright) for sign-up -> upload -> design -> publish; then Phase 4 items that need no owner input (Pro limits are in lib/plans.ts already).
+5. Phase 4 items that need no owner input (Pro limits are in lib/plans.ts already).
 Skip (needs owner): policy text/lawyer, photo domain on Cloudflare, 3 example sites.
 
 ## Decisions / gotchas

@@ -15,6 +15,7 @@ npx next typegen       # route types (PageProps, RouteContext) — needed before
 npx tsc --noEmit
 npm test               # every tests/*.test.ts
 npm run build
+npm run test:e2e       # Playwright browser test: sign-up → upload → design (dev server, throwaway data)
 npm run test:smoke     # against a running server; BASE_URL=https://… to target a deployment
 ```
 

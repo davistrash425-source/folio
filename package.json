@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./tests/setup.ts --test \"tests/*.test.ts\"",
+    "test:e2e": "playwright test",
     "test:smoke": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test tests/server/smoke.test.ts",
     "backfill-photos": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/backfill-photos.ts",
     "import-json": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/import-json.ts",
@@ -25,6 +26,7 @@
     "zod": "4.6.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^24",
     "@types/pg": "8.23.1",

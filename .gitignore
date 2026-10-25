@@ -46,3 +46,7 @@ next-env.d.ts
 
 # CI data folder (FOLIO_DATA_DIR)
 /ci-data
+
+# Playwright
+/test-results/
+/playwright-report/
