@@ -1,11 +1,11 @@
-/* eslint-disable @next/next/no-img-element -- user uploads are served by our own route */
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { findUserBySubdomain } from "@/lib/db";
-import { findGallery, galleryPhotos } from "@/lib/galleries";
+import { findGallery, galleryExpired, galleryPhotos } from "@/lib/galleries";
 import { hasGalleryAccess } from "@/lib/session";
 import { photoSource } from "@/lib/uploads";
+import { PhotoGrid } from "./photo-grid";
 import { UnlockForm } from "./unlock-form";
 
 // name.yourapp.com/g/<link> → /sites/name/g/<link>. A client's private
@@ -30,6 +30,16 @@ async function Gallery({ params }: { params: PageProps<"/sites/[subdomain]/g/[ga
   const gallery = owner && !owner.suspended && owner.emailVerified ? findGallery(owner, slug) : undefined;
   if (!owner || !gallery) notFound();
 
+  if (galleryExpired(gallery)) {
+    return (
+      <main className="mx-auto w-full max-w-sm flex-1 px-6 py-24">
+        <p className="label text-ink-faint">{owner.profile.name}</p>
+        <h1 className="mt-2 font-display text-3xl">This gallery has expired</h1>
+        <p className="mt-2 text-sm text-ink-soft">Ask {owner.profile.name} to send you a new link.</p>
+      </main>
+    );
+  }
+
   if (!(await hasGalleryAccess(gallery.id, gallery.passwordHash))) {
     return (
       <main className="mx-auto w-full max-w-sm flex-1 px-6 py-24">
@@ -42,31 +52,23 @@ async function Gallery({ params }: { params: PageProps<"/sites/[subdomain]/g/[ga
   }
 
   const photos = galleryPhotos(owner, gallery).map((p) => photoSource(owner.id, p));
+  const favourites = (gallery.favouriteIds ?? []).filter((id) => photos.some((p) => p.id === id));
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-12">
       <p className="label text-ink-faint">{owner.profile.name}</p>
-      <h1 className="mt-2 font-display text-4xl">{gallery.title}</h1>
+      <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
+        <h1 className="font-display text-4xl">{gallery.title}</h1>
+        {photos.length > 0 && (
+          <a href={`/g/${gallery.slug}/download`} download className="inline-flex h-10 items-center border border-ink px-4 text-sm hover:bg-ink hover:text-paper">
+            Download all ({photos.length})
+          </a>
+        )}
+      </div>
+      {gallery.expiresAt && <p className="mt-2 text-sm text-ink-soft">Available until {gallery.expiresAt}.</p>}
       {photos.length === 0 ? (
         <p className="mt-8 text-ink-soft">No photos have been added yet. Check back soon.</p>
       ) : (
-        <ul className="mt-8 columns-1 gap-4 sm:columns-2 lg:columns-3">
-          {photos.map((photo) => (
-            <li key={photo.id} className="mb-4 break-inside-avoid">
-              <a href={photo.src} target="_blank" rel="noopener noreferrer" className="block">
-                <img
-                  src={photo.src}
-                  srcSet={photo.srcSet}
-                  sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-                  alt={photo.alt}
-                  width={photo.width}
-                  height={photo.height}
-                  loading="lazy"
-                  className="w-full"
-                />
-              </a>
-            </li>
-          ))}
-        </ul>
+        <PhotoGrid subdomain={subdomain} slug={gallery.slug} photos={photos} favourites={favourites} />
       )}
     </main>
   );

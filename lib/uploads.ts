@@ -260,6 +260,13 @@ function baseName(file: string) {
   return file.replace(/\.orig\.[a-z]+$|\.[a-z]+$/, "");
 }
 
+// The largest web copy of a photo, for client downloads. The private original
+// is never handed out; photos from before web copies existed are public anyway.
+export function downloadFile(photo: Photo) {
+  if (!photo.variants?.length) return isPrivateFile(photo.file) ? null : photo.file;
+  return variantName(baseName(photo.file), Math.max(...photo.variants));
+}
+
 // The name and copyright notice written into a photo's web copies, from its
 // owner's profile: their own copyright line, or "© <year> <name>. All rights
 // reserved." The year is when the photo went up.

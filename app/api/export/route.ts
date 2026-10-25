@@ -1,6 +1,6 @@
 import { currentUser, impersonationBlock } from "@/lib/auth";
 import { storage } from "@/lib/uploads";
-import { zipChunks } from "@/lib/zip";
+import { zipResponse } from "@/lib/zip";
 
 // Downloads everything in the account: profile, albums, inquiries and the
 // original photo files.
@@ -23,23 +23,5 @@ export async function GET() {
       return data && { name, data };
     }),
   ];
-  const chunks = zipChunks(files);
-  const body = new ReadableStream<Uint8Array>({
-    async pull(controller) {
-      const { value, done } = await chunks.next();
-      if (done) controller.close();
-      else controller.enqueue(new Uint8Array(value));
-    },
-    async cancel() {
-      await chunks.return(undefined);
-    },
-  });
-
-  return new Response(body, {
-    headers: {
-      "Content-Type": "application/zip",
-      "Content-Disposition": `attachment; filename="folio-${user.subdomain}.zip"`,
-      "Cache-Control": "no-store",
-    },
-  });
+  return zipResponse(files, `folio-${user.subdomain}.zip`);
 }

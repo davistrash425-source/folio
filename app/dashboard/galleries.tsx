@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useActionState, useState, useTransition } from "react";
-import { createGallery, deleteGallery, setGalleryPhotos, updateGallery } from "@/app/actions/galleries";
+import { createGallery, deleteGallery, emailGalleryLink, setGalleryPhotos, updateGallery } from "@/app/actions/galleries";
 import { Button, Field, Input, Message } from "@/app/ui/form";
 import { ConfirmButton } from "@/app/ui/confirm";
 import { PhotoPicker } from "./design/pickers";
@@ -26,7 +26,7 @@ export function CreateGalleryForm() {
   );
 }
 
-export function GalleryDetailsForm({ gallery }: { gallery: { id: string; title: string } }) {
+export function GalleryDetailsForm({ gallery }: { gallery: { id: string; title: string; expiresAt?: string } }) {
   const [state, action, pending] = useActionState(updateGallery.bind(null, gallery.id), {});
   return (
     <form action={action} className="max-w-md space-y-4">
@@ -36,8 +36,29 @@ export function GalleryDetailsForm({ gallery }: { gallery: { id: string; title: 
       <Field label="New password" hint="Leave empty to keep the current one. Changing it signs everyone out of the gallery.">
         <Input name="password" type="text" minLength={6} autoComplete="off" />
       </Field>
+      <Field label="Link expires" hint="The last day the link works. Leave empty for no end date.">
+        <Input name="expires" type="date" defaultValue={gallery.expiresAt ?? ""} />
+      </Field>
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={pending}>{pending ? "Saving…" : "Save"}</Button>
+        <Message error={state.error} ok={state.ok} />
+      </div>
+    </form>
+  );
+}
+
+export function EmailLinkForm({ galleryId }: { galleryId: string }) {
+  const [state, action, pending] = useActionState(emailGalleryLink.bind(null, galleryId), {});
+  return (
+    <form action={action} className="max-w-md space-y-4">
+      <Field label="Client's email" hint="They get the link. The password isn't included: send it yourself, ideally another way.">
+        <Input name="email" type="email" required autoComplete="off" />
+      </Field>
+      <Field label="Message (optional)">
+        <Input name="note" maxLength={1000} />
+      </Field>
+      <div className="flex items-center gap-3">
+        <Button type="submit" disabled={pending}>{pending ? "Sending…" : "Email the link"}</Button>
         <Message error={state.error} ok={state.ok} />
       </div>
     </form>

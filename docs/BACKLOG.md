@@ -16,7 +16,7 @@ Every suggestion from the code review, the landing-page critique and the dashboa
 | 1 Design polish | Done and live on `main`, except two small items (demo sites per theme, Instagram link in footer) |
 | 2 Security | Merged into `main`; waiting on the owner checks below |
 | 3 Legal & launch (Free) | Code done and merged. Left: lawyer-reviewed Terms/Privacy, photo domain, example sites, launch |
-| 4 Folio Pro | Paused between items. Started: 1,500-photo limit, 20-gallery limit, password-protected client galleries, staff can switch an account to Pro. Editable special themes are done. Left: more themes, payments, 50 GB limit, lawyer review, launch |
+| 4 Folio Pro | Paused between items. Started: 1,500-photo limit, 20-gallery limit, password-protected client galleries, staff can switch an account to Pro. Editable special themes are done. Client gallery follow-ups are done. Left: more themes, payments, 50 GB limit, lawyer review, launch |
 | 5 Speed & scale | Four items done (image decode, private changes keep the cache, streaming export, per-page photos). Left: split tables, schema at deploy, fonts, staging and stress tests |
 
 **Waiting on the owner:** `CRON_SECRET` in Vercel; Turnstile hostnames; browser-console CSP check; test photo upload on folio.cam; legal text and review; DMCA agent registration with the Copyright Office; photo domain; example site photos; payment provider choice.
@@ -168,7 +168,8 @@ Every item in this doc, in the order you chose: design → security → legal �
 - [ ] More special themes for Pro
 - [x] Password-protected client galleries (Pro; dashboard "Client galleries", public link `name.folio.cam/g/<random>`, password cookie tied to the password, attempt limits, hidden from search; a link is private but the image files behind it are the same public web copies)
 - [x] Staff can move an account to Pro or Free by hand (admin site page, logged) until payments exist
-- [ ] Client gallery follow-ups: download-all zip, expiry dates, client favourites, email the link to the client, a "Made with Folio" footer on galleries
+- [x] Client gallery follow-ups: download-all zip (web copies, rate limited), expiry date, client favourites (hearts, shown to the photographer), email the link to the client (never the password)
+- [ ] A "Made with Folio" footer on client galleries (undecided whether Pro removes it)
 - [ ] Payments + full pricing page
 - [ ] Lawyer review of Terms, Privacy and Copyright before charging
 - [ ] **Launch Pro**
@@ -615,7 +616,7 @@ Ship as five rounds, one branch and preview link each.
 
 - Plans: DONE. `User.plan` (`"free" | "pro"`, missing = free) and `photoLimit` / `galleryLimit` are in `lib/plans.ts`; accounts over their limit keep their photos but can't add more. Staff set the plan by hand (`setPlan` in `app/actions/admin.ts`) until payments exist.
 - Client galleries: `User.galleries` (`ClientGallery` in `lib/db.ts`), helpers in `lib/galleries.ts`, actions in `app/actions/galleries.ts`, dashboard in `app/dashboard/manage/galleries` + `app/dashboard/galleries.tsx`, public page `app/sites/[subdomain]/g/[gallery]`, password cookie in `lib/session.ts`. Not done: download-all, expiry dates, per-photo favourites, email the link to the client.
-- Next Phase 4 work, scoped (editable special themes are done): (2) gallery follow-ups (download-all via `zipChunks`, expiry, favourites, email the link); (3) 50 GB limit: store `Photo.bytes` on upload, add `storageUsed` to `lib/plans.ts`, check it beside `photoLimit`; (4) more special themes.
+- Next Phase 4 work, scoped (editable special themes and gallery follow-ups are done): (3) 50 GB limit: store `Photo.bytes` on upload, add `storageUsed` to `lib/plans.ts`, check it beside `photoLimit`; (4) more special themes.
 - Payments: Stripe has historically not onboarded Israeli businesses (Globes, 2021 — verify). Alternatives: Paddle or Lemon Squeezy as merchant of record (they handle US sales tax). Vercel Hobby forbids commercial use: upgrade to Pro (~$20/mo) before charging.
 - Performance: image decoding, private-change cache clearing and the streamed export are done. Still open: `lib/pg.ts` runs `ALTER TABLE` on every cold start (needs a deploy-time migration; check against Neon first) and the root `app/layout.tsx` loads Folio's fonts on photographers' sites (needs separate root layouts).
 - DB split: move photos and inquiries to their own tables (the parked `folio-plus` branch already moved inquiries — reuse that migration if it fits).
