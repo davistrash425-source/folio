@@ -5,6 +5,7 @@ import { findUserBySubdomain } from "@/lib/db";
 import { findGallery, galleryExpired, galleryPhotos } from "@/lib/galleries";
 import { hasGalleryAccess } from "@/lib/session";
 import { photoSource } from "@/lib/uploads";
+import { FolioBadge } from "./folio-badge";
 import { PhotoGrid } from "./photo-grid";
 import { UnlockForm } from "./unlock-form";
 
@@ -54,6 +55,7 @@ async function Gallery({ params }: { params: PageProps<"/sites/[subdomain]/g/[ga
   const photos = galleryPhotos(owner, gallery).map((p) => photoSource(owner.id, p));
   const favourites = (gallery.favouriteIds ?? []).filter((id) => photos.some((p) => p.id === id));
   return (
+    <>
     <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-12">
       <p className="label text-ink-faint">{owner.profile.name}</p>
       <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
@@ -71,5 +73,7 @@ async function Gallery({ params }: { params: PageProps<"/sites/[subdomain]/g/[ga
         <PhotoGrid subdomain={subdomain} slug={gallery.slug} photos={photos} favourites={favourites} />
       )}
     </main>
+    <FolioBadge owner={owner} />
+    </>
   );
 }
