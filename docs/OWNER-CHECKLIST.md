@@ -62,7 +62,8 @@ Why: the pages in `app/(legal)` show a "Draft" banner. They need your real busin
 3. When the lawyer signs off, tell Claude. Claude sets `LEGAL_DRAFT = false` in `lib/legal.ts`, updates `LEGAL_UPDATED`, and runs the tests.
 4. Also create the `support@folio.cam` address (a forward is fine). Suspended photographers are told to write there.
 
-### 6. Register a DMCA agent (30 min, small fee)
+### 6. Register a DMCA agent (30 min, $6) (IN PROGRESS Oct 26, 2026)
+Status: account exists (logged in once), designation not started. The "Welcome…" account menu on dmca.copyright.gov did not open for Claude's browser; try it in your own browser. Full steps, the $6 fee, the PO-box rule and the 3-year renewal are in `docs/DMCA-AGENT-GUIDE.md` (branch `worktree-dmca-agent`).
 Why: US safe harbour for hosting users' content depends on a registered agent.
 1. Go to the US Copyright Office DMCA Designated Agent Directory (dmca.copyright.gov) and create an account. This costs money, so it's your decision.
 2. Register the service name (Folio, `folio.cam`), the agent contact, and the address.
