@@ -2,17 +2,17 @@
 
 /* eslint-disable @next/next/no-img-element -- user uploads are served by our own route */
 import {
-  CLASSIC_LOOKS, EXHIBITION_FRAMES, FILM_BORDERS, FILM_FRAME_SIZES, FILM_STOCKS, INDEX_SORTS, LABEL_FONTS, PRINT_SIZES,
-  ROW_SIZES, THEMES, TITLE_CASES, WALLS, type SiteDesign, type LookId, type ThemeId,
+  BOOK_PAPERS, CLASSIC_LOOKS, EXHIBITION_FRAMES, FILM_BORDERS, FILM_FRAME_SIZES, FILM_STOCKS, INDEX_SORTS, LABEL_FONTS, PRINT_SIZES,
+  PRO_THEMES, ROW_SIZES, SHEET_COLUMNS, SHEET_PAPERS, THEMES, TITLE_CASES, WALLS, type SiteDesign, type LookId, type ThemeId,
 } from "@/lib/design";
 import { TEMPLATES } from "@/lib/templates";
 import { THEME_INFO } from "@/lib/themes";
 import { Choice } from "./ui";
 import { type EditorPhoto } from "./types";
 
-// The four themes, each drawn as a miniature of its layout using the
-// photographer's own photos.
-export function ThemePicker({ theme, photos, onPick }: { theme: ThemeId; photos: EditorPhoto[]; onPick: (theme: ThemeId) => void }) {
+// Every theme (four free plus the Pro-only ones), each drawn as a miniature of
+// its layout using the photographer's own photos.
+export function ThemePicker({ theme, photos, onPick, isPro }: { theme: ThemeId; photos: EditorPhoto[]; onPick: (theme: ThemeId) => void; isPro: boolean }) {
   return (
     <div className="grid grid-cols-2 gap-3">
       {THEMES.map((id) => (
@@ -20,8 +20,9 @@ export function ThemePicker({ theme, photos, onPick }: { theme: ThemeId; photos:
           key={id}
           type="button"
           aria-pressed={theme === id}
+          disabled={!isPro && PRO_THEMES.includes(id)}
           onClick={() => onPick(id)}
-          className={`border p-2 text-left transition-colors ${theme === id ? "border-ink ring-1 ring-ink" : "border-rule hover:border-ink"}`}
+          className={`border p-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${theme === id ? "border-ink ring-1 ring-ink" : "border-rule hover:border-ink"}`}
         >
           <ThemeArt theme={id} photos={photos} />
           <span className="mt-2 block font-display text-xl leading-none">{THEME_INFO[id].name}</span>
@@ -29,7 +30,9 @@ export function ThemePicker({ theme, photos, onPick }: { theme: ThemeId; photos:
           <span className="mt-1.5 block text-xs text-ink-soft">
             {id === "classic"
               ? "You choose the layout, colors and fonts."
-              : "Sets its own layout and colors. More settings come with Pro."}
+              : PRO_THEMES.includes(id)
+                ? isPro ? "Folio Pro theme. Sets its own layout and colors." : "Folio Pro: upgrade to use this theme."
+                : "Sets its own layout and colors. More settings come with Pro."}
           </span>
         </button>
       ))}
@@ -77,6 +80,23 @@ export function ThemeArt({ theme, photos }: { theme: ThemeId; photos: EditorPhot
           ))}
         </span>
       );
+    case "contactsheet":
+      return (
+        <span className="block h-20 overflow-hidden bg-[#d9d5cb] p-1.5">
+          <span className="grid h-full grid-cols-4 content-start gap-0.5 bg-[#f4f2ec] p-1">
+            {[0, 1, 2, 0, 1, 2, 0, 1].map((n, i) => (
+              <span key={i} className="block bg-black p-px">{pic(n, "h-4 w-full")}</span>
+            ))}
+          </span>
+        </span>
+      );
+    case "monograph":
+      return (
+        <span className="flex h-20 items-center justify-center gap-1 overflow-hidden bg-white px-3">
+          <span className="block w-1/2 bg-white p-2 shadow-sm ring-1 ring-black/10">{pic(0, "h-12 w-full")}</span>
+          <span className="block w-1/2 bg-white p-2 shadow-sm ring-1 ring-black/10">{pic(1, "h-12 w-full")}</span>
+        </span>
+      );
     case "filmstrip":
       return (
         <span className="flex h-20 items-center overflow-hidden bg-[#14100c] px-1">
@@ -107,8 +127,8 @@ export function ThemeSettings({ design, onChange, isPro }: { design: SiteDesign;
   const set = <K extends keyof typeof settings>(key: K, patch: Partial<(typeof settings)[K]>) =>
     onChange({ themeSettings: { ...settings, [key]: { ...settings[key], ...patch } } });
   const locked = !isPro;
-  const setPro = <K extends keyof typeof settings>(key: K, patch: Partial<(typeof settings)[K]["pro"]>) =>
-    set(key, { pro: { ...settings[key].pro, ...patch } } as Partial<(typeof settings)[K]>);
+  const setPro = <K extends "exhibition" | "index" | "filmstrip">(key: K, patch: Partial<(typeof settings)[K]["pro"]>) =>
+    set(key, { pro: { ...settings[key].pro, ...patch } } as unknown as Partial<(typeof settings)[K]>);
   const proNote = (
     <p className="label text-ink-faint">
       {isPro ? "Folio Pro" : "Folio Pro: upgrade to change these"}
@@ -232,6 +252,38 @@ export function ThemeSettings({ design, onChange, isPro }: { design: SiteDesign;
           <label className={`flex items-center gap-2 text-sm ${locked ? "opacity-50" : ""}`}>
             <input type="checkbox" disabled={locked} checked={settings.filmstrip.pro.sprockets} onChange={(e) => setPro("filmstrip", { sprockets: e.target.checked })} />
             Sprocket holes
+          </label>
+        </>
+      );
+    case "contactsheet":
+      return (
+        <>
+          <Choice
+            label="Paper"
+            value={settings.contactsheet.paper}
+            options={SHEET_PAPERS.map((v) => [v, cap(v)] as [typeof v, string])}
+            onChange={(paper) => set("contactsheet", { paper })}
+          />
+          <Choice
+            label="Frames per row"
+            value={String(settings.contactsheet.columns) as "4" | "6" | "8"}
+            options={SHEET_COLUMNS.map((v) => [String(v), String(v)] as ["4" | "6" | "8", string])}
+            onChange={(columns) => set("contactsheet", { columns: Number(columns) as 4 | 6 | 8 })}
+          />
+        </>
+      );
+    case "monograph":
+      return (
+        <>
+          <Choice
+            label="Paper"
+            value={settings.monograph.paper}
+            options={BOOK_PAPERS.map((v) => [v, cap(v)] as [typeof v, string])}
+            onChange={(paper) => set("monograph", { paper })}
+          />
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={settings.monograph.pageNumbers} onChange={(e) => set("monograph", { pageNumbers: e.target.checked })} />
+            Page number under each photo
           </label>
         </>
       );

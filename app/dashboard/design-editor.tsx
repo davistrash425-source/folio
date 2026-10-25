@@ -187,7 +187,7 @@ export function DesignEditor(props: {
         <div className={`space-y-4 ${showPreview ? "max-lg:pb-[48vh]" : ""}`}>
           {SHOW_AI_BOX && <AiPlaceholder />}
           <Group title="Theme">
-            <ThemePicker theme={design.theme} photos={props.photos} onPick={(theme) => setDesign((d) => applyTheme(d, theme))} />
+            <ThemePicker theme={design.theme} photos={props.photos} isPro={props.isPro} onPick={(theme) => setDesign((d) => applyTheme(d, theme))} />
             <p className="text-sm text-ink-soft">{THEME_INFO[design.theme].description}</p>
             {design.theme === "classic" ? (
               <>

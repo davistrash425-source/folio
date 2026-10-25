@@ -3,15 +3,19 @@
 // design), so themes must not use hooks or server-only code themselves.
 import type { SiteData } from "@/lib/site-data";
 import { ClassicTheme } from "./themes/classic";
+import { ContactsheetTheme } from "./themes/contactsheet";
 import { ExhibitionTheme } from "./themes/exhibition";
 import { FilmstripTheme } from "./themes/filmstrip";
 import { IndexTheme } from "./themes/index-theme";
+import { MonographTheme } from "./themes/monograph";
 
 const THEMES = {
   classic: ClassicTheme,
   exhibition: ExhibitionTheme,
   index: IndexTheme,
   filmstrip: FilmstripTheme,
+  contactsheet: ContactsheetTheme,
+  monograph: MonographTheme,
 };
 
 export function SiteRenderer({ site }: { site: SiteData }) {

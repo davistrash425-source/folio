@@ -35,7 +35,13 @@ export const LOOKS = [
 // Each theme draws the site with its own layout code. Classic is the flexible
 // one (colors, fonts and gallery styles are editable); the others decide how
 // the site looks and moves themselves, and only offer a few settings.
-export const THEMES = ["classic", "exhibition", "index", "filmstrip"] as const;
+export const THEMES = ["classic", "exhibition", "index", "filmstrip", "contactsheet", "monograph"] as const;
+// Themes only Pro accounts can use. A Free account's design falls back to
+// Classic (withoutProSettings).
+export const PRO_THEMES: readonly (typeof THEMES)[number][] = ["contactsheet", "monograph"];
+export const SHEET_PAPERS = ["light", "dark"] as const;
+export const SHEET_COLUMNS = [4, 6, 8] as const;
+export const BOOK_PAPERS = ["white", "cream", "black"] as const;
 export const WALLS = ["charcoal", "plaster", "oxblood", "forest"] as const;
 export const FILM_STOCKS = ["gold", "mono", "slide"] as const;
 export const INDEX_SORTS = ["manual", "newest", "location"] as const;
@@ -181,6 +187,11 @@ const DEFAULT_PRO = {
   filmstrip: { frameSize: "medium", border: "black", sprockets: true },
 } as const;
 
+const DEFAULT_PRO_THEMES = {
+  contactsheet: { paper: "light", columns: 6 },
+  monograph: { paper: "white", pageNumbers: true },
+} as const;
+
 // Settings for the creative themes. All of them are always stored, so
 // switching away from a theme and back keeps what was chosen.
 const themeSettingsSchema = z
@@ -221,6 +232,20 @@ const themeSettingsSchema = z
         .default(() => ({ ...DEFAULT_PRO.filmstrip }))
         .describe("Pro plan only; reset to the defaults for Free accounts"),
     }),
+    // The Pro themes' own settings. Defaulted, so designs saved before these
+    // themes existed still parse.
+    contactsheet: z
+      .object({
+        paper: z.enum(SHEET_PAPERS),
+        columns: z.union([z.literal(4), z.literal(6), z.literal(8)]).describe("Frames per row on large screens"),
+      })
+      .default(() => ({ ...DEFAULT_PRO_THEMES.contactsheet })),
+    monograph: z
+      .object({
+        paper: z.enum(BOOK_PAPERS),
+        pageNumbers: z.boolean().describe("A page number under each photo"),
+      })
+      .default(() => ({ ...DEFAULT_PRO_THEMES.monograph })),
   })
   .describe("Used only when that theme is chosen");
 
@@ -407,6 +432,8 @@ export function defaultThemeSettings(): ThemeSettings {
     exhibition: { wall: "charcoal", labels: "below", pro: { ...DEFAULT_PRO.exhibition } },
     index: { accent: "#e5322d", sort: "manual", pro: { ...DEFAULT_PRO.index } },
     filmstrip: { stock: "gold", frameNumbers: true, pro: { ...DEFAULT_PRO.filmstrip } },
+    contactsheet: { ...DEFAULT_PRO_THEMES.contactsheet },
+    monograph: { ...DEFAULT_PRO_THEMES.monograph },
   };
 }
 
@@ -416,7 +443,9 @@ export function withoutProSettings(design: SiteDesign): SiteDesign {
   const defaults = defaultThemeSettings();
   return {
     ...design,
+    theme: PRO_THEMES.includes(design.theme) ? "classic" : design.theme,
     themeSettings: {
+      ...design.themeSettings,
       exhibition: { ...design.themeSettings.exhibition, pro: defaults.exhibition.pro },
       index: { ...design.themeSettings.index, pro: defaults.index.pro },
       filmstrip: { ...design.themeSettings.filmstrip, pro: defaults.filmstrip.pro },

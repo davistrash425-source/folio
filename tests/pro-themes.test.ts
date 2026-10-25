@@ -4,7 +4,7 @@ import { beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
 import { publishDesign, saveDraftDesign } from "../app/actions/design.ts";
 import { updateUser } from "../lib/db.ts";
-import { defaultThemeSettings, presetDesign, readDesign, type SiteDesign } from "../lib/design.ts";
+import { PRO_THEMES, defaultThemeSettings, presetDesign, readDesign, type SiteDesign } from "../lib/design.ts";
 import { makeUser, resetRequest, signInAs } from "./helpers.ts";
 
 beforeEach(resetRequest);
@@ -15,6 +15,7 @@ function customised(): SiteDesign {
   return {
     ...d,
     themeSettings: {
+      ...d.themeSettings,
       exhibition: { wall: "forest", labels: "beside", pro: { frame: "black", printSize: "large", labelFont: "sans" } },
       index: { accent: "#0000ff", sort: "newest", pro: { rowSize: "large", titleCase: "upper", showYear: false } },
       filmstrip: { stock: "mono", frameNumbers: false, pro: { frameSize: "large", border: "none", sprockets: false } },
@@ -79,4 +80,50 @@ test("a design saved before the Pro settings existed still reads, with the defau
     },
   };
   assert.deepEqual(readDesign(old, "minimal"), d);
+});
+
+test("the Pro themes are only for Pro: a Free account's design falls back to Classic", async () => {
+  const alice = await makeUser("Alice");
+  await signInAs(alice);
+  for (const theme of PRO_THEMES) {
+    const saved = await saveDraftDesign({ ...presetDesign(theme), look: "editorial" });
+    assert.equal(saved.draft!.theme, "classic", `${theme} is not available on Free`);
+    assert.equal(saved.draft!.look, "editorial", "the Classic look is untouched");
+  }
+  const free = await saveDraftDesign(presetDesign("filmstrip"));
+  assert.equal(free.draft!.theme, "filmstrip", "the four free themes stay");
+});
+
+test("a Pro account can use the Pro themes and keeps their settings", async () => {
+  const alice = await makeUser("Alice");
+  await updateUser(alice.id, (u) => void (u.plan = "pro"));
+  await signInAs(alice);
+  const d = presetDesign("contactsheet");
+  const design = {
+    ...d,
+    themeSettings: { ...d.themeSettings, contactsheet: { paper: "dark", columns: 8 }, monograph: { paper: "black", pageNumbers: false } },
+  } as SiteDesign;
+  const published = await publishDesign(design);
+  assert.equal(published.published!.theme, "contactsheet");
+  assert.deepEqual(published.published!.themeSettings.contactsheet, { paper: "dark", columns: 8 });
+  assert.deepEqual(published.published!.themeSettings.monograph, { paper: "black", pageNumbers: false });
+});
+
+test("a site whose owner is no longer Pro can't publish a Pro theme", async () => {
+  const alice = await makeUser("Alice");
+  await updateUser(alice.id, (u) => void (u.plan = "pro"));
+  await signInAs(alice);
+  await saveDraftDesign(presetDesign("monograph"));
+  await updateUser(alice.id, (u) => void (u.plan = "free"));
+  const published = await publishDesign(presetDesign("monograph"));
+  assert.equal(published.published!.theme, "classic");
+});
+
+test("a bad Pro theme setting is refused", async () => {
+  const alice = await makeUser("Alice");
+  await updateUser(alice.id, (u) => void (u.plan = "pro"));
+  await signInAs(alice);
+  const d = presetDesign("contactsheet");
+  const bad = { ...d, themeSettings: { ...d.themeSettings, contactsheet: { paper: "light", columns: 5 } } };
+  assert.ok((await saveDraftDesign(bad)).error);
 });

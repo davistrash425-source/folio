@@ -30,6 +30,18 @@ export const THEME_INFO: Record<ThemeId, ThemeInfo> = {
     description: "A big typeset list of your work. Hover a line to see the photo; tap to open it.",
     customizable: false,
   },
+  contactsheet: {
+    name: "Contact sheet",
+    tagline: "Proof and pick",
+    description: "Your work as a photographer's proof sheet: rows of numbered frames you click to open. Folio Pro.",
+    customizable: false,
+  },
+  monograph: {
+    name: "Monograph",
+    tagline: "Turn the page",
+    description: "A photo book: one photo to a page with wide margins, captions and page numbers. Folio Pro.",
+    customizable: false,
+  },
   filmstrip: {
     name: "Film strip",
     tagline: "Frame by frame",
