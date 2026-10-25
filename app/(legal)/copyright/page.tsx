@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { STRIKE_LIMIT } from "@/lib/admin";
-import { OPERATOR_ADDRESS, OPERATOR_NAME } from "@/lib/legal";
+import { OPERATOR_ADDRESS, OPERATOR_NAME, dmcaAgentToShow } from "@/lib/legal";
 import { SUPPORT_EMAIL } from "@/lib/site";
 
 export const metadata = { title: "Copyright and takedowns — Folio" };
 
 export default function CopyrightPolicyPage() {
+  const agent = dmcaAgentToShow();
   return (
     <>
       <h1>Copyright and takedowns</h1>
@@ -27,10 +28,32 @@ export default function CopyrightPolicyPage() {
       <h2>Repeat infringers</h2>
       <p>Each upheld notice adds a strike to an account. At {STRIKE_LIMIT} strikes the account is closed.</p>
       <h2>Designated agent</h2>
-      <p>
-        Notices can also be sent to: <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>, or by post to{" "}
-        {OPERATOR_NAME}, {OPERATOR_ADDRESS}.
-      </p>
+      {agent ? (
+        <p>
+          {agent.name}
+          {agent.organization ? (
+            <>
+              <br />
+              {agent.organization}
+            </>
+          ) : null}
+          <br />
+          {agent.address}
+          {agent.phone ? (
+            <>
+              <br />
+              {agent.phone}
+            </>
+          ) : null}
+          <br />
+          <a href={`mailto:${agent.email}`}>{agent.email}</a>
+        </p>
+      ) : (
+        <p>
+          Notices can also be sent to: <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>, or by post to{" "}
+          {OPERATOR_NAME}, {OPERATOR_ADDRESS}.
+        </p>
+      )}
       <p>
         Other problems with a site? Use the <Link href="/report">general report form</Link>.
       </p>
