@@ -98,6 +98,7 @@ test("only admins can use the admin actions: others are sent to log in or told i
     releaseLegalHold: () => adminActions.releaseLegalHold(form({ userId: alice.id })),
     closeReport: () => adminActions.closeReport(form({ reportId, note: "hacked" })),
     reopenReport: () => adminActions.reopenReport(form({ reportId })),
+    setPlan: () => adminActions.setPlan(form({ userId: alice.id, plan: "pro" })),
     addRightsToOlderPhotos: () => adminActions.addRightsToOlderPhotos(),
     addAdminNote: () => adminActions.addAdminNote(form({ userId: alice.id, text: "hacked" })),
     signOutAccountEverywhere: () => adminActions.signOutAccountEverywhere(form({ userId: alice.id })),
