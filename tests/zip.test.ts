@@ -4,10 +4,10 @@ import { execFileSync } from "child_process";
 import { mkdtempSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import path from "path";
-import { createZip } from "../lib/zip.ts";
+import { createZip, zipChunks } from "../lib/zip.ts";
 
-test("createZip writes an archive other tools can read", () => {
-  const zip = createZip([
+test("createZip writes an archive other tools can read", async () => {
+  const zip = await createZip([
     { name: "account.json", data: Buffer.from('{"ok":true}') },
     { name: "photos/001.jpg", data: Buffer.alloc(1000, 7) },
   ]);
@@ -24,4 +24,22 @@ test("createZip writes an archive other tools can read", () => {
   const out = execFileSync("python", ["-I", "-c", script, file]).toString();
   assert.match(out, /account\.json,photos\/001\.jpg/);
   assert.match(out, /\{"ok":true\}/);
+});
+
+test("zipChunks asks for one file at a time and leaves out files that can't be read", async () => {
+  let open = 0;
+  let mostOpen = 0;
+  const file = (name: string, data: Buffer | null) => async () => {
+    mostOpen = Math.max(mostOpen, ++open);
+    open--;
+    return data && { name, data };
+  };
+  const chunks: Buffer[] = [];
+  for await (const chunk of zipChunks([file("a.txt", Buffer.from("a")), file("missing.jpg", null), file("b.txt", Buffer.from("b"))])) {
+    chunks.push(chunk);
+  }
+  const zip = Buffer.concat(chunks);
+  assert.equal(zip.readUInt16LE(zip.length - 12), 2, "two entries in the archive");
+  assert.equal(zip.includes(Buffer.from("missing.jpg")), false);
+  assert.equal(mostOpen, 1);
 });

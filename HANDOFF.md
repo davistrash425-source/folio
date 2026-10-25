@@ -1,6 +1,6 @@
 # Handoff
 
-**Status: Phase 3 in progress on branch `phase-3-launch` (cut from `phase-2-security`, which is still NOT merged to main).**
+**Status: Phase 3 code work is DONE (owner-only items remain); extra Phase 5 items done. Branch on branch `phase-3-launch` (cut from `phase-2-security`, which is still NOT merged to main).**
 
 **Goal:** Do Phase 3 (legal & launch, Free plan) from `docs/BACKLOG.md`, then keep going with the next backlog items. Owner is away: never block on them; skip items needing their input and move on. Owner gave full permission; still don't merge to main or touch production settings. Keep this file and the backlog ticks current.
 
@@ -14,10 +14,12 @@
 
 - Playwright browser test `tests/e2e/journey.spec.ts` (`npm run test:e2e`, config `playwright.config.ts`, dev server on port 3100) passes locally; added to CI after the smoke test (unverified on GitHub).
 
+- Phase 5 quick wins done: images decoded once (`lib/images.ts`), private changes (messages, legal hold, sign-out-everywhere) no longer clear the public cache, account export streams (`zipChunks`). "Send only each page's photos" was already true.
+
 ## In progress / next (code-only, no owner input)
 4. Update CLAUDE.md/README for plans + consent + legal pages.
 5. Phase 4 items that need no owner input (Pro limits are in lib/plans.ts already).
-Skip (needs owner): policy text/lawyer, photo domain on Cloudflare, 3 example sites.
+Remaining and skipped (needs owner or risky unattended): DB schema at deploy time (needs a real Neon check), fonts only on Folio pages (root-layout refactor), client galleries/payments (Phase 4), Terms/Privacy lawyer text, policy text/lawyer, photo domain on Cloudflare, 3 example sites.
 
 ## Decisions / gotchas
 - Some files are CRLF, some LF; edit with care (scripts must preserve endings).

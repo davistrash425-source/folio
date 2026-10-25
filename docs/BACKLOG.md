@@ -161,11 +161,11 @@ Every item in this doc, in the order you chose: design → security → legal �
 ### Phase 5 — Speed & scale (once real users arrive)
 
 - [ ] Split photos and inquiries into their own tables (short maintenance window)
-- [ ] Send only the photos each public page shows
-- [ ] Stop private changes clearing the public cache
+- [x] Send only the photos each public page shows (already true: only each page's own photos reach the browser, through its Lightbox props)
+- [x] Stop private changes clearing the public cache (drafts, messages, legal holds, sign-out-everywhere)
 - [ ] Run database setup at deploy time, not on cold starts
 - [x] Decode each image once (done); lower `limitInputPixels` (left as is: needs a real-world photo-size decision)
-- [ ] Stream the account export
+- [x] Stream the account export (lib/zip.ts zipChunks, one photo in memory at a time)
 - [ ] Load Folio's own fonts only on Folio's pages
 - [ ] Set up a staging copy (Vercel preview + Neon branch + separate R2 buckets)
 
