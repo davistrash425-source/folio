@@ -101,7 +101,7 @@ Each account has a `SiteDesign` object (`lib/design.ts`): theme, colors, fonts, 
 
 ## Themes
 
-A site is drawn by one of four themes, each with its own layout code in `app/sites/[subdomain]/themes/`. They all read the same content (pages, sections, photos, albums, captions, bio), so switching themes never loses anything.
+A site is drawn by one of six themes, each with its own layout code in `app/sites/[subdomain]/themes/`: four are free (Classic, Exhibition, Index, Film strip) and two are on Folio Pro (Contact sheet, Monograph). They all read the same content (pages, sections, photos, albums, captions, bio), so switching themes never loses anything.
 
 | Theme | What it is | Settings |
 | --- | --- | --- |
@@ -109,8 +109,10 @@ A site is drawn by one of four themes, each with its own layout code in `app/sit
 | **Exhibition** | A gallery wall: photos hang in one row you scroll sideways (one at a time, vertically, on phones) with museum wall labels | Wall color, label position |
 | **Index** | A big typeset list of the work; hover a line to see the photo (phones get thumbnails) | Highlight color, list order |
 | **Film strip** | Frames on strips of film with sprocket holes, edge print and frame numbers; text on taped paper notes | Film stock, frame numbers |
+| **Contact sheet** *(Pro)* | A photographer's proof sheet: rows of numbered frames on a sheet of paper you click to open | Paper (light/dark), frames per row |
+| **Monograph** *(Pro)* | A photo book: one photo to a page with wide margins, captions and page numbers | Paper (white/cream/black), page numbers on/off |
 
-- The three creative themes set their own layout, colors and fonts. The editor hides Classic's controls for them, and Classic's settings are kept for when you switch back.
+- The five creative themes set their own layout, colors and fonts. The editor hides Classic's controls for them (and locks the Pro themes on Free accounts), and Classic's settings are kept for when you switch back.
 - Classic's 17 looks (Minimal, Sepia Print, Polaroid…) are color, font and gallery presets, not separate layouts.
 - To add a theme: write a component that takes `{ site }`, register it in `renderer.tsx`, add it to `THEMES` in `lib/design.ts` (with settings in `themeSettingsSchema`) and to `lib/themes.ts`, and add a miniature to `ThemeArt` in the editor. Themes can use the helpers in `themes/shared.ts`: `currentPage`, `navItems`, `pageGalleries` (one lightbox for the whole page), `visibleSections`.
 - Fonts for the creative themes are in `themes/fonts.ts` with `preload: false`, so a site only downloads the fonts its theme uses.
