@@ -142,7 +142,7 @@ Every item in this doc, in the order you chose: design → security → legal �
 - [x] Terms & Privacy consent at sign-up (checkbox, User.termsAcceptedAt)
 - [ ] Photo domain: second domain on Cloudflare connected to R2; update `R2_PUBLIC_URL`
 - [ ] Build 3 polished example sites + "Made with Folio" section
-- [ ] Free plan limit: 150 photos (done, lib/plans.ts), one site, four themes, special themes locked
+- [x] Free plan limit: 150 photos (lib/plans.ts); one site (extra sites are admin-only) and the four themes with uneditable special themes already match Free
 - [ ] Browser tests for sign-up → upload → design → publish
 - [ ] Split `design-editor.tsx` and `editor.tsx` into smaller components
 - [ ] Update Folio.md and HANDOFF.md (package.json renamed to "folio": done)
