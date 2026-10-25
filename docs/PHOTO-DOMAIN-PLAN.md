@@ -1,6 +1,6 @@
 # Photo domain plan (owner to-do item 7)
 
-Written Oct 25, 2026. Nothing here has been done yet: no DNS, Cloudflare or Vercel setting was changed and no domain was bought.
+**Status: done Oct 26, 2026.** The owner bought `foliocdn.com` on Cloudflare (option a). `img.foliocdn.com` is connected to `folio-photos`, the cache rule uses an edge TTL of 1 day (not the month suggested below, to keep takedowns quick) and a browser TTL of 1 year, and `R2_PUBLIC_URL` is `https://img.foliocdn.com`. The old `r2.dev` address is still enabled; disabling it is optional (step 4). The text below is the original plan, written Oct 25, 2026, before any of it was done.
 
 ## What we found (read-only)
 
