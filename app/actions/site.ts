@@ -472,7 +472,7 @@ export async function sendInquiry(
       ...(photo ? { photoId: photo.id } : {}),
     });
     u.inquiries = u.inquiries.slice(0, 500);
-  });
+  }, { publicChange: false });
 
   try {
     await sendEmail({
@@ -493,7 +493,7 @@ export async function setInquiryRead(inquiryId: string, read: boolean) {
   await updateUser(userId, (u) => {
     const inquiry = u.inquiries?.find((i) => i.id === inquiryId);
     if (inquiry) inquiry.read = read;
-  });
+  }, { publicChange: false });
   revalidatePath("/dashboard", "layout");
 }
 
@@ -501,6 +501,6 @@ export async function deleteInquiry(inquiryId: string) {
   const userId = await currentUserId();
   await updateUser(userId, (u) => {
     u.inquiries = (u.inquiries ?? []).filter((i) => i.id !== inquiryId);
-  });
+  }, { publicChange: false });
   revalidatePath("/dashboard", "layout");
 }

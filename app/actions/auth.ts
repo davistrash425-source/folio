@@ -229,7 +229,7 @@ export async function signOutEverywhereElse(): Promise<FormState> {
   if (blocked) return { error: blocked };
   await updateUser(user.id, (u) => {
     u.sessionsValidFrom = Date.now();
-  });
+  }, { publicChange: false });
   await createSession(user.id);
   return { ok: "Signed out everywhere else." };
 }

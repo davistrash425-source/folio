@@ -202,7 +202,7 @@ export async function placeLegalHold(formData: FormData) {
   const note = str(formData, "note");
   await updateUser(user.id, (u) => {
     u.legalHold = { at: new Date().toISOString(), note };
-  });
+  }, { publicChange: false });
   await logAdminAction({
     adminEmail: admin.email,
     userId: user.id,
@@ -218,7 +218,7 @@ export async function releaseLegalHold(formData: FormData) {
   const user = await accountFrom(formData);
   await updateUser(user.id, (u) => {
     delete u.legalHold;
-  });
+  }, { publicChange: false });
   await logAdminAction({
     adminEmail: admin.email,
     userId: user.id,
