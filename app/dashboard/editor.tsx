@@ -4,7 +4,6 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  useActionState,
   useEffect,
   useEffectEvent,
   useRef,
@@ -17,7 +16,6 @@ import {
   deletePhoto,
   deletePhotos,
   reorderPhotos,
-  saveProfile,
   updatePhoto,
   updatePhotos,
   uploadPhotos,
@@ -38,7 +36,6 @@ import {
   photoType,
 } from "@/lib/compress-image";
 import { UploadError, finishDirect, sendDirect } from "@/lib/photo-upload";
-import type { User } from "@/lib/db";
 
 type UploadItem = {
   file: File; // as chosen, to try again with
@@ -828,73 +825,5 @@ function SmallButton({
     >
       {children}
     </button>
-  );
-}
-
-export function ProfileForm({ profile }: { profile: User["profile"] }) {
-  const [state, action, pending] = useActionState(saveProfile, {});
-
-  return (
-    <form action={action} className="grid gap-4 sm:grid-cols-2">
-      <Field label="Name">
-        <Input name="name" required defaultValue={profile.name} />
-      </Field>
-      <Field label="Location">
-        <Input name="location" defaultValue={profile.location} placeholder="Lisbon, Portugal" />
-      </Field>
-      <div className="sm:col-span-2">
-        <Field label="Bio">
-          <textarea
-            name="bio"
-            rows={4}
-            defaultValue={profile.bio}
-            placeholder="A few lines about you and your work."
-            className={inputClass}
-          />
-        </Field>
-      </div>
-      <div className="space-y-2 border border-rule bg-paper p-4 sm:col-span-2">
-        <Field label="Contact email" hint="Messages from your site's contact form are sent here.">
-          <Input name="contactEmail" type="email" defaultValue={profile.contactEmail} />
-        </Field>
-        {/* Hidden by default: it starts as the login email. */}
-        <label className="flex items-start gap-3 text-sm">
-          <input type="checkbox" name="showEmail" defaultChecked={Boolean(profile.showEmail)} className="mt-0.5 h-4 w-4" />
-          <span>
-            <span className="font-medium">Show this email on my site</span>
-            <span className="block text-ink-soft">Off: visitors reach you through the contact form only, and your address stays private.</span>
-          </span>
-        </label>
-      </div>
-      <Field label="Phone">
-        <Input name="phone" type="tel" defaultValue={profile.phone} />
-      </Field>
-      <Field label="Instagram">
-        <Input name="instagram" defaultValue={profile.social.instagram} placeholder="instagram.com/yourname" />
-      </Field>
-      <Field label="X / Twitter">
-        <Input name="twitter" defaultValue={profile.social.twitter} placeholder="x.com/yourname" />
-      </Field>
-      <Field label="Facebook">
-        <Input name="facebook" defaultValue={profile.social.facebook} placeholder="facebook.com/yourname" />
-      </Field>
-      <Field label="Website">
-        <Input name="website" defaultValue={profile.social.website} placeholder="yourname.com" />
-      </Field>
-      <div className="sm:col-span-2">
-        <Field label="Copyright line" hint="Shown at the bottom of your site, and saved inside the photos you upload from now on.">
-          <Input
-            name="copyrightLine"
-            maxLength={120}
-            defaultValue={profile.copyrightLine}
-            placeholder={`© ${profile.name || "Your Name"}. All rights reserved.`}
-          />
-        </Field>
-      </div>
-      <div className="flex items-center gap-3 sm:col-span-2">
-        <Button type="submit" disabled={pending}>{pending ? "Saving…" : "Save"}</Button>
-        <Message error={state.error} ok={state.ok} />
-      </div>
-    </form>
   );
 }

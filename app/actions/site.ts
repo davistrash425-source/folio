@@ -8,6 +8,7 @@ import { changeSubdomain, findUserBySubdomain, subdomainOnHold, updateUser, type
 import { impersonationBlock, requireUser } from "@/lib/auth";
 import { draftDesign, publishedDesign } from "@/lib/public-site";
 import { sendEmail } from "@/lib/email";
+import { cleanSocial, cleanWebsite } from "@/lib/social";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { ADDRESS_HOLD_MONTHS, appUrl, isLive, siteUrl, slugify, validateSlug, validateSubdomain } from "@/lib/site";
 import {
@@ -233,12 +234,6 @@ export async function setPublished(published: boolean) {
   revalidatePath("/dashboard", "layout");
 }
 
-function cleanUrl(value: FormDataEntryValue | null) {
-  const v = String(value ?? "").trim();
-  if (!v) return undefined;
-  return /^https?:\/\//i.test(v) ? v : `https://${v}`;
-}
-
 export async function saveProfile(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const userId = await currentUserId();
   const str = (key: string, max: number) => String(formData.get(key) ?? "").trim().slice(0, max);
@@ -254,6 +249,15 @@ export async function saveProfile(_prev: ActionState, formData: FormData): Promi
   const showEmail = formData.get("showEmail") === "on";
   if (showEmail && !contactEmail) return { error: "Add the email to show on your site, or turn off “Show on my site”." };
 
+  // Social fields take a handle or a link on the network's own domain.
+  const field = (key: string) => String(formData.get(key) ?? "");
+  const instagram = cleanSocial("instagram", field("instagram"));
+  const twitter = cleanSocial("twitter", field("twitter"));
+  const facebook = cleanSocial("facebook", field("facebook"));
+  const website = cleanWebsite(field("website"));
+  const badLink = [instagram, twitter, facebook, website].find((r) => r.error);
+  if (badLink) return { error: badLink.error };
+
   await updateUser(userId, (u) => {
     u.profile = {
       name,
@@ -263,10 +267,10 @@ export async function saveProfile(_prev: ActionState, formData: FormData): Promi
       phone: str("phone", 40),
       location: str("location", 80),
       social: {
-        instagram: cleanUrl(formData.get("instagram")),
-        twitter: cleanUrl(formData.get("twitter")),
-        facebook: cleanUrl(formData.get("facebook")),
-        website: cleanUrl(formData.get("website")),
+        instagram: instagram.value,
+        twitter: twitter.value,
+        facebook: facebook.value,
+        website: website.value,
       },
       copyrightLine: str("copyrightLine", 120).replace(/\s+/g, " "),
     };

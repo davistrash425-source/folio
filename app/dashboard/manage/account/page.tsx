@@ -1,8 +1,8 @@
+import Link from "next/link";
 import { Suspense } from "react";
 import { requireUser } from "@/lib/auth";
 import { managedSites } from "@/lib/db";
 import { ROOT_DOMAIN } from "@/lib/site";
-import { ProfileForm } from "../../editor";
 import { AccountSettings, AddressForm, AiTrainingForm } from "../../panels";
 import { Card, Loading, PageHeader } from "../section";
 
@@ -36,7 +36,11 @@ async function Account({ searchParams }: { searchParams: PageProps<"/dashboard/m
         <AddressForm subdomain={user.subdomain} domain={ROOT_DOMAIN} />
       </Card>
       <Card title="About you" subtitle="Your name, bio and contact details, shown on your site.">
-        <ProfileForm profile={user.profile} />
+        <p className="text-sm">
+          <Link href="/dashboard/manage/design" className="underline underline-offset-4">
+            Edit your name, bio and contact details in Web design → About you
+          </Link>
+        </p>
       </Card>
       <Card title="AI training" subtitle="Whether AI companies may collect your site and photos.">
         <AiTrainingForm blocked={!user.allowAiTraining} />
@@ -48,7 +52,7 @@ async function Account({ searchParams }: { searchParams: PageProps<"/dashboard/m
       ) : (
         <Card title="Account" subtitle={`Signed in as ${user.email}.`}>
           <AccountSettings
-            extraSites={(await managedSites(user.id)).length}
+            otherSites={(await managedSites(user.id)).map((s) => s.subdomain)}
             hasPassword={Boolean(user.passwordHash)}
             address={user.subdomain}
           />

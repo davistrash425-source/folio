@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 import { requireUser } from "@/lib/auth";
 import { sameDesign } from "@/lib/design";
+import { qualityChecks } from "@/lib/readiness";
 import { draftDesign, publishedDesign } from "@/lib/public-site";
 import { isLive, isPublished, siteUrl, SUPPORT_EMAIL } from "@/lib/site";
 import { PublishToggle } from "../../panels";
@@ -40,6 +41,16 @@ async function Publish() {
           <Check done={Boolean(user.emailVerified)} label={user.emailVerified ? "Email confirmed" : "Confirm your email address"}>
             {!user.emailVerified && <span className="text-ink-soft">Open the link we emailed you</span>}
           </Check>
+        </ul>
+      </Card>
+
+      <Card title="Worth doing" subtitle="Optional. None of these stop you going live.">
+        <ul className="divide-y divide-rule border-y border-rule">
+          {qualityChecks(user).map((c) => (
+            <Check key={c.id} done={c.done} label={c.label}>
+              {!c.done && <StepLink href={c.href}>{c.fix}</StepLink>}
+            </Check>
+          ))}
         </ul>
       </Card>
 

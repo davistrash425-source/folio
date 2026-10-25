@@ -98,37 +98,46 @@ export function SiteSwitcher({ current, sites }: { current: string; sites: SiteC
   );
 }
 
-const TABS = [
-  { href: "/dashboard/manage", label: "Manage website" },
-  { href: "/dashboard/preview", label: "Preview website" },
-];
+// The preview button's default wording; the layout passes the real one
+// ("Preview draft" or "Preview live site") once it has read the account.
+const DEFAULT_PREVIEW_LABEL = "Preview website";
 
 // Reading the URL needs a Suspense boundary; the *View versions render the
 // same links without it (nothing highlighted) as the fallback.
-export function DashboardTabs() {
-  return <DashboardTabsView pathname={usePathname()} />;
+export function DashboardTabs({ previewLabel }: { previewLabel?: string }) {
+  return <DashboardTabsView pathname={usePathname()} previewLabel={previewLabel} />;
 }
 
-export function DashboardTabsView({ pathname }: { pathname: string }) {
+export function DashboardTabsView({ pathname, previewLabel = DEFAULT_PREVIEW_LABEL }: { pathname: string; previewLabel?: string }) {
+  const managing = pathname.startsWith("/dashboard/manage");
+  const previewing = pathname.startsWith("/dashboard/preview");
   return (
     <nav aria-label="Dashboard">
-      <ul className="flex gap-6">
-        {TABS.map((tab) => {
-          const active = pathname.startsWith(tab.href);
-          return (
-            <li key={tab.href}>
-              <Link
-                href={tab.href === "/dashboard/manage" ? "/dashboard/manage/photos" : tab.href}
-                aria-current={active ? "page" : undefined}
-                className={`block border-b-2 py-4 text-sm font-medium transition-colors ${
-                  active ? "border-accent text-ink" : "border-transparent text-ink-soft hover:text-ink"
-                }`}
-              >
-                {tab.label}
-              </Link>
-            </li>
-          );
-        })}
+      <ul className="flex items-center gap-6">
+        <li>
+          <Link
+            href="/dashboard/manage/photos"
+            aria-current={managing ? "page" : undefined}
+            className={`block border-b-2 py-4 text-sm font-medium transition-colors ${
+              managing ? "border-accent text-ink" : "border-transparent text-ink-soft hover:text-ink"
+            }`}
+          >
+            Manage website
+          </Link>
+        </li>
+        <li>
+          {/* A button rather than a tab: it opens the site as visitors would
+              see it, and says whether that's the draft or the live site. */}
+          <Link
+            href="/dashboard/preview"
+            aria-current={previewing ? "page" : undefined}
+            className={`block border px-3 py-1.5 text-sm font-medium transition-colors ${
+              previewing ? "border-ink bg-ink text-paper" : "border-ink text-ink hover:bg-ink hover:text-paper"
+            }`}
+          >
+            {previewLabel}
+          </Link>
+        </li>
       </ul>
     </nav>
   );

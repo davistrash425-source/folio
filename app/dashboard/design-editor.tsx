@@ -34,6 +34,8 @@ import { TEMPLATES } from "@/lib/templates";
 import { THEME_INFO } from "@/lib/themes";
 import { DevicePreview, DeviceButtons, type Device } from "./device-preview";
 import { countChanges } from "./design/changes";
+import { ProfileForm } from "./profile-form";
+import type { User } from "@/lib/db";
 
 export type EditorPhoto = { id: string; src: string; srcSet?: string; description: string; location: string };
 export type EditorAlbum = { id: string; slug: string; title: string; photoCount: number };
@@ -71,6 +73,7 @@ export function DesignEditor(props: {
   photos: EditorPhoto[];
   albums: EditorAlbum[];
   profile: Profile;
+  fullProfile: User["profile"]; // for the "About you" form
 }) {
   const [design, setDesign] = useState(props.draft); // what's on screen
   const [saved, setSaved] = useState(props.draft); // the stored draft
@@ -475,6 +478,14 @@ export function DesignEditor(props: {
             </label>
             <p className="text-xs text-ink-soft">Each album has its own page. Link to them with an “Album links” section, or show one album with a Gallery section.</p>
           </Group>
+
+          {/* Saved on its own (not part of the draft design), so it shows on the live site once saved. */}
+          <Group title="About you">
+            <p className="text-sm text-ink-soft">
+              Your name, bio and contact details. Saving here updates your site straight away; it isn’t part of the draft below.
+            </p>
+            <ProfileForm profile={props.fullProfile} compact />
+          </Group>
         </div>
 
         {/* Beside the controls on large screens; pinned to the bottom below that, and can be hidden. */}
@@ -808,7 +819,7 @@ function SectionSettings({ section, photos, albums, classic, defaults, onChange 
               className={`mt-1 ${inputClass}`}
             />
           </label>
-          <p className="text-xs text-ink-soft">Leave it empty to use the bio from your Account page{defaults.bio ? " (shown in grey)" : ""}.</p>
+          <p className="text-xs text-ink-soft">Leave it empty to use the bio from “About you” below{defaults.bio ? " (shown in grey)" : ""}.</p>
         </>
       );
     case "albums":

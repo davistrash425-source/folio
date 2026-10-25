@@ -58,15 +58,15 @@ Every item in this doc, in the order you chose: design → security → legal �
 - [x] Move "Take offline" out of the header; put "View site ↗" / "Publish" there
 - [x] Slim the pinned header (about 180 px today)
 - [x] Put "Log out" in an account menu
-- [ ] Keep the header the same on every page
+- [x] Keep the header the same on every page
 - [x] Stop the step strip scrolling sideways; collapse it on narrow widths
 - [x] ✓ on finished steps + "2 of 5 done"
 - [x] Send new users to Upload (step 1)
-- [ ] Make "Preview website" a button labelled draft or live
+- [x] Make "Preview website" a button labelled draft or live
 - [x] Site switcher closes on outside click and works with arrow keys
 - [x] Unmissable "verify your email" banner
 - [x] Replace browser `confirm()` pop-ups with Folio dialogs or undo toasts
-- [ ] Dashboard works well on laptop, tablet and phone
+- [ ] Dashboard works well on laptop, tablet and phone (built responsive; still needs a hands-on check on real devices)
 
 **Photos & albums**
 
@@ -95,14 +95,14 @@ Every item in this doc, in the order you chose: design → security → legal �
 
 - [x] New sites start as drafts
 - [ ] Reminder email if a site is still a draft after a few days (needs Vercel Cron, Phase 2)
-- [ ] Optional quality checks on Go live: captions, About text, contact details
+- [x] Optional quality checks on Go live: captions, About text, contact details
 - [x] "Take offline" shown once, on Go live only
-- [ ] Move name, bio and contact details into Web design (About page)
+- [x] Move name, bio and contact details into Web design (About page)
 - [x] Contact email hidden by default, with a prominent switch to make it public
-- [ ] Validate social links (Instagram handle, not any URL)
-- [ ] "Change address" as a secondary button with an old → new confirm
-- [ ] Name the "other site" in the delete-account warning
-- [ ] Better Messages empty state
+- [x] Validate social links (Instagram handle, not any URL)
+- [x] "Change address" as a secondary button with an old → new confirm
+- [x] Name the "other site" in the delete-account warning
+- [x] Better Messages empty state
 
 **Public sites & lightbox**
 
@@ -262,11 +262,11 @@ Every item in this doc, in the order you chose: design → security → legal �
 - [x] Move "Take offline" out of the header (it's on every page); put "View site ↗" or "Publish" there instead.
 - [x] Slim the pinned header: logo bar, site row, a lone "Log out" row and the step strip take about 180 px.
 - [x] Put "Log out" in an account menu instead of its own line.
-- [ ] Keep the header the same on every page (the site switcher disappears on Account).
+- [x] Keep the header the same on every page (the site switcher disappears on Account).
 - [x] Stop the step strip scrolling sideways with a visible scrollbar at narrower widths; collapse to numbers or a select.
 - [x] Show ✓ on finished steps and "2 of 5 done".
 - [x] Send new users to Upload (step 1), not the empty All photos page.
-- [ ] Turn the "Preview website" tab into a button, and label whether it shows the draft or the live site.
+- [x] Turn the "Preview website" tab into a button, and label whether it shows the draft or the live site.
 - [x] Make the site switcher close on outside click and work with arrow keys.
 - [x] Show an unmissable "verify your email" banner until verified.
 - [x] Replace browser `confirm()` pop-ups with Folio dialogs, or undo toasts ("Photo deleted · Undo").
@@ -298,19 +298,19 @@ Every item in this doc, in the order you chose: design → security → legal �
 
 **Go live**
 
-- [ ] Add optional quality checks: captions, About text, contact details (all 21 photos are uncaptioned but the checklist is all ✓).
+- [x] Add optional quality checks: captions, About text, contact details (all 21 photos are uncaptioned but the checklist is all ✓).
 - [x] Show "Take offline" once on this page only.
 
 **Account**
 
-- [ ] Move name, bio and contact details next to the About page in Web design, away from "Delete account".
-- [ ] Validate social fields: take an Instagram handle (`@davif`) and build the link; reject non-Instagram URLs (currently `https://davif.photos` is accepted).
-- [ ] Make "Change address" a secondary button with a confirm dialog showing old → new address.
-- [ ] Name the "other site" in the delete-account warning.
+- [x] Move name, bio and contact details next to the About page in Web design, away from "Delete account".
+- [x] Validate social fields: take an Instagram handle (`@davif`) and build the link; reject non-Instagram URLs (currently `https://davif.photos` is accepted).
+- [x] Make "Change address" a secondary button with a confirm dialog showing old → new address.
+- [x] Name the "other site" in the delete-account warning.
 
 **Messages**
 
-- [ ] Better empty state: link to the contact form on the live site and show what an inquiry looks like.
+- [x] Better empty state: link to the contact form on the live site and show what an inquiry looks like.
 
 ## Public sites & lightbox
 

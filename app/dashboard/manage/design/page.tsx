@@ -34,6 +34,7 @@ async function Editor() {
       })}
       albums={(user.albums ?? []).map((a) => ({ id: a.id, slug: a.slug, title: a.title, photoCount: a.photoIds.length }))}
       profile={{ name: user.profile.name, location: user.profile.location, bio: user.profile.bio }}
+      fullProfile={user.profile}
     />
   );
 }

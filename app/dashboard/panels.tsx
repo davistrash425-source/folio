@@ -1,11 +1,12 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useRef, useState, useTransition } from "react";
 import { deleteAccount, resendVerification, signOutEverywhereElse, type FormState } from "@/app/actions/auth";
 import { changeAddress, deleteInquiry, saveAiTraining, setInquiryRead, setPublished } from "@/app/actions/site";
 import { createSite } from "@/app/actions/sites";
 import { Button, Field, Input, Message, buttonClass, secondaryButtonClass } from "@/app/ui/form";
 import { ConfirmButton } from "@/app/ui/confirm";
+import { Dialog } from "@/app/ui/dialog";
 import type { Inquiry } from "@/lib/db";
 
 export function PublishToggle({ published }: { published: boolean }) {
@@ -186,17 +187,73 @@ function AddressInput({ defaultValue, domain }: { defaultValue: string; domain: 
 
 export function AddressForm({ subdomain, domain }: { subdomain: string; domain: string }) {
   const [state, action, pending] = useActionState(changeAddress, {});
+  const formRef = useRef<HTMLFormElement>(null);
+  const confirmed = useRef(false);
+  // The new address waiting for a yes, shown as old -> new.
+  const [asking, setAsking] = useState<string | null>(null);
+  const [same, setSame] = useState(false);
+  const typed = () => String(new FormData(formRef.current!).get("subdomain") ?? "").trim().toLowerCase();
+
   return (
-    <form action={action} className="space-y-3">
+    <form
+      ref={formRef}
+      action={action}
+      onSubmit={(e) => {
+        // Moving the site needs a deliberate second click, whichever way it's submitted.
+        if (confirmed.current) {
+          confirmed.current = false;
+          return;
+        }
+        e.preventDefault();
+        const next = typed();
+        setSame(next === subdomain);
+        if (next && next !== subdomain) setAsking(next);
+      }}
+      className="space-y-3"
+    >
       <AddressInput defaultValue={subdomain} domain={domain} />
       <p className="text-sm text-ink-soft">
         Your site moves to the new address straight away, and the old one stops working, so update any links you’ve
         shared. Nobody else can take your old address for a year, and you can move back to it.
       </p>
       <div className="flex items-center gap-3">
-        <Button type="submit" disabled={pending}>{pending ? "Saving…" : "Change address"}</Button>
-        <Message error={state.error} ok={state.ok} />
+        <button type="submit" disabled={pending} className={secondaryButtonClass}>
+          {pending ? "Saving…" : "Change address…"}
+        </button>
+        <Message error={state.error ?? (same ? "That’s already your address." : undefined)} ok={state.ok} />
       </div>
+      {asking && (
+        <Dialog title="Move your site?" onClose={() => setAsking(null)}>
+          <div className="space-y-4">
+            <p className="break-all text-sm">
+              <span className="text-ink-soft line-through">{subdomain}.{domain}</span>
+              <span aria-hidden="true" className="px-2">→</span>
+              <span className="sr-only"> becomes </span>
+              <span className="font-medium">{asking}.{domain}</span>
+            </p>
+            <p className="text-sm text-ink-soft">
+              The old address stops working straight away, so update any links you’ve shared. You can move back to it
+              later; nobody else can take it for a year.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                className={buttonClass}
+                onClick={() => {
+                  confirmed.current = true;
+                  setAsking(null);
+                  formRef.current?.requestSubmit();
+                }}
+              >
+                Move my site
+              </button>
+              <button type="button" onClick={() => setAsking(null)} className="h-10 px-4 text-sm hover:bg-ink/5">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </Dialog>
+      )}
     </form>
   );
 }
@@ -227,12 +284,12 @@ export function NewSiteForm({ domain }: { domain: string }) {
 // Google-only account (no password) is also deleted by typing its address.
 export function AccountSettings({
   extraSite,
-  extraSites = 0,
+  otherSites = [],
   hasPassword = true,
   address,
 }: {
   extraSite?: string;
-  extraSites?: number;
+  otherSites?: string[]; // addresses of the admin's extra sites, deleted along with the account
   hasPassword?: boolean;
   address?: string;
 }) {
@@ -255,9 +312,9 @@ export function AccountSettings({
         <h3 className="font-medium text-accent">{extraSite ? "Delete this site" : "Delete account"}</h3>
         <p className="mb-3 text-sm text-ink-soft">
           {extraSite
-            ? "Permanently deletes this site, its photos and messages. Your other sites stay. This can’t be undone."
-            : `Permanently deletes your site, photos and messages${
-                extraSites ? `, and your ${extraSites === 1 ? "other site" : `${extraSites} other sites`}` : ""
+            ? `Permanently deletes ${extraSite}, its photos and messages. Your other sites stay. This can’t be undone.`
+            : `Permanently deletes ${address ?? "your site"}, its photos and messages${
+                otherSites.length ? `, and your ${otherSites.length === 1 ? "other site" : "other sites"}: ${otherSites.join(", ")}` : ""
               }. This can’t be undone.`}
         </p>
         {confirming ? (

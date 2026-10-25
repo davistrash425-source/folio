@@ -4,6 +4,7 @@ import { logout } from "@/app/actions/auth";
 import { currentAdmin, requireUser } from "@/lib/auth";
 import { managedSites } from "@/lib/db";
 import { isLive, isPublished, siteUrl } from "@/lib/site";
+import { previewLabel } from "@/lib/steps";
 import { ImpersonationBanner } from "./impersonation-banner";
 import { DashboardTabs, DashboardTabsView, SiteSwitcher, StickyBar } from "./nav";
 
@@ -18,7 +19,7 @@ export default function DashboardLayout({ children }: LayoutProps<"/dashboard">)
           <header className="sticky top-0 z-40 flex items-center gap-x-6 border-b border-ink bg-paper px-6 md:static md:flex-wrap md:gap-x-10 md:border-0 md:bg-transparent md:px-0">
             <Link href="/dashboard/manage/photos" className="font-display text-2xl italic">Folio</Link>
             <Suspense fallback={<DashboardTabsView pathname="" />}>
-              <DashboardTabs />
+              <Tabs />
             </Suspense>
           </header>
           <div className="flex flex-wrap items-center gap-4 border-b border-rule px-6 py-2 text-sm md:border-0 md:px-0">
@@ -36,6 +37,12 @@ export default function DashboardLayout({ children }: LayoutProps<"/dashboard">)
       <ImpersonationBanner />
     </div>
   );
+}
+
+// The tabs, with the preview button worded for this account's state.
+async function Tabs() {
+  const user = await requireUser();
+  return <DashboardTabs previewLabel={previewLabel(user)} />;
 }
 
 // Admins can have several sites; this menu switches between them.

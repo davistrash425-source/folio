@@ -1,6 +1,6 @@
 # Handoff
 
-**Status: Phase 1 (design polish) IN PROGRESS — branch `phase-1-round-1`, NOT committed/pushed. Rounds 1–2 done & tested; Round 3 done; Rounds 4–5 done too; waiting on a browser check and the owner's go-ahead to commit.**
+**Status: Phase 1 (design polish) IN PROGRESS — branch `phase-1-round-1`, NOT committed/pushed. Rounds 1–2 done & tested; Round 3 done; Rounds 1–6 and the admin expansion are built; Phase 1 and admin are on main. Round 6 is uncommitted.**
 
 **Goal:** Ship Phase 1 from `docs/BACKLOG.md` in five rounds — (1) landing/sign-up, (2) dashboard nav, (3) photos/albums, (4) design editor, (5) public sites/lightbox. Work on branch `phase-1-round-1`; commit only when the owner asks, ask before pushing.
 
@@ -39,10 +39,17 @@
 - "Log in as this user": full admins only, typed reason, 30 min, separate signed `impersonate` cookie, red banner with Stop, blocked for delete/address/sign-out/resend/export; logged as `impersonation-started/ended`. Details in CLAUDE.md. New account-changing actions must call `impersonationBlock()`.
 - Checks passed: tsc, lint, 348 tests, build. Not yet seen in a browser.
 
+## Round 6 (done, uncommitted on top of main fde616c)
+- Header: `app/dashboard/layout.tsx` already wraps every page, so nothing disappears on Account. Top tab is now a button reading "Preview draft" / "Preview live site" (`previewLabel` in `lib/steps.ts`).
+- Go live page has an optional "Worth doing" card (`lib/readiness.ts`, `tests/readiness.test.ts`); fix links point to Web design. Messages empty state explains and links to the contact form.
+- "About you" (name, bio, contact, socials, copyright) moved into the design editor (`app/dashboard/profile-form.tsx`); Account page just links to it. Social links validated in `lib/social.ts` (Instagram/X/Facebook handle or own-domain link, stored canonical; Website any http(s)). Change address has an old → new dialog. Delete warning names other sites.
+- Checks passed: tsc, lint, 360 tests, build. Nothing seen in a browser yet.
+
 ## Still to do
-- Look at everything in a browser (nothing visual verified yet), especially: photo drawer autosave, design editor bottom preview on a phone, lightbox swipe/back button, offline page.
-- Left from Round 2: make "Preview website" a labelled draft/live button; same header on every page.
-- Owner decides when to commit/push (branch `phase-1-round-1`; nothing committed).
+- Hands-on browser pass (laptop, tablet, phone): nothing from Phase 1 or the admin work has been seen visually. Test photo upload on folio.cam (it failed on the vercel.app preview, probably R2 CORS).
+- Known small issues: saving "About you" doesn't refresh the design preview until reload; an old non-Instagram link in the Instagram field blocks saving the profile until fixed; the old empty-state text in `Inbox` (`panels.tsx`) is unreachable.
+- Waiting on the owner: theme demo sites + "Made with Folio"; footer Terms/Privacy (Phase 3 legal) and Instagram account. Reminder email for drafts needs Vercel Cron (Phase 2).
+- Next phase: Phase 2 security (see docs/BACKLOG.md). Ask the owner before pushing; commit only when asked.
 
 ## Gotchas for a fresh session
 - Environment was fixed: ran `npm install` (missing `@sentry/nextjs`) and `rm -rf .next/dev` (stale `folio-plus` route types). If tsc complains about `.next/dev/types/validator.ts`, delete `.next/dev` and `npx next typegen`.
