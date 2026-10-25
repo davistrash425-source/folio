@@ -14,6 +14,15 @@ export function findGallery(user: Pick<User, "galleries">, slugOrId: string) {
   return user.galleries?.find((g) => g.slug === slugOrId || g.id === slugOrId);
 }
 
+// The link stops working after the end of the day in expiresAt (UTC).
+export function galleryExpired(gallery: Pick<ClientGallery, "expiresAt">, now = Date.now()) {
+  if (!gallery.expiresAt) return false;
+  return now >= Date.parse(`${gallery.expiresAt}T00:00:00Z`) + 24 * 60 * 60 * 1000;
+}
+
+export const validExpiryDate = (value: string) =>
+  /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`)) && new Date(`${value}T00:00:00Z`).toISOString().startsWith(value);
+
 // A gallery's photos that still exist and haven't been taken down.
 export function galleryPhotos(user: Pick<User, "photos">, gallery: Pick<ClientGallery, "photoIds">) {
   const byId = new Map(user.photos.filter((p) => !p.removed).map((p) => [p.id, p]));

@@ -6,10 +6,12 @@ import { randomUUID } from "crypto";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { findUserBySubdomain, updateUser } from "@/lib/db";
-import { MIN_GALLERY_PASSWORD, findGallery, newGallerySlug } from "@/lib/galleries";
+import { sendEmail } from "@/lib/email";
+import { MIN_GALLERY_PASSWORD, findGallery, galleryExpired, galleryPhotos, newGallerySlug, validExpiryDate } from "@/lib/galleries";
 import { galleryLimit } from "@/lib/plans";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
-import { grantGalleryAccess, hashPassword, verifyPassword } from "@/lib/session";
+import { siteUrl } from "@/lib/site";
+import { grantGalleryAccess, hasGalleryAccess, hashPassword, verifyPassword } from "@/lib/session";
 import { MAX_PHOTOS } from "@/lib/uploads";
 
 export type GalleryState = { error?: string; ok?: string };
@@ -54,8 +56,10 @@ export async function updateGallery(id: string, _prev: GalleryState, formData: F
   const user = await requireUser();
   const title = String(formData.get("title") ?? "").trim().slice(0, 80);
   const password = String(formData.get("password") ?? "");
+  const expires = String(formData.get("expires") ?? "").trim();
   if (!title) return { error: "Give the gallery a name." };
   if (password && password.length < MIN_GALLERY_PASSWORD) return { error: PASSWORD_TOO_SHORT };
+  if (expires && !validExpiryDate(expires)) return { error: "That expiry date isn't valid." };
   const passwordHash = password ? await hashPassword(password) : "";
   let found = false;
   await updateUser(
@@ -65,6 +69,8 @@ export async function updateGallery(id: string, _prev: GalleryState, formData: F
       if (!gallery) return;
       found = true;
       gallery.title = title;
+      if (expires) gallery.expiresAt = expires;
+      else delete gallery.expiresAt;
       if (passwordHash) gallery.passwordHash = passwordHash;
     },
     PRIVATE,
@@ -95,6 +101,34 @@ export async function setGalleryPhotos(id: string, photoIds: string[]): Promise<
   if (!found) return { error: "That gallery no longer exists." };
   refresh();
   return { ok: "Saved." };
+}
+
+// Sends the gallery link to a client. The password is never in the email: the
+// photographer gives it separately, so the mailbox alone isn't enough.
+export async function emailGalleryLink(id: string, _prev: GalleryState, formData: FormData): Promise<GalleryState> {
+  const user = await requireUser();
+  const to = String(formData.get("email") ?? "").trim();
+  const note = String(formData.get("note") ?? "").trim().slice(0, 1000);
+  if (!z.email().safeParse(to).success) return { error: "Enter your client's email address." };
+  const gallery = findGallery(user, id);
+  if (!gallery) return { error: "That gallery no longer exists." };
+  if (!(await rateLimit(`gallery-email:${user.id}`, 20, 60 * 60 * 1000))) {
+    return { error: "You've sent a lot of emails. Try again in an hour." };
+  }
+  const link = `${siteUrl(user.subdomain)}/g/${gallery.slug}`;
+  const lines = [
+    `${user.profile.name || "Your photographer"} has shared a private photo gallery with you: ${gallery.title}.`,
+    note,
+    `Open it here: ${link}`,
+    "You'll need the password, which they will send you separately.",
+    gallery.expiresAt ? `The link works until ${gallery.expiresAt}.` : "",
+  ].filter(Boolean);
+  try {
+    await sendEmail({ to, subject: `${gallery.title}: your photos`, text: lines.join("\n\n"), replyTo: user.email });
+  } catch {
+    return { error: "The email couldn't be sent. Try again in a moment." };
+  }
+  return { ok: `Sent to ${to}. Remember to give them the password.` };
 }
 
 export async function deleteGallery(id: string): Promise<GalleryState> {
@@ -132,10 +166,45 @@ export async function unlockGallery(
     return { error: "Too many tries. Wait a few minutes and try again." };
   }
   const owner = await findUserBySubdomain(subdomain);
-  const gallery = owner && !owner.suspended && owner.emailVerified ? findGallery(owner, slug) : undefined;
+  const found = owner && !owner.suspended && owner.emailVerified ? findGallery(owner, slug) : undefined;
+  const gallery = found && !galleryExpired(found) ? found : undefined;
   // Takes the same time whether or not there is such a gallery.
   const ok = await verifyPassword(password, gallery?.passwordHash ?? "");
   if (!gallery || !ok) return { error: WRONG };
   await grantGalleryAccess(gallery.id, gallery.passwordHash);
   redirect(`/g/${gallery.slug}`);
+}
+
+// A client hearts or un-hearts a photo. Needs the same cookie as viewing the
+// gallery, and only photos in the gallery count.
+export async function toggleFavourite(subdomain: string, slug: string, photoId: string): Promise<{ error?: string; favourites?: string[] }> {
+  const ip = await clientIp();
+  if (!(await rateLimit(`gallery-fav:${ip}:${subdomain}:${slug}`.slice(0, 200), 120, 15 * 60 * 1000))) {
+    return { error: "Too many changes. Wait a few minutes." };
+  }
+  const owner = await findUserBySubdomain(subdomain);
+  const gallery = owner && !owner.suspended && owner.emailVerified ? findGallery(owner, slug) : undefined;
+  if (!owner || !gallery || galleryExpired(gallery) || !(await hasGalleryAccess(gallery.id, gallery.passwordHash))) {
+    return { error: "This gallery isn't available." };
+  }
+  let favourites: string[] = [];
+  let missing = false;
+  await updateUser(
+    owner.id,
+    (u) => {
+      const g = findGallery(u, slug);
+      if (!g) return;
+      if (!galleryPhotos(u, g).some((p) => p.id === photoId)) {
+        missing = true;
+        return;
+      }
+      const current = new Set(g.favouriteIds ?? []);
+      if (!current.delete(photoId)) current.add(photoId);
+      g.favouriteIds = [...current];
+      favourites = g.favouriteIds;
+    },
+    PRIVATE,
+  );
+  if (missing) return { error: "That photo isn't in this gallery." };
+  return { favourites };
 }

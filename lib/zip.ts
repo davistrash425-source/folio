@@ -60,6 +60,28 @@ export async function* zipChunks(files: Iterable<() => Promise<ZipFile | null>>)
   yield end;
 }
 
+// The archive as a download that streams while it is built.
+export function zipResponse(files: Iterable<() => Promise<ZipFile | null>>, filename: string) {
+  const chunks = zipChunks(files);
+  const body = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      const { value, done } = await chunks.next();
+      if (done) controller.close();
+      else controller.enqueue(new Uint8Array(value));
+    },
+    async cancel() {
+      await chunks.return(undefined);
+    },
+  });
+  return new Response(body, {
+    headers: {
+      "Content-Type": "application/zip",
+      "Content-Disposition": `attachment; filename="${filename}"`,
+      "Cache-Control": "no-store",
+    },
+  });
+}
+
 // The whole archive at once, for small sets of files.
 export async function createZip(files: ZipFile[]) {
   const chunks: Buffer[] = [];

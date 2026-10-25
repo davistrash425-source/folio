@@ -60,6 +60,8 @@ export type ClientGallery = {
   passwordHash: string;
   photoIds: string[]; // from the photo library, in display order
   createdAt: string;
+  expiresAt?: string; // last day the link works, "YYYY-MM-DD" (UTC); none = never
+  favouriteIds?: string[]; // photos the client hearted
 };
 
 export type Inquiry = {

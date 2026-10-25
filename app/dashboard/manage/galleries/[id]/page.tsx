@@ -2,10 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { requireUser } from "@/lib/auth";
-import { findGallery } from "@/lib/galleries";
+import { findGallery, galleryExpired, galleryPhotos } from "@/lib/galleries";
 import { siteUrl } from "@/lib/site";
 import { photoSource } from "@/lib/uploads";
-import { DeleteGalleryButton, GalleryDetailsForm, GalleryPhotos } from "../../../galleries";
+import { DeleteGalleryButton, EmailLinkForm, GalleryDetailsForm, GalleryPhotos } from "../../../galleries";
 import { Card, Loading } from "../../section";
 
 export const metadata = { title: "Client gallery — Folio" };
@@ -32,6 +32,8 @@ async function Gallery({ params }: { params: PageProps<"/dashboard/manage/galler
       const src = photoSource(user.id, p);
       return { id: p.id, src: src.src, srcSet: src.srcSet, description: p.description ?? "", location: p.location ?? "" };
     });
+  const chosen = new Set(gallery.favouriteIds ?? []);
+  const favourites = galleryPhotos(user, gallery).filter((p) => chosen.has(p.id)).map((p) => photoSource(user.id, p));
   const link = `${siteUrl(user.subdomain)}/g/${gallery.slug}`;
   return (
     <>
@@ -46,7 +48,29 @@ async function Gallery({ params }: { params: PageProps<"/dashboard/manage/galler
         <DeleteGalleryButton galleryId={gallery.id} title={gallery.title} />
       </div>
       <Card title="Details">
-        <GalleryDetailsForm gallery={{ id: gallery.id, title: gallery.title }} />
+        <GalleryDetailsForm gallery={{ id: gallery.id, title: gallery.title, expiresAt: gallery.expiresAt }} />
+      </Card>
+      {galleryExpired(gallery) && (
+        <p className="border-l-2 border-accent bg-card px-4 py-3 text-sm text-ink-soft">
+          This link expired on {gallery.expiresAt}. Change the date above to open it again.
+        </p>
+      )}
+      <Card title="Email the link">
+        <EmailLinkForm galleryId={gallery.id} />
+      </Card>
+      <Card title="Client favourites" subtitle={`${favourites.length} of ${gallery.photoIds.length} chosen`}>
+        {favourites.length === 0 ? (
+          <p className="text-sm text-ink-soft">When your client hearts photos in the gallery, they show up here.</p>
+        ) : (
+          <ul className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-8">
+            {favourites.map((p) => (
+              <li key={p.id}>
+                {/* eslint-disable-next-line @next/next/no-img-element -- user uploads are served by our own route */}
+                <img src={p.src} srcSet={p.srcSet} sizes="120px" alt={p.alt} className="aspect-square w-full object-cover" />
+              </li>
+            ))}
+          </ul>
+        )}
       </Card>
       <Card title="Photos">
         <GalleryPhotos galleryId={gallery.id} photos={library} selected={gallery.photoIds} />
