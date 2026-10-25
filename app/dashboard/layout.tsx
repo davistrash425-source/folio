@@ -4,6 +4,7 @@ import { logout } from "@/app/actions/auth";
 import { currentAdmin, requireUser } from "@/lib/auth";
 import { managedSites } from "@/lib/db";
 import { isLive, isPublished, siteUrl } from "@/lib/site";
+import { ImpersonationBanner } from "./impersonation-banner";
 import { DashboardTabs, DashboardTabsView, SiteSwitcher, StickyBar } from "./nav";
 
 export default function DashboardLayout({ children }: LayoutProps<"/dashboard">) {
@@ -32,6 +33,7 @@ export default function DashboardLayout({ children }: LayoutProps<"/dashboard">)
         </div>
       </StickyBar>
       {children}
+      <ImpersonationBanner />
     </div>
   );
 }

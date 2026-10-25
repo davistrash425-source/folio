@@ -34,6 +34,11 @@
 - **Round 5:** lightbox rewrite (`?photo=<id>`, focus trap, preload, swipe, "Inquire"), `siteNotice` in `lib/public-site.ts` (missing / offline / no-page) rendered by `app/sites/[subdomain]/site-notice.tsx`, root `app/not-found.tsx` + `app/error.tsx`, `profile.showEmail` (hidden by default; existing accounts' public email disappears until they tick the box), `Inquiry.photoId`. Tests: `tests/public-site.test.ts`.
 - **Checks passed:** tsc, lint, 321 tests, `npm run build` (needed `Suspense` around `requireUser()` in `app/dashboard/page.tsx` and `manage/page.tsx`).
 
+## Admin expansion (done, committed after Phase 1)
+- `/admin` now has Overview, Reports (`/admin/reports`), Accounts (search/filter/pages), All accounts (`/admin/accounts/all`, one plain table), Log (`/admin/log`), and richer site pages (notes, sign out everywhere, confirm/resend verification, delete account with typed address). Full admins = `ADMIN_EMAILS`; read-only staff = optional `ADMIN_VIEWER_EMAILS`. Viewing a site page is logged (`viewed`, once per hour per admin+site).
+- "Log in as this user": full admins only, typed reason, 30 min, separate signed `impersonate` cookie, red banner with Stop, blocked for delete/address/sign-out/resend/export; logged as `impersonation-started/ended`. Details in CLAUDE.md. New account-changing actions must call `impersonationBlock()`.
+- Checks passed: tsc, lint, 348 tests, build. Not yet seen in a browser.
+
 ## Still to do
 - Look at everything in a browser (nothing visual verified yet), especially: photo drawer autosave, design editor bottom preview on a phone, lightbox swipe/back button, offline page.
 - Left from Round 2: make "Preview website" a labelled draft/live button; same header on every page.

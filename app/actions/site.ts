@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { randomUUID } from "crypto";
 import { z } from "zod";
 import { changeSubdomain, findUserBySubdomain, subdomainOnHold, updateUser, type Photo } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+import { impersonationBlock, requireUser } from "@/lib/auth";
 import { draftDesign, publishedDesign } from "@/lib/public-site";
 import { sendEmail } from "@/lib/email";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
@@ -290,6 +290,8 @@ const ADDRESS_TAKEN = "That address is taken — try another.";
 // Moves the site to name.<root domain>, if the name is free.
 export async function changeAddress(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await requireUser();
+  const blocked = await impersonationBlock();
+  if (blocked) return { error: blocked };
   const subdomain = String(formData.get("subdomain") ?? "").trim().toLowerCase();
   if (subdomain === user.subdomain) return { error: "That’s already your address." };
   if (user.suspended) return { error: "A suspended site can’t change its address." };

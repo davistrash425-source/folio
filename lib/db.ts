@@ -110,6 +110,9 @@ export type User = {
   suspended?: { at: string; reason: string };
   legalHold?: { at: string; note: string };
   strikes?: { at: string; reportId: string }[];
+  // Folio staff's private notes about the account (app/actions/admin.ts).
+  // Never shown to the photographer or included in their export.
+  adminNotes?: { id: string; at: string; by: string; text: string }[];
   // An admin's extra site: the admin's account id. It has no password and a
   // made-up email; the admin reaches it by switching sites (app/actions/sites.ts).
   managedBy?: string;
@@ -502,5 +505,301 @@ export async function adminActionsFor(userId: string) {
       action: r.action,
       detail: r.detail,
     }),
+  );
+}
+
+// ── Admin oversight (app/admin) ─────────────────────────────────────────
+// Read-only summaries over every account, computed in SQL from the users
+// table so the admin pages never load whole accounts.
+
+// Mirror isLive (lib/site.ts) and the other flags, as SQL over the jsonb.
+const SQL_PUBLISHED = "coalesce((data->>'published')::boolean, true)";
+const SQL_VERIFIED = "coalesce((data->>'emailVerified')::boolean, false)";
+const SQL_SUSPENDED = "((data->'suspended') is not null)";
+const SQL_LIVE = `(${SQL_PUBLISHED} and ${SQL_VERIFIED} and not ${SQL_SUSPENDED})`;
+const SQL_STRIKES = "(jsonb_array_length(coalesce(data->'strikes', '[]'::jsonb)) > 0)";
+const SQL_HOLD = "((data->'legalHold') is not null)";
+const SQL_CREATED = "(data->>'createdAt')::timestamptz";
+// An admin's extra sites aren't counted as separate photographers.
+const SQL_OWN = "((data->>'managedBy') is null)";
+
+export type AdminOverview = {
+  accounts: number;
+  live: number;
+  draft: number; // taken offline by the photographer, not suspended
+  suspended: number;
+  unverified: number;
+  withStrikes: number;
+  onHold: number;
+  photos: number;
+  signups7: number;
+  signups30: number;
+  openReports: number;
+  openCopyright: number;
+  oldestOpenReports: { id: string; subdomain: string; reason: string; createdAt: string }[];
+  staleUnverified: { subdomain: string; email: string; createdAt: string }[];
+  suspendedSites: { subdomain: string; reason: string; at: string }[];
+};
+
+// Accounts still unconfirmed after this long are listed as needing attention.
+export const UNVERIFIED_ATTENTION_DAYS = 3;
+
+export async function adminOverview(): Promise<AdminOverview> {
+  const db = await database();
+  const counts = (
+    await db.query<{
+      accounts: number;
+      live: number;
+      draft: number;
+      suspended: number;
+      unverified: number;
+      withStrikes: number;
+      onHold: number;
+      photos: number;
+      signups7: number;
+      signups30: number;
+    }>(
+      `select count(*)::int as accounts,
+         (count(*) filter (where ${SQL_LIVE}))::int as live,
+         (count(*) filter (where not ${SQL_PUBLISHED} and not ${SQL_SUSPENDED}))::int as draft,
+         (count(*) filter (where ${SQL_SUSPENDED}))::int as suspended,
+         (count(*) filter (where not ${SQL_VERIFIED}))::int as unverified,
+         (count(*) filter (where ${SQL_STRIKES}))::int as "withStrikes",
+         (count(*) filter (where ${SQL_HOLD}))::int as "onHold",
+         coalesce(sum(jsonb_array_length(coalesce(data->'photos', '[]'::jsonb))), 0)::int as photos,
+         (count(*) filter (where ${SQL_CREATED} > now() - interval '7 days'))::int as signups7,
+         (count(*) filter (where ${SQL_CREATED} > now() - interval '30 days'))::int as signups30
+       from users where ${SQL_OWN}`,
+    )
+  ).rows[0];
+  const reports = (
+    await db.query<{ open: number; copyright: number }>(
+      `select (count(*) filter (where status = 'open'))::int as open,
+              (count(*) filter (where status = 'open' and reason = 'copyright'))::int as copyright
+       from reports`,
+    )
+  ).rows[0];
+  const oldest = await db.query<{ id: string; subdomain: string; reason: string; created_at: Date | string }>(
+    "select id, subdomain, reason, created_at from reports where status = 'open' order by created_at asc limit 10",
+  );
+  const stale = await db.query<{ subdomain: string; email: string; created: string }>(
+    `select subdomain, email, data->>'createdAt' as created from users
+     where ${SQL_OWN} and not ${SQL_VERIFIED} and ${SQL_CREATED} < now() - make_interval(days => $1)
+     order by ${SQL_CREATED} asc limit 10`,
+    [UNVERIFIED_ATTENTION_DAYS],
+  );
+  const suspended = await db.query<{ subdomain: string; reason: string; at: string }>(
+    `select subdomain, data->'suspended'->>'reason' as reason, data->'suspended'->>'at' as at from users
+     where ${SQL_SUSPENDED} order by data->'suspended'->>'at' desc limit 10`,
+  );
+  return {
+    accounts: counts.accounts,
+    live: counts.live,
+    draft: counts.draft,
+    suspended: counts.suspended,
+    unverified: counts.unverified,
+    withStrikes: counts.withStrikes,
+    onHold: counts.onHold,
+    photos: counts.photos,
+    signups7: counts.signups7,
+    signups30: counts.signups30,
+    openReports: reports?.open ?? 0,
+    openCopyright: reports?.copyright ?? 0,
+    oldestOpenReports: oldest.rows.map((r) => ({
+      id: r.id,
+      subdomain: r.subdomain,
+      reason: r.reason,
+      createdAt: new Date(r.created_at).toISOString(),
+    })),
+    staleUnverified: stale.rows.map((r) => ({ subdomain: r.subdomain, email: r.email, createdAt: r.created })),
+    suspendedSites: suspended.rows.map((r) => ({ subdomain: r.subdomain, reason: r.reason, at: r.at })),
+  };
+}
+
+export const ACCOUNT_FILTERS = {
+  live: SQL_LIVE,
+  draft: `(not ${SQL_PUBLISHED} and not ${SQL_SUSPENDED})`,
+  suspended: SQL_SUSPENDED,
+  unverified: `(not ${SQL_VERIFIED})`,
+  strikes: SQL_STRIKES,
+  hold: SQL_HOLD,
+  admin: "(lower(email) = any($ADMINS::text[]))",
+} as const;
+export type AccountFilter = keyof typeof ACCOUNT_FILTERS;
+export const isAccountFilter = (value: unknown): value is AccountFilter =>
+  typeof value === "string" && Object.hasOwn(ACCOUNT_FILTERS, value);
+
+export const ADMIN_PAGE_SIZE = 50;
+
+export type AccountRow = {
+  id: string;
+  email: string;
+  subdomain: string;
+  name: string;
+  createdAt: string;
+  photos: number;
+  live: boolean;
+  published: boolean;
+  verified: boolean;
+  suspended: boolean;
+  strikes: number;
+  hold: boolean;
+  extraSite: boolean;
+};
+
+type AccountSqlRow = {
+  id: string;
+  email: string;
+  subdomain: string;
+  name: string | null;
+  created: string;
+  photos: number;
+  live: boolean;
+  published: boolean;
+  verified: boolean;
+  suspended: boolean;
+  strikes: number;
+  hold: boolean;
+  extra: boolean;
+};
+
+// Only the fields the admin tables show, never the whole jsonb document.
+const ACCOUNT_COLUMNS = `id, email, subdomain, data->'profile'->>'name' as name, data->>'createdAt' as created,
+  jsonb_array_length(coalesce(data->'photos', '[]'::jsonb))::int as photos,
+  ${SQL_LIVE} as live, ${SQL_PUBLISHED} as published, ${SQL_VERIFIED} as verified, ${SQL_SUSPENDED} as suspended,
+  jsonb_array_length(coalesce(data->'strikes', '[]'::jsonb))::int as strikes, ${SQL_HOLD} as hold,
+  not ${SQL_OWN} as extra`;
+
+const toAccountRow = (r: AccountSqlRow): AccountRow => ({
+  id: r.id,
+  email: r.email,
+  subdomain: r.subdomain,
+  name: r.name ?? "",
+  createdAt: r.created,
+  photos: r.photos,
+  live: r.live,
+  published: r.published,
+  verified: r.verified,
+  suspended: r.suspended,
+  strikes: r.strikes,
+  hold: r.hold,
+  extraSite: r.extra,
+});
+
+// Escapes the characters that mean something to LIKE.
+const likePattern = (text: string) => `%${text.replace(/[\\%_]/g, "\\$&")}%`;
+
+// Accounts, newest first. `q` matches name, email or address; `filter` is one
+// of ACCOUNT_FILTERS; `admins` are the full admins' emails (for "admin").
+export async function listAccounts(opts: { q?: string; filter?: AccountFilter; page?: number; admins?: string[] }) {
+  const db = await database();
+  const where: string[] = [];
+  const params: unknown[] = [];
+  const q = (opts.q ?? "").trim().slice(0, 100);
+  if (q) {
+    params.push(likePattern(q));
+    const n = params.length;
+    where.push(`(email ilike $${n} or subdomain ilike $${n} or data->'profile'->>'name' ilike $${n})`);
+  }
+  if (opts.filter) {
+    let clause: string = ACCOUNT_FILTERS[opts.filter];
+    if (clause.includes("$ADMINS")) {
+      params.push(opts.admins ?? []);
+      clause = clause.replace("$ADMINS", `$${params.length}`);
+    }
+    where.push(clause);
+  }
+  const condition = where.length ? `where ${where.join(" and ")}` : "";
+  const total = (await db.query<{ count: number }>(`select count(*)::int as count from users ${condition}`, params)).rows[0]?.count ?? 0;
+  const pages = Math.max(1, Math.ceil(total / ADMIN_PAGE_SIZE));
+  const page = Math.min(Math.max(1, Math.floor(opts.page ?? 1) || 1), pages);
+  const { rows } = await db.query<AccountSqlRow>(
+    `select ${ACCOUNT_COLUMNS} from users ${condition}
+     order by ${SQL_CREATED} desc, id
+     limit ${ADMIN_PAGE_SIZE} offset ${(page - 1) * ADMIN_PAGE_SIZE}`,
+    params,
+  );
+  return { total, page, pages, rows: rows.map(toAccountRow) };
+}
+
+// Every account in one list, newest first, for the plain "all accounts" page.
+export async function listAllAccounts() {
+  const db = await database();
+  const { rows } = await db.query<AccountSqlRow>(`select ${ACCOUNT_COLUMNS} from users order by ${SQL_CREATED} desc, id`);
+  return rows.map(toAccountRow);
+}
+
+// The whole admin log, newest first, with optional filters. Paginated.
+export async function listAdminLog(opts: { admin?: string; action?: string; subdomain?: string; page?: number }) {
+  const db = await database();
+  const where: string[] = [];
+  const params: unknown[] = [];
+  if (opts.admin) {
+    params.push(opts.admin.trim().toLowerCase());
+    where.push(`lower(admin_email) = $${params.length}`);
+  }
+  if (opts.action) {
+    params.push(opts.action);
+    where.push(`action = $${params.length}`);
+  }
+  if (opts.subdomain) {
+    params.push(opts.subdomain.trim().toLowerCase());
+    where.push(`lower(subdomain) = $${params.length}`);
+  }
+  const condition = where.length ? `where ${where.join(" and ")}` : "";
+  const total = (await db.query<{ count: number }>(`select count(*)::int as count from admin_actions ${condition}`, params)).rows[0]?.count ?? 0;
+  const pages = Math.max(1, Math.ceil(total / ADMIN_PAGE_SIZE));
+  const page = Math.min(Math.max(1, Math.floor(opts.page ?? 1) || 1), pages);
+  const { rows } = await db.query<{
+    at: Date | string;
+    admin_email: string;
+    user_id: string;
+    subdomain: string;
+    report_id: string | null;
+    action: string;
+    detail: string;
+  }>(
+    `select * from admin_actions ${condition} order by at desc, id limit ${ADMIN_PAGE_SIZE} offset ${(page - 1) * ADMIN_PAGE_SIZE}`,
+    params,
+  );
+  return {
+    total,
+    page,
+    pages,
+    rows: rows.map(
+      (r): AdminAction => ({
+        at: new Date(r.at).toISOString(),
+        adminEmail: r.admin_email,
+        userId: r.user_id,
+        subdomain: r.subdomain,
+        ...(r.report_id ? { reportId: r.report_id } : {}),
+        action: r.action,
+        detail: r.detail,
+      }),
+    ),
+  };
+}
+
+// What the log's filters offer: everyone who has logged something, and every
+// kind of action.
+export async function adminLogChoices() {
+  const db = await database();
+  const admins = await db.query<{ v: string }>("select distinct admin_email as v from admin_actions order by 1");
+  const actions = await db.query<{ v: string }>("select distinct action as v from admin_actions order by 1");
+  return { admins: admins.rows.map((r) => r.v), actions: actions.rows.map((r) => r.v) };
+}
+
+// Records that staff opened an account's admin page, at most once an hour per
+// person and account so browsing around doesn't flood the log.
+export async function logAdminView(entry: { adminEmail: string; userId: string; subdomain: string }) {
+  const db = await database();
+  await db.query(
+    `insert into admin_actions (id, admin_email, user_id, subdomain, action, detail)
+     select $1, $2, $3, $4, 'viewed', 'Opened the account page.'
+     where not exists (
+       select 1 from admin_actions
+       where action = 'viewed' and admin_email = $2 and user_id = $3 and at > now() - interval '1 hour'
+     )`,
+    [randomUUID(), entry.adminEmail, entry.userId, entry.subdomain],
   );
 }

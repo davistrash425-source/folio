@@ -94,6 +94,46 @@ export async function clearManager() {
   (await cookies()).delete(MANAGER_COOKIE);
 }
 
+// ── Admin "log in as this user" ─────────────────────────────────────────
+// A separate, short-lived cookie that says which admin is looking at which
+// account. The admin's own login cookie is left alone, so stopping drops
+// straight back to their own account. lib/auth.ts only honours it while the
+// signed-in user is still a full admin.
+const IMPERSONATE_COOKIE = "impersonate";
+export const IMPERSONATION_MINUTES = 30;
+
+export async function startImpersonation(adminId: string, targetId: string) {
+  const expires = Date.now() + IMPERSONATION_MINUTES * 60 * 1000;
+  const payload = `${adminId}.${targetId}.${expires}`;
+  (await cookies()).set(IMPERSONATE_COOKIE, `${payload}.${signFor(IMPERSONATE_COOKIE, payload)}`, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    path: "/",
+    maxAge: IMPERSONATION_MINUTES * 60,
+  });
+}
+
+export async function getImpersonation(): Promise<{ adminId: string; targetId: string; expires: number } | null> {
+  await connection(); // the expiry check depends on the current time
+  const raw = (await cookies()).get(IMPERSONATE_COOKIE)?.value;
+  if (!raw) return null;
+  const [adminId, targetId, expires, sig] = raw.split(".");
+  if (!adminId || !targetId || !expires || !sig) return null;
+  const expected = Buffer.from(signFor(IMPERSONATE_COOKIE, `${adminId}.${targetId}.${expires}`));
+  const given = Buffer.from(sig);
+  if (expected.length !== given.length || !timingSafeEqual(expected, given)) return null;
+  if (Number(expires) < Date.now()) return null;
+  return { adminId, targetId, expires: Number(expires) };
+}
+
+// Whole minutes left until `expires` (ms), at least 1, for the banner.
+export const minutesLeft = (expires: number) => Math.max(1, Math.ceil((expires - Date.now()) / 60_000));
+
+export async function clearImpersonation() {
+  (await cookies()).delete(IMPERSONATE_COOKIE);
+}
+
 async function readSignedCookie(name: string): Promise<{ userId: string; issuedAt: number } | null> {
   await connection(); // the expiry check depends on the current time
   const raw = (await cookies()).get(name)?.value;
@@ -116,4 +156,5 @@ export async function getSessionUserId(): Promise<string | null> {
 export async function deleteSession() {
   (await cookies()).delete(COOKIE_NAME);
   await clearManager();
+  await clearImpersonation();
 }

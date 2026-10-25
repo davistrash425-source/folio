@@ -1,8 +1,16 @@
 import Link from "next/link";
 
-// Folio's staff pages: reports, takedowns and suspensions. Each page checks
-// for an admin itself (lib/admin.ts); everyone else gets "not found".
+// Folio's staff pages: overview, reports, accounts and the log. Each page
+// checks for staff itself (lib/admin.ts); everyone else gets "not found".
 export const metadata = { title: "Admin — Folio", robots: { index: false } };
+
+const LINKS = [
+  { href: "/admin", label: "Overview" },
+  { href: "/admin/reports", label: "Reports" },
+  { href: "/admin/accounts", label: "Accounts" },
+  { href: "/admin/accounts/all", label: "All accounts" },
+  { href: "/admin/log", label: "Log" },
+];
 
 export default function AdminLayout({ children }: LayoutProps<"/admin">) {
   return (
@@ -12,10 +20,12 @@ export default function AdminLayout({ children }: LayoutProps<"/admin">) {
           <Link href="/admin" className="font-display text-2xl italic">
             Folio admin
           </Link>
-          <nav className="flex gap-6 text-sm">
-            <Link href="/admin" className="underline-offset-4 hover:underline">
-              Reports
-            </Link>
+          <nav aria-label="Admin" className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+            {LINKS.map((l) => (
+              <Link key={l.href} href={l.href} className="underline-offset-4 hover:underline">
+                {l.label}
+              </Link>
+            ))}
             <Link href="/dashboard" className="text-ink-soft underline-offset-4 hover:text-ink hover:underline">
               Your dashboard
             </Link>

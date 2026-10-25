@@ -36,6 +36,7 @@ import { NotFoundError } from "./stubs/next-navigation.ts";
 beforeEach(resetRequest);
 afterEach(() => {
   delete process.env.ADMIN_EMAILS;
+  delete process.env.ADMIN_VIEWER_EMAILS;
   delete process.env.REPORTS_EMAIL;
 });
 
@@ -98,6 +99,13 @@ test("only admins can use the admin actions: others are sent to log in or told i
     closeReport: () => adminActions.closeReport(form({ reportId, note: "hacked" })),
     reopenReport: () => adminActions.reopenReport(form({ reportId })),
     addRightsToOlderPhotos: () => adminActions.addRightsToOlderPhotos(),
+    addAdminNote: () => adminActions.addAdminNote(form({ userId: alice.id, text: "hacked" })),
+    signOutAccountEverywhere: () => adminActions.signOutAccountEverywhere(form({ userId: alice.id })),
+    verifyAccountEmail: () => adminActions.verifyAccountEmail(form({ userId: alice.id })),
+    resendAccountVerification: () => adminActions.resendAccountVerification(form({ userId: alice.id })),
+    deleteAccountAsAdmin: () => adminActions.deleteAccountAsAdmin(form({ userId: alice.id, confirm: alice.subdomain })),
+    startImpersonation: () => adminActions.startImpersonation(form({ userId: alice.id, reason: "just looking around" })),
+    stopImpersonation: () => adminActions.stopImpersonation(),
   };
   assert.deepEqual(Object.keys(adminActions).sort(), Object.keys(calls).sort(), "every admin action is checked here");
 
