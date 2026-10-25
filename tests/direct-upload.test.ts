@@ -1,11 +1,12 @@
 // Direct uploads: the browser sends a photo straight to storage (R2 in
 // production), then app/api/photos/finish checks it and adds it to the account.
 import { beforeEach, test } from "node:test";
+import { FREE_PHOTO_LIMIT } from "../lib/plans.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "crypto";
 import sharp from "sharp";
 import { findUserById } from "../lib/db.ts";
-import { MAX_PHOTOS, MAX_PHOTO_BYTES, PHOTO_LIMIT_MESSAGE, r2Storage, storage } from "../lib/uploads.ts";
+import { MAX_PHOTO_BYTES, r2Storage, storage } from "../lib/uploads.ts";
 import { POST as finishRoute } from "../app/api/photos/finish/route.ts";
 import { POST as startRoute, UPLOAD_STARTS_PER_HOUR } from "../app/api/photos/start/route.ts";
 import { deleteUser, updateUser } from "../lib/db.ts";
@@ -15,6 +16,8 @@ beforeEach(resetRequest);
 
 const original = () => `${randomUUID()}.orig.jpg`;
 const jpeg = () => sharp({ create: { width: 1600, height: 1000, channels: 3, background: "#446688" } }).jpeg().toBuffer();
+
+const LIMIT_MESSAGE = "You've reached the limit of 150 photos. Delete some to make room.";
 
 test("on the local disk there's no direct address, so the browser uploads through the app", async () => {
   await signInAs(await makeUser("Alice"));
@@ -136,7 +139,7 @@ test("photos finished at once near the limit fill it exactly, and the rest are d
   const alice = await makeUser("Alice");
   await signInAs(alice);
   await updateUser(alice.id, (u) => {
-    u.photos = Array.from({ length: MAX_PHOTOS - 2 }, (_, i) => ({ id: `p${i}`, file: `p${i}.orig.jpg`, createdAt: "" }));
+    u.photos = Array.from({ length: FREE_PHOTO_LIMIT - 2 }, (_, i) => ({ id: `p${i}`, file: `p${i}.orig.jpg`, createdAt: "" }));
   });
   const files = Array.from({ length: 5 }, original);
   const data = await jpeg();
@@ -144,9 +147,9 @@ test("photos finished at once near the limit fill it exactly, and the rest are d
 
   const results = await Promise.all(files.map((file) => finishUpload(file)));
   assert.equal(results.filter((r) => r.ok).length, 2);
-  assert.equal(results.filter((r) => r.error === PHOTO_LIMIT_MESSAGE).length, 3);
+  assert.equal(results.filter((r) => r.error === LIMIT_MESSAGE).length, 3);
   const photos = (await findUserById(alice.id))!.photos;
-  assert.equal(photos.length, MAX_PHOTOS);
+  assert.equal(photos.length, FREE_PHOTO_LIMIT);
   const kept = photos.slice(-2);
   assert.equal(filesOf(alice.id).length, kept.reduce((n, p) => n + 1 + p.variants!.length, 0), "only the kept photos' files remain");
 });

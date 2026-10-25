@@ -86,6 +86,8 @@ export type User = {
   photos: Photo[];
   // Optional so accounts created before these fields existed still load.
   published?: boolean; // missing means published
+  // Missing means "free" (lib/plans.ts).
+  plan?: "free" | "pro";
   emailVerified?: boolean;
   // Missing means the site asks AI companies' crawlers not to collect it for
   // training (app/robots.ts); the photographer can allow them.
