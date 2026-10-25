@@ -27,7 +27,7 @@ The working list for picking up Folio one task per session. Step-by-step instruc
 
 - [x] 1. Add `CRON_SECRET` in Vercel (done Oct 25, 2026, by Claude via the Vercel connector: Production, Sensitive, redeployed). The daily cleanup job doesn't run without it.
 - [x] 2. Confirm Turnstile covers folio.cam and *.folio.cam. (done Oct 25, 2026: sign-up on www.folio.cam passed in Chrome; owner confirmed the contact form on a photographer's subdomain works.)
-- [ ] 3. Check the browser console for CSP report-only messages, then enforce the policy. (Oct 25, 2026: no violations found, but enforcing it on folio.cam froze the design editor tab in Chrome, twice; reverted to report-only within minutes. Cause unknown; a local dev run showed no real violations. Needs a look in the editor with DevTools open before trying again.)
+- [ ] 3. Check the browser console for CSP report-only messages, then enforce the policy. (Oct 25, 2026: no violations found, but enforcing it on folio.cam froze the design editor tab in Chrome, twice; reverted to report-only within minutes. Cause unknown; a local dev run showed no real violations. Being retried on a Vercel preview of branch `csp-preview` (the enforcing header only, `main` untouched): log in there and open the editor. If it works, merge that branch; if it freezes, capture the console first.)
 - [x] 4. Test a photo upload on folio.cam. (done Oct 25, 2026: upload through the dashboard worked, the PUT to R2 returned 200; test photo deleted again.)
 - [ ] 5. Get a lawyer to review the Terms, Privacy and Copyright pages, then set `LEGAL_DRAFT=false`.
 - [ ] 6. Register a DMCA agent with the Copyright Office.
