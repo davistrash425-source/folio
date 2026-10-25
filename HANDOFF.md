@@ -4,7 +4,7 @@
 
 **Goal:** Ship the phases in `docs/BACKLOG.md` (design polish -> security -> legal -> speed), now working through Phase 4 (Folio Pro). Owner may be away: skip items that need them and move on; they gave full permission for code work. Don't change production settings (Vercel env, DNS) and don't spend money.
 
-**Latest (Oct 25, 2026):** Claude Doc backlog synced with `docs/BACKLOG.md`. Wrote `docs/OWNER-CHECKLIST.md` (uncommitted): step-by-step guide for the owner-only items. Read-only Vercel check found `CRON_SECRET` is NOT set in production; Turnstile keys and all six `R2_*` vars are set (`R2_PUBLIC_URL` is an r2.dev address). Next: owner works the checklist; Claude then enforces the CSP, flips `LEGAL_DRAFT`, etc. when told.
+**Latest (Oct 25, 2026):** Claude Doc backlog synced with `docs/BACKLOG.md`. Wrote `docs/OWNER-CHECKLIST.md` (uncommitted): step-by-step guide for the owner-only items. `CRON_SECRET` was set in Vercel Production by Claude (owner to-do item 1, ticked in both backlogs; redeployed); Turnstile keys and all six `R2_*` vars are set (`R2_PUBLIC_URL` is an r2.dev address). Next: owner works the checklist; Claude then enforces the CSP, flips `LEGAL_DRAFT`, etc. when told.
 
 **Owner to-do list (Oct 25, 2026):** added as the "Owner to-do (Claude can't do these)" section in `docs/BACKLOG.md` and the Claude Doc (items 1-11, unticked). The owner starts a new session per item; when one is done, tick it in BOTH places, and update `docs/OWNER-CHECKLIST.md` if its steps change.
 
@@ -22,7 +22,7 @@
 Nothing left that can be done without the owner. Phase 4's code is done; what remains is payments, the lawyer review of the legal pages, the "Made with Folio" footer decision, and launch. Phase 5's remaining items (split photos/inquiries into tables, deploy-time schema, Folio fonts only on Folio pages, staging) were deliberately skipped as risky to do unattended.
 
 ## Needs the owner (do not attempt)
-`CRON_SECRET` in Vercel (daily cleanup job doesn't run until set); Turnstile hostnames; browser-console CSP check then enforce the policy (rename report-only header in `lib/security-headers.ts`, update `tests/security-headers.test.ts`); test photo upload on folio.cam (R2 CORS unverified); Terms/Privacy text + lawyer review then `LEGAL_DRAFT=false`; DMCA agent registration; photo domain on Cloudflare + `R2_PUBLIC_URL`; example-site photos; payment provider (Stripe may not take Israeli businesses; Paddle/Lemon Squeezy; Vercel free tier forbids commercial use); launch decisions.
+Turnstile hostnames; browser-console CSP check then enforce the policy (rename report-only header in `lib/security-headers.ts`, update `tests/security-headers.test.ts`); test photo upload on folio.cam (R2 CORS unverified); Terms/Privacy text + lawyer review then `LEGAL_DRAFT=false`; DMCA agent registration; photo domain on Cloudflare + `R2_PUBLIC_URL`; example-site photos; payment provider (Stripe may not take Israeli businesses; Paddle/Lemon Squeezy; Vercel free tier forbids commercial use); launch decisions.
 
 ## Decisions / gotchas
 - **The backlog lives in two places and both must be edited together:** `docs/BACKLOG.md` and the Claude Doc "Folio — Improvement Backlog" (https://claude.ai/artifact/2GPiZULFPDtucJhJ5WCXXF, doc id `0a3f4b76-c114-422c-a3f5-1f7c452c175a`, tabs: backlog + "Agent context"). Use the Claude Docs connector (`read` outline, then `update`/replace lists by block id with `ifHash`/`ifRev`).

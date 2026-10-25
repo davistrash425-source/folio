@@ -23,7 +23,7 @@ A "vars" step means Vercel → project `folio` → Settings → Environment Vari
 
 ## Do in this order
 
-### 1. Add `CRON_SECRET` (5 min, do first)
+### 1. Add `CRON_SECRET` (DONE Oct 25, 2026 by Claude; only the verify step is left)
 Why: `vercel.json` schedules `/api/cron/daily` at 04:00 UTC. The route answers 404 until the secret exists, so the cleanup job (deleted accounts' files, unfinished uploads, the draft-site reminder) never runs.
 1. Make a secret. In a terminal: `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`.
 2. Vercel → Settings → Environment Variables → Add `CRON_SECRET`, paste the value, tick **Production** (Preview isn't needed), mark it Sensitive, save.

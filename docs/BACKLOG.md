@@ -19,13 +19,13 @@ Every suggestion from the code review, the landing-page critique and the dashboa
 | 4 Folio Pro | Code done through "more special themes". Started: 1,500-photo limit, 20-gallery limit, password-protected client galleries, staff can switch an account to Pro; editable special themes, client gallery follow-ups, the 50 GB limit and the Contact sheet + Monograph themes are all done. Left: payments, lawyer review, launch |
 | 5 Speed & scale | Four items done (image decode, private changes keep the cache, streaming export, per-page photos). Left: split tables, schema at deploy, fonts, staging and stress tests |
 
-**Waiting on the owner:** `CRON_SECRET` in Vercel; Turnstile hostnames; browser-console CSP check; test photo upload on folio.cam; legal text and review; DMCA agent registration with the Copyright Office; photo domain; example site photos; payment provider choice.
+**Waiting on the owner:** Turnstile hostnames; browser-console CSP check; test photo upload on folio.cam; legal text and review; DMCA agent registration with the Copyright Office; photo domain; example site photos; payment provider choice.
 
 ## Owner to-do (Claude can't do these)
 
 The working list for picking up Folio one task per session. Step-by-step instructions for each item are in `docs/OWNER-CHECKLIST.md` (same numbers). Tick an item here, in the same edit as the Claude Doc, when the owner says it's done.
 
-- [ ] 1. Add `CRON_SECRET` in Vercel. The daily cleanup job doesn't run without it.
+- [x] 1. Add `CRON_SECRET` in Vercel (done Oct 25, 2026, by Claude via the Vercel connector: Production, Sensitive, redeployed). The daily cleanup job doesn't run without it.
 - [ ] 2. Confirm Turnstile covers folio.cam and *.folio.cam.
 - [ ] 3. Check the browser console for CSP report-only messages, then enforce the policy.
 - [ ] 4. Test a photo upload on folio.cam. R2 CORS is unverified.
@@ -158,7 +158,7 @@ Every item in this doc, in the order you chose: design → security → legal �
 
 **Phase 2 follow-ups (you)**
 
-- [ ] Add `CRON_SECRET` in Vercel so the daily cleanup job runs
+- [x] Add `CRON_SECRET` in Vercel so the daily cleanup job runs
 - [ ] Make sure the Turnstile widget covers `folio.cam` and `*.folio.cam`; test sign-up and a contact form
 - [ ] Check the browser console on folio.cam for report-only CSP messages, then enforce the full policy
 - [ ] Test photo upload on folio.cam (Phase 2 and 3 are merged)
@@ -530,7 +530,7 @@ Everything a coding agent needs to implement this backlog without re-deriving it
 | `NEXT_PUBLIC_SENTRY_DSN` | Set | Yes (`lib/sentry.ts`) |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Set | Yes |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Set. Google app in Testing mode; redirect URIs `https://folio.cam/api/auth/google/callback` and `http://localhost:3000/api/auth/google/callback` | Yes (Continue with Google) |
-| `CRON_SECRET` | **Not set yet** (owner) | Yes: daily cleanup job |
+| `CRON_SECRET` | Set in Production (Oct 25, 2026) | Yes: daily cleanup job |
 
 Open infra item: photo domain. folio.cam DNS must stay on Vercel (wildcard certs), so R2 needs a second domain on Cloudflare (e.g. `img.foliocdn.com`), then update `R2_PUBLIC_URL`.
 
