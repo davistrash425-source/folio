@@ -119,6 +119,8 @@ export type User = {
   // Set when the account was created (or later linked) via "Continue with
   // Google". Google users have an empty passwordHash and confirm by address.
   googleId?: string;
+  // When we emailed a reminder that the site is still a draft (once only).
+  draftReminderAt?: string;
 };
 
 // One-time links for password resets and email verification. Only a hash of
@@ -254,6 +256,7 @@ export async function deleteUser(id: string) {
     // Remember the address, so it stays unavailable for a while
     // (subdomainOnHold). An admin's extra site leaves it free for that admin.
     if (rows[0]) {
+      await query("insert into storage_cleanup (user_id) values ($1) on conflict do nothing", [id]);
       await query(
         "insert into released_subdomains (subdomain, user_id) values ($1, $2) on conflict (subdomain) do update set released_at = now(), user_id = $2",
         [rows[0].subdomain, rows[0].manager],
@@ -262,6 +265,37 @@ export async function deleteUser(id: string) {
     return rows[0]?.subdomain;
   });
   if (subdomain) siteChanged(subdomain);
+}
+
+// Deleted accounts whose files haven't been removed from storage yet.
+export async function pendingStorageCleanups(limit = 100) {
+  const db = await database();
+  const { rows } = await db.query<{ user_id: string }>(
+    "select user_id from storage_cleanup order by queued_at limit $1",
+    [limit],
+  );
+  return rows.map((r) => r.user_id);
+}
+
+export async function finishStorageCleanup(userId: string) {
+  const db = await database();
+  await db.query("delete from storage_cleanup where user_id = $1", [userId]);
+}
+
+// Verified accounts whose site is still a draft `days` days after sign-up and
+// who haven't been reminded yet.
+export async function accountsToRemindAboutDraft(days: number, limit: number) {
+  const db = await database();
+  const { rows } = await db.query<{ id: string }>(
+    `select id from users
+     where data->>'published' = 'false' and data->>'emailVerified' = 'true'
+       and data->'suspended' is null and data->>'managedBy' is null
+       and data->>'draftReminderAt' is null
+       and (data->>'createdAt')::timestamptz < now() - ($1 || ' days')::interval
+     order by id limit $2`,
+    [String(days), limit],
+  );
+  return rows.map((r) => r.id);
 }
 
 // Moves an account to a new address. As at sign-up, the unique column decides

@@ -94,7 +94,7 @@ Every item in this doc, in the order you chose: design → security → legal �
 **Go live, Account & Messages**
 
 - [x] New sites start as drafts
-- [ ] Reminder email if a site is still a draft after a few days (needs Vercel Cron, Phase 2)
+- [x] Reminder email if a site is still a draft after a few days (Vercel Cron)
 - [x] Optional quality checks on Go live: captions, About text, contact details
 - [x] "Take offline" shown once, on Go live only
 - [x] Move name, bio and contact details into Web design (About page)
@@ -115,17 +115,25 @@ Every item in this doc, in the order you chose: design → security → legal �
 
 ### Phase 2 — Security & abuse
 
-- [ ] Turn on Upstash rate limits; read the client IP from Vercel's trusted header
-- [ ] Limit upload starts per user and delete orphaned uploads on a schedule
-- [ ] Replace the per-account login lockout with per-IP limits + slowdown
-- [ ] Equalize login timing for unknown emails
-- [ ] Shrink server-action body limits; validate inputs in `updatePhoto` / `reorderPhotos`
-- [ ] Security headers: CSP, HSTS, `frame-ancestors`
-- [ ] Cheap "not found" caching + limits for random subdomains
-- [ ] Turnstile on the contact form and sign-up
+- [x] Turn on Upstash rate limits; read the client IP from Vercel's trusted header
+- [x] Limit upload starts per user and delete orphaned uploads on a schedule
+- [x] Replace the per-account login lockout with per-IP limits + slowdown (no CAPTCHA after failures yet)
+- [x] Equalize login timing for unknown emails
+- [x] Shrink server-action body limits; validate inputs in `updatePhoto` / `reorderPhotos`
+- [x] Security headers: HSTS, `frame-ancestors` enforced; full CSP is report-only until checked in a browser
+- [x] Cheap "not found" caching for random subdomains (per-IP limit would be a Vercel firewall rule)
+- [x] Turnstile on the contact form and sign-up
 - [x] Keep the login email off public site data
 - [x] Sentry and the crash page are live; still add `error.tsx` and a root `not-found.tsx`
-- [ ] Log and retry storage cleanup when an account is deleted
+- [x] Log and retry storage cleanup when an account is deleted
+
+**Phase 2 follow-ups (you)**
+
+- [ ] Add `CRON_SECRET` in Vercel so the daily cleanup job runs
+- [ ] Make sure the Turnstile widget covers `folio.cam` and `*.folio.cam`; test sign-up and a contact form
+- [ ] Check the browser console on folio.cam for report-only CSP messages, then enforce the full policy
+- [ ] Merge `phase-2-security` and test photo upload on folio.cam
+- [ ] Optional: CAPTCHA after repeated failed logins; Vercel Firewall rule for floods of unknown subdomains
 
 ### Phase 3 — Legal & launch (Free plan)
 

@@ -7,7 +7,7 @@ import sharp from "sharp";
 import { findUserById } from "../lib/db.ts";
 import { MAX_PHOTOS, MAX_PHOTO_BYTES, PHOTO_LIMIT_MESSAGE, r2Storage, storage } from "../lib/uploads.ts";
 import { POST as finishRoute } from "../app/api/photos/finish/route.ts";
-import { POST as startRoute } from "../app/api/photos/start/route.ts";
+import { POST as startRoute, UPLOAD_STARTS_PER_HOUR } from "../app/api/photos/start/route.ts";
 import { deleteUser, updateUser } from "../lib/db.ts";
 import { databaseText, filesOf, finishUpload, makeUser, postJson, resetRequest, signInAs, signOut, startUpload } from "./helpers.ts";
 
@@ -19,6 +19,16 @@ const jpeg = () => sharp({ create: { width: 1600, height: 1000, channels: 3, bac
 test("on the local disk there's no direct address, so the browser uploads through the app", async () => {
   await signInAs(await makeUser("Alice"));
   assert.deepEqual(await startUpload("image/jpeg", 5_000_000), {});
+});
+
+test("one account can only start so many uploads an hour, and others aren't held up by it", async () => {
+  await signInAs(await makeUser("Alice"));
+  for (let i = 0; i < UPLOAD_STARTS_PER_HOUR; i++) await startUpload("image/jpeg", 1000);
+  const refused = await startUpload("image/jpeg", 1000);
+  assert.match(String((refused as { error?: string }).error), /started a lot of uploads/);
+
+  await signInAs(await makeUser("Bob"));
+  assert.deepEqual(await startUpload("image/jpeg", 1000), {});
 });
 
 test("only photos of an allowed type and size are given an upload address", async () => {

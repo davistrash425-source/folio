@@ -50,11 +50,16 @@ function segment(name: string) {
 const userDir = (userId: string) => path.join(UPLOAD_DIR, segment(userId));
 const local = (userId: string, file: string) => path.join(userDir(userId), segment(file));
 
+export type StoredOriginal = { userId: string; file: string; modified: number };
+
 export type Storage = {
   put(userId: string, file: string, data: Buffer): Promise<void>;
   get(userId: string, file: string): Promise<Buffer>; // throws if missing
   remove(userId: string, file: string): Promise<void>;
   removeAll(userId: string): Promise<void>;
+  // Every private original in storage, with when it was last written, for
+  // finding uploads that were never finished (lib/cleanup.ts).
+  listOriginals(): Promise<StoredOriginal[]>;
   // A short-lived address the browser can upload `file` to directly, for
   // stores that support it (R2). Hosts like Vercel cap request bodies at a
   // few MB, so large photos can't go through the app's own server.
@@ -76,6 +81,17 @@ const diskStorage: Storage = {
   },
   async removeAll(userId) {
     await fs.rm(userDir(userId), { recursive: true, force: true });
+  },
+  async listOriginals() {
+    const found: StoredOriginal[] = [];
+    for (const userId of await fs.readdir(UPLOAD_DIR).catch(() => [])) {
+      for (const file of await fs.readdir(path.join(UPLOAD_DIR, userId)).catch(() => [])) {
+        if (!isPrivateFile(file)) continue;
+        const { mtimeMs } = await fs.stat(path.join(UPLOAD_DIR, userId, file));
+        found.push({ userId, file, modified: mtimeMs });
+      }
+    }
+    return found;
   },
 };
 
@@ -144,20 +160,30 @@ export function r2Storage(config: R2Config): Storage {
     return res!;
   }
 
-  // Every key in `bucket` under the user's folder, following continuation pages.
-  async function list(bucket: string, userId: string) {
-    const keys: string[] = [];
+  // Every object in `bucket` under `prefix`, following continuation pages.
+  async function listObjects(bucket: string, prefix: string) {
+    const objects: { key: string; modified: number }[] = [];
     let token: string | undefined;
     do {
-      const query = new URLSearchParams({ "list-type": "2", prefix: `${segment(userId)}/` });
+      const query = new URLSearchParams({ "list-type": "2", prefix });
       if (token) query.set("continuation-token", token);
       const xml = await (await send(`${endpoint}/${bucket}?${query}`)).text();
-      for (const [, key] of xml.matchAll(/<Key>([^<]*)<\/Key>/g)) keys.push(unescapeXml(key));
+      for (const [, entry] of xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)) {
+        const key = /<Key>([^<]*)<\/Key>/.exec(entry)?.[1];
+        if (!key) continue;
+        const modified = Date.parse(/<LastModified>([^<]*)<\/LastModified>/.exec(entry)?.[1] ?? "");
+        objects.push({ key: unescapeXml(key), modified: Number.isNaN(modified) ? Date.now() : modified });
+      }
       token = /<IsTruncated>true<\/IsTruncated>/.test(xml)
         ? unescapeXml(/<NextContinuationToken>([^<]*)</.exec(xml)?.[1] ?? "")
         : undefined;
     } while (token);
-    return keys;
+    return objects;
+  }
+
+  // Every key in `bucket` under the user's folder.
+  async function list(bucket: string, userId: string) {
+    return (await listObjects(bucket, `${segment(userId)}/`)).map((o) => o.key);
   }
 
   return {
@@ -190,6 +216,14 @@ export function r2Storage(config: R2Config): Storage {
         aws: { signQuery: true, allHeaders: true },
       });
       return signed.url;
+    },
+    async listOriginals() {
+      const found: StoredOriginal[] = [];
+      for (const { key, modified } of await listObjects(config.privateBucket, "")) {
+        const [userId, file, ...rest] = key.split("/");
+        if (userId && file && !rest.length && isPrivateFile(file)) found.push({ userId, file, modified });
+      }
+      return found;
     },
     async removeAll(userId) {
       for (const bucket of [config.publicBucket, config.privateBucket]) {

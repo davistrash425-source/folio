@@ -6,6 +6,7 @@ import { signup } from "@/app/actions/auth";
 import { ROOT_DOMAIN } from "@/lib/site";
 import { Button, Message } from "@/app/ui/form";
 import { GoogleButton } from "@/app/ui/google-button";
+import { Turnstile } from "@/app/ui/turnstile";
 import { useAddressCheck, type AddressStatus } from "@/app/ui/use-address-check";
 
 // The shared look for a text box that's fine or in error (red border).
@@ -111,6 +112,7 @@ export function SignupForm({ initialSubdomain }: { initialSubdomain: string }) {
             <AddressHint status={status} message={message} checking={checking} />
           </span>
         </label>
+        <Turnstile resetKey={state} />
         <Message error={state.error} />
         <Button type="submit" disabled={pending} className="w-full">
           {pending ? "Creating…" : "Create account"}

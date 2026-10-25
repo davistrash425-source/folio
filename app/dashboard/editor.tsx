@@ -700,7 +700,14 @@ function PhotoDetails({ photo, albums, onDeleted }: {
     saved.current = values;
     setStatus("saving");
     updatePhoto(photo.id, values).then(
-      () => setStatus(sameFields(latest.current, values) ? "saved" : "saving"),
+      (result) => {
+        if (result.error) {
+          saved.current = before;
+          setStatus("error");
+          return;
+        }
+        setStatus(sameFields(latest.current, values) ? "saved" : "saving");
+      },
       () => {
         saved.current = before;
         setStatus("error");

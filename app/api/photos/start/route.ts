@@ -1,5 +1,8 @@
 import { currentUser } from "@/lib/auth";
+import { rateLimit } from "@/lib/rate-limit";
 import { MAX_PHOTOS, PHOTO_LIMIT_MESSAGE, directUpload } from "@/lib/uploads";
+
+export const UPLOAD_STARTS_PER_HOUR = 500;
 
 // Step one of a direct upload: the browser asks for an address to send one
 // photo straight to storage (R2), then calls /api/photos/finish. With no
@@ -16,6 +19,12 @@ export async function POST(req: Request) {
   const size = typeof body?.size === "number" ? body.size : NaN;
   if (user.suspended) return Response.json({ error: "your site is suspended, so you can't upload right now" });
   if (user.photos.length >= MAX_PHOTOS) return Response.json({ error: PHOTO_LIMIT_MESSAGE });
+  // Every start hands out an address that can fill storage, and one that is
+  // never finished leaves its file behind. A big batch of photos is a few
+  // hundred starts, so this is generous for people and small for abuse.
+  if (!(await rateLimit(`upload-start:${user.id}`, UPLOAD_STARTS_PER_HOUR, 60 * 60 * 1000))) {
+    return Response.json({ error: "you've started a lot of uploads in the last hour — wait a while and try again" });
+  }
   try {
     const direct = await directUpload(user.id, type, size);
     return Response.json(direct ? { direct } : {});

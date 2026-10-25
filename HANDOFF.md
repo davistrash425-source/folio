@@ -1,62 +1,25 @@
 # Handoff
 
-**Status: Phase 1 (design polish) IN PROGRESS — branch `phase-1-round-1`, NOT committed/pushed. Rounds 1–2 done & tested; Round 3 done; Rounds 1–6 and the admin expansion are built; Phase 1 and admin are on main. Round 6 is uncommitted.**
+**Status: Phase 2 (security) BUILT, committed (9067595) and pushed on branch `phase-2-security`; NOT merged into main. Waiting on the owner's checks below.**
 
-**Goal:** Ship Phase 1 from `docs/BACKLOG.md` in five rounds — (1) landing/sign-up, (2) dashboard nav, (3) photos/albums, (4) design editor, (5) public sites/lightbox. Work on branch `phase-1-round-1`; commit only when the owner asks, ask before pushing.
+**Goal:** Ship Phase 2 from `docs/BACKLOG.md`: trusted client IP, upload-start limit + daily cleanup cron (also sends the draft reminder email), login limits per IP instead of per-account lockout, equal login timing, smaller action body limit + input validation, security headers, cheap handling of made-up subdomains, Turnstile on sign-up/contact (and login after failures), retrying storage cleanup after account deletion. Commit only when the owner asks; ask before pushing.
 
-## Done
+## Done (on `phase-2-security`, pushed)
+- Steps 1-8 are built: trusted client IP; login limits per (IP,email)/IP + equal timing; Turnstile on sign-up and contact form; upload-start limit (500/h per user); daily cron `app/api/cron/daily` (`lib/cleanup.ts`: retry deleted accounts' file removal via new `storage_cleanup` table, delete unfinished originals >1 day, one draft reminder email); action inputs validated (`updatePhoto` now returns `ActionState`); body limit 2 MB when `R2_ACCOUNT_ID` is set at build, else 25 MB; security headers (`lib/security-headers.ts`, full CSP is REPORT-ONLY); impossible subdomains skip the DB and "missing" is cached 10 min.
+- Checks passed: tsc, lint, 381 tests, build.
+- Docs updated: CLAUDE.md env table, docs/BACKLOG.md ticks.
 
-**Round 1 — landing & sign-up (verified: tsc, lint, tests, build all green when finished):**
-- Landing address box is a real input with live ✓/✗ (`app/ui/address-claim.tsx`, `app/ui/use-address-check.ts`, `app/api/address/route.ts`, `lib/address.ts`), carries `?subdomain=` into sign-up.
-- Sign-up reworked (`app/ui/signup-form.tsx`, server `app/(auth)/signup/page.tsx`): live address check, keep password on failed submit, focus + red border on wrong field (`field` on `FormState` in `app/actions/auth.ts`), show-password toggle, "you can change it later" hint, aria-describedby, `noValidate` inline errors. Login got show-password + `noValidate` + Google.
-- Continue with Google: `app/api/auth/google/{start,callback}/route.ts`, `lib/google.ts` (PKCE + full id_token verification via Google JWKS), `app/(auth)/signup/google/*`. New `User.googleId`; `createUser` takes optional `googleId`/`emailVerified`; passwordless accounts delete by typing their address. `verifyPassword` returns false for empty.
-- Per-page titles (nested `layout.tsx` in each `(auth)` route). Landing hero "See an example" anchors `#themes`, pricing teaser, shorter hero, footer contact+report links, eager theme photos with placeholder bg.
-- Tests: `tests/address-check.test.ts`, `tests/google-signup.test.ts`.
+## Owner actions before merging (in this order)
+1. Add `CRON_SECRET` in Vercel (any long random string), or the daily job never runs.
+2. Check the Turnstile widget's hostnames include `folio.cam` and `*.folio.cam` (it will fail on the vercel.app preview unless that address is added too).
+3. Open the Vercel preview (or folio.cam after merge) with the browser console open; try sign-up and a contact form; look for "Content-Security-Policy-Report-Only" messages.
+4. Merge the PR (https://github.com/davistrash425-source/folio/pull/new/phase-2-security), then test photo upload on folio.cam (R2 CORS failure from Phase 1 still unverified).
 
-**Round 2 — dashboard nav (verified: tsc, lint, full test suite 291 passing; build NOT re-run):**
-- New sites start as drafts: `NEW_SITES_START_PUBLISHED = false` in `lib/site.ts` (updated `tests/signup.test.ts`).
-- `lib/steps.ts`: `completedSteps(user)` (5 booleans) + `entryPath(user)`. Side nav ticks finished steps and shows "N of 5 done" (`app/dashboard/nav.tsx`).
-- `/dashboard` and `/dashboard/manage` are now real pages (`app/dashboard/page.tsx`, `app/dashboard/manage/page.tsx`) that redirect 0-photo users to upload; redirects removed from `next.config.ts`.
-- Header (`app/dashboard/layout.tsx`): "Take offline" toggle gone (now "View site ↗" / "Go live →" links), "Log out" folded into an Account menu, slimmer. Site switcher closes on outside click.
-- All 6 `confirm()` pop-ups replaced by `app/ui/confirm.tsx` `ConfirmButton` (panels, editor, albums, design-editor).
-- Step strip wraps instead of scrolling sideways on phones.
-- Tests: `tests/steps.test.ts`.
+## Next for the agent
+- If the console shows no CSP problems: rename `Content-Security-Policy-Report-Only` to enforce the full policy in `lib/security-headers.ts` (update `tests/security-headers.test.ts`).
+- Optional leftovers: CAPTCHA after repeated failed logins; per-IP limit on unknown hosts (Vercel Firewall rule, not code).
+- Then Phase 3 (legal & launch): Terms/Privacy pages, DMCA page, consent at sign-up, photo domain on Cloudflare, 150-photo Free limit. Needs owner input (policy generator, lawyer, second domain).
+- Ask the owner before pushing; commit only when asked.
 
-**Round 3 — photos & albums (done; tsc + lint + tests/bulk-photos pass; not yet seen in a browser):**
-- Bulk actions in `app/actions/site.ts`: `updatePhotos`, `addPhotosToAlbum`, `deletePhotos`; `deletePhoto` returns `ActionState`. `createAlbum` accepts `photoIds` (own photos only, library order).
-- `app/dashboard/editor.tsx`: Select mode + toolbar (add to album, "New album from these" dialog, edit details, delete), size slider, quiet "No description". Drawer split into `PhotoDrawer` (frame, focus trap, Esc) + keyed `PhotoDetails` (autosave 800 ms after typing and on next/prev/close, status line, neutral placeholders, delete errors shown). Open photo stays in a filtered list so autosave doesn't close it. Focus returns to the last-viewed tile.
-- `app/dashboard/albums.tsx`: `CreateAlbumForm({photoIds})`, `NewAlbumButton` (dialog). Albums page has a real empty state.
-- New shared: `app/ui/use-focus-trap.ts` (use `data-autofocus`, not `autoFocus`), `app/ui/dialog.tsx`.
-
-## Rounds 4 and 5 (done by background agents, Oct 25)
-
-- **Round 4:** `app/dashboard/design-editor.tsx` + `device-preview.tsx` — theme first, pinned preview with spinner, autosave (1 s) with "Draft saved · N unpublished changes", AI box hidden by `SHOW_AI_BOX = false`, special-theme explainer. `app/actions/design.ts` merges autosaves within 30 s into one undo step (`User.designHistoryAt`); `updateUser(id, fn, { publicChange: false })` skips the public cache refresh for draft saves. Tests: `tests/design-autosave.test.ts`.
-- **Round 5:** lightbox rewrite (`?photo=<id>`, focus trap, preload, swipe, "Inquire"), `siteNotice` in `lib/public-site.ts` (missing / offline / no-page) rendered by `app/sites/[subdomain]/site-notice.tsx`, root `app/not-found.tsx` + `app/error.tsx`, `profile.showEmail` (hidden by default; existing accounts' public email disappears until they tick the box), `Inquiry.photoId`. Tests: `tests/public-site.test.ts`.
-- **Checks passed:** tsc, lint, 321 tests, `npm run build` (needed `Suspense` around `requireUser()` in `app/dashboard/page.tsx` and `manage/page.tsx`).
-
-## Admin expansion (done, committed after Phase 1)
-- `/admin` now has Overview, Reports (`/admin/reports`), Accounts (search/filter/pages), All accounts (`/admin/accounts/all`, one plain table), Log (`/admin/log`), and richer site pages (notes, sign out everywhere, confirm/resend verification, delete account with typed address). Full admins = `ADMIN_EMAILS`; read-only staff = optional `ADMIN_VIEWER_EMAILS`. Viewing a site page is logged (`viewed`, once per hour per admin+site).
-- "Log in as this user": full admins only, typed reason, 30 min, separate signed `impersonate` cookie, red banner with Stop, blocked for delete/address/sign-out/resend/export; logged as `impersonation-started/ended`. Details in CLAUDE.md. New account-changing actions must call `impersonationBlock()`.
-- Checks passed: tsc, lint, 348 tests, build. Not yet seen in a browser.
-
-## Round 6 (done, uncommitted on top of main fde616c)
-- Header: `app/dashboard/layout.tsx` already wraps every page, so nothing disappears on Account. Top tab is now a button reading "Preview draft" / "Preview live site" (`previewLabel` in `lib/steps.ts`).
-- Go live page has an optional "Worth doing" card (`lib/readiness.ts`, `tests/readiness.test.ts`); fix links point to Web design. Messages empty state explains and links to the contact form.
-- "About you" (name, bio, contact, socials, copyright) moved into the design editor (`app/dashboard/profile-form.tsx`); Account page just links to it. Social links validated in `lib/social.ts` (Instagram/X/Facebook handle or own-domain link, stored canonical; Website any http(s)). Change address has an old → new dialog. Delete warning names other sites.
-- Checks passed: tsc, lint, 360 tests, build. Nothing seen in a browser yet.
-
-## Still to do
-- Hands-on browser pass (laptop, tablet, phone): nothing from Phase 1 or the admin work has been seen visually. Test photo upload on folio.cam (it failed on the vercel.app preview, probably R2 CORS).
-- Known small issues: saving "About you" doesn't refresh the design preview until reload; an old non-Instagram link in the Instagram field blocks saving the profile until fixed; the old empty-state text in `Inbox` (`panels.tsx`) is unreachable.
-- Waiting on the owner: theme demo sites + "Made with Folio"; footer Terms/Privacy (Phase 3 legal) and Instagram account. Reminder email for drafts needs Vercel Cron (Phase 2).
-- Next phase: Phase 2 security (see docs/BACKLOG.md). Ask the owner before pushing; commit only when asked.
-
-## Gotchas for a fresh session
-- Environment was fixed: ran `npm install` (missing `@sentry/nextjs`) and `rm -rf .next/dev` (stale `folio-plus` route types). If tsc complains about `.next/dev/types/validator.ts`, delete `.next/dev` and `npx next typegen`.
-- Next 16: `cookies()`/`searchParams` in a server component must be inside `<Suspense>` or the build fails with `blocking-prerender-dynamic` (see `app/(auth)/signup/page.tsx`).
-- `deletePhoto` signature changed from `void` to `Promise<ActionState>` — the drawer still calls it as `await deletePhoto(...)` and ignores the result; it should be updated to surface `result.error`.
-- Deferred (owner-blocked): full per-theme demo sites (needs owner's example sites, backlog Q11), footer Terms/Privacy (Phase 3 legal) and Instagram (no account yet), the "reminder email if not published" half of the drafts item (needs Vercel Cron, Phase 2).
-- `node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./tests/setup.ts --test tests/<file>.test.ts` runs one test file (~2s); `npm test` runs all (~60s). Each test file gets its own PGlite.
-
-## Open questions
-None blocking. Ask the owner before pushing; commit only when they ask.
+## Gotchas
+- See `git show main:HANDOFF.md` for Phase 1 gotchas.

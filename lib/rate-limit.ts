@@ -58,7 +58,11 @@ export async function rateLimit(key: string, limit: number, windowMs: number) {
   }
 }
 
+// The visitor's address. On Vercel, x-vercel-forwarded-for and x-real-ip are
+// set by Vercel itself, so a visitor can't fake them; the first
+// x-forwarded-for value can be, so it's only the last resort (development).
 export async function clientIp() {
   const h = await headers();
-  return h.get("x-forwarded-for")?.split(",")[0].trim() || h.get("x-real-ip") || "local";
+  const first = (value: string | null) => value?.split(",")[0].trim();
+  return first(h.get("x-vercel-forwarded-for")) || first(h.get("x-real-ip")) || first(h.get("x-forwarded-for")) || "local";
 }

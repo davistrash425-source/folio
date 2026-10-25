@@ -1,7 +1,7 @@
 import { cacheLife, cacheTag } from "next/cache";
 import { findUserBySubdomain, type User } from "./db";
 import { readDesign, type SiteDesign } from "./design";
-import { isLive } from "./site";
+import { couldBeSubdomain, isLive } from "./site";
 import { resolvePath, type SiteData } from "./site-data";
 import { photoSource } from "./uploads";
 
@@ -76,8 +76,19 @@ async function loadSiteData(subdomain: string): Promise<SiteEntry> {
   // Browsers may reuse it for a minute (and prefetch it); the server keeps it
   // until something changes, or a day.
   cacheLife({ stale: 60, revalidate: 3600, expire: 86400 });
+  // Made-up addresses (anyone can type any name before the .folio.cam): ones
+  // that can't be an account's never reach the database, and "nobody has
+  // this" is only kept for ten minutes so a flood of random names can't fill
+  // the cache. Signing up for the address refreshes it straight away.
+  if (!couldBeSubdomain(subdomain)) {
+    cacheLife({ stale: 60, revalidate: 600, expire: 600 });
+    return { status: "missing" };
+  }
   const user = await findUserBySubdomain(subdomain);
-  if (!user) return { status: "missing" };
+  if (!user) {
+    cacheLife({ stale: 60, revalidate: 600, expire: 600 });
+    return { status: "missing" };
+  }
   const site = siteData(user);
   if (site) return { status: "ok", site };
   return user.suspended ? { status: "offline" } : { status: "offline", look: { design: publishedDesign(user) } };

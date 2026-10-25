@@ -39,10 +39,14 @@ export async function hashPassword(password: string) {
 }
 
 export async function verifyPassword(password: string, stored: string) {
-  // Accounts made through Google have no password; nothing can match.
-  if (!stored) return false;
   const [salt, hash] = stored.split(":");
-  if (!salt || !hash) return false;
+  if (!salt || !hash) {
+    // No password to check (Google accounts, or no such account). Do the same
+    // amount of work anyway, so the reply isn't faster for these and doesn't
+    // reveal which emails have a password.
+    await scrypt(password, "0".repeat(32), KEY_LENGTH);
+    return false;
+  }
   const expected = Buffer.from(hash, "hex");
   // A damaged hash decodes short (even to nothing, which would match any
   // password), so only a full-length one counts.
