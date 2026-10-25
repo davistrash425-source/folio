@@ -10,11 +10,14 @@ export function homePhoto(n: number) {
   return photos[n % photos.length];
 }
 
-// Fills its box, cropped to fit; give it a size with `className`.
+// Fills its box, cropped to fit; give it a size with `className`. The soft
+// background stands in for the photo until it arrives, and the photos load
+// eagerly (there are only a couple of dozen, all small), so the theme previews
+// don't show empty boxes as they scroll into view.
 export function Photo({ name, sizes, className }: { name: string; sizes: string; className?: string }) {
   return (
-    <span className={`relative block size-full ${className ?? ""}`}>
-      <Image src={`/home/${name}.webp`} alt="" fill sizes={sizes} className="object-cover" />
+    <span className={`relative block size-full bg-ink-faint/20 ${className ?? ""}`}>
+      <Image src={`/home/${name}.webp`} alt="" fill sizes={sizes} loading="eager" className="object-cover" />
     </span>
   );
 }

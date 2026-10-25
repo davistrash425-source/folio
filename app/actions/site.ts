@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { randomUUID } from "crypto";
+import { z } from "zod";
 import { changeSubdomain, findUserBySubdomain, subdomainOnHold, updateUser, type Photo } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { draftDesign, publishedDesign } from "@/lib/public-site";
@@ -86,17 +87,23 @@ export async function uploadPhotos(_prev: ActionState, formData: FormData): Prom
 // Direct uploads to R2 go through app/api/photos/start and /finish instead,
 // so several photos can upload at once (the browser runs actions one at a time).
 
-export async function deletePhoto(photoId: string) {
+export async function deletePhoto(photoId: string): Promise<ActionState> {
   const userId = await currentUserId();
   let removed: Photo | undefined;
+  let held = false;
   await updateUser(userId, (u) => {
-    if (u.legalHold) return; // Folio must keep everything in this account for now
+    if (u.legalHold) {
+      held = true; // Folio must keep everything in this account for now
+      return;
+    }
     removed = u.photos.find((p) => p.id === photoId);
     u.photos = u.photos.filter((p) => p.id !== photoId);
     for (const album of u.albums ?? []) album.photoIds = album.photoIds.filter((id) => id !== photoId);
   });
-  if (removed) await deletePhotoFiles(userId, removed);
-  revalidatePath("/dashboard", "layout");
+  if (held) return { error: "Your account is on a legal hold, so this photo can't be deleted right now." };
+  if (!removed) return { error: "That photo wasn't found." };
+  await deletePhotoFiles(userId, removed);
+  return done(`Deleted the photo.`);
 }
 
 // Saves a new photo order. The first photo is the cover image.
@@ -135,6 +142,89 @@ export async function updatePhoto(
   revalidatePath("/dashboard", "layout");
 }
 
+// ── Several photos at once (the multi-select toolbar) ──────────────────
+
+const photoIdsSchema = z.array(z.string().trim().min(1)).min(1).max(MAX_PHOTOS);
+const photoPatchSchema = z
+  .object({
+    description: z.string().max(500).optional(),
+    location: z.string().max(120).optional(),
+    alt: z.string().max(300).optional(),
+  })
+  .strict();
+
+// Sets captions, location or alt text on many photos at once. Fields that
+// aren't given stay as they were.
+export async function updatePhotos(rawIds: string[], details: { description?: string; location?: string; alt?: string }): Promise<ActionState> {
+  const userId = await currentUserId();
+  const ids = photoIdsSchema.safeParse(rawIds);
+  if (!ids.success) return { error: "Choose at least one photo." };
+  const patch = photoPatchSchema.safeParse(details);
+  if (!patch.success) return { error: "That text is too long." };
+  const wanted = new Set(ids.data);
+  let changed = 0;
+  await updateUser(userId, (u) => {
+    for (const photo of u.photos) {
+      if (!wanted.has(photo.id)) continue;
+      if (patch.data.description !== undefined) photo.description = patch.data.description.trim();
+      if (patch.data.location !== undefined) photo.location = patch.data.location.trim();
+      if (patch.data.alt !== undefined) photo.alt = patch.data.alt.trim();
+      changed++;
+    }
+  });
+  if (changed === 0) return { error: "Those photos weren't found." };
+  return done(`Updated ${changed} photo${changed === 1 ? "" : "s"}.`);
+}
+
+export async function addPhotosToAlbum(rawIds: string[], albumId: string): Promise<ActionState> {
+  const userId = await currentUserId();
+  const ids = photoIdsSchema.safeParse(rawIds);
+  if (!ids.success) return { error: "Choose at least one photo." };
+  const wanted = new Set(ids.data);
+  let albumTitle: string | undefined;
+  let missing = false;
+  let added = 0;
+  await updateUser(userId, (u) => {
+    const album = u.albums?.find((a) => a.id === albumId);
+    if (!album) {
+      missing = true;
+      return;
+    }
+    albumTitle = album.title;
+    const mine = new Set(u.photos.map((p) => p.id));
+    for (const id of wanted) {
+      if (mine.has(id) && !album.photoIds.includes(id)) {
+        album.photoIds.push(id);
+        added++;
+      }
+    }
+  });
+  if (missing) return { error: "That album no longer exists." };
+  return done(`Added ${added} photo${added === 1 ? "" : "s"} to “${albumTitle}”.`);
+}
+
+export async function deletePhotos(rawIds: string[]): Promise<ActionState> {
+  const userId = await currentUserId();
+  const ids = photoIdsSchema.safeParse(rawIds);
+  if (!ids.success) return { error: "Choose at least one photo." };
+  const wanted = new Set(ids.data);
+  let removed: Photo[] = [];
+  let held = false;
+  await updateUser(userId, (u) => {
+    if (u.legalHold) {
+      held = true;
+      return;
+    }
+    removed = u.photos.filter((p) => wanted.has(p.id));
+    u.photos = u.photos.filter((p) => !wanted.has(p.id));
+    for (const album of u.albums ?? []) album.photoIds = album.photoIds.filter((id) => !wanted.has(id));
+  });
+  if (held) return { error: "Your account is on a legal hold, so photos can't be deleted right now." };
+  if (removed.length === 0) return { error: "Those photos weren't found." };
+  await Promise.all(removed.map((photo) => deletePhotoFiles(userId, photo)));
+  return done(`Deleted ${removed.length} photo${removed.length === 1 ? "" : "s"}.`);
+}
+
 export async function setPublished(published: boolean) {
   const userId = await currentUserId();
   await updateUser(userId, (u) => {
@@ -160,12 +250,16 @@ export async function saveProfile(_prev: ActionState, formData: FormData): Promi
   if (contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
     return { error: "Please enter a valid contact email, or leave it empty." };
   }
+  // Hidden from visitors unless switched on (see siteData).
+  const showEmail = formData.get("showEmail") === "on";
+  if (showEmail && !contactEmail) return { error: "Add the email to show on your site, or turn off “Show on my site”." };
 
   await updateUser(userId, (u) => {
     u.profile = {
       name,
       bio: str("bio", 2000),
       contactEmail,
+      showEmail,
       phone: str("phone", 40),
       location: str("location", 80),
       social: {
@@ -233,6 +327,9 @@ export async function createAlbum(_prev: ActionState, formData: FormData): Promi
     return { error: `One of your pages already uses the address /${slug}. Pick another album name.` };
   }
 
+  // Photos to start with, from a selection in the photo grid.
+  const wanted = new Set(formData.getAll("photoIds").map(String).slice(0, MAX_PHOTOS));
+
   const id = randomUUID();
   let taken = false;
   await updateUser(userId, (u) => {
@@ -241,7 +338,9 @@ export async function createAlbum(_prev: ActionState, formData: FormData): Promi
       taken = true;
       return;
     }
-    u.albums.push({ id, slug, title, description, photoIds: [] });
+    // Only this account's own photos, in library order.
+    const photoIds = u.photos.filter((p) => wanted.has(p.id)).map((p) => p.id);
+    u.albums.push({ id, slug, title, description, photoIds });
   });
   if (taken) return { error: "You already have an album with that name." };
   revalidatePath("/dashboard", "layout");
@@ -328,6 +427,10 @@ export async function sendInquiry(
 
   const owner = await findUserBySubdomain(subdomain);
   if (!owner || !isLive(owner)) return { error: "This site isn't accepting messages." };
+  // From a photo's "Inquire" button. Kept only if it's one of this site's
+  // photos visitors can see; anything else is dropped, not an error.
+  const photoId = str("photoId", 64);
+  const photo = photoId ? owner.photos.find((p) => p.id === photoId && !p.removed) : undefined;
 
   await updateUser(owner.id, (u) => {
     u.inquiries ??= [];
@@ -339,6 +442,7 @@ export async function sendInquiry(
       message,
       createdAt: new Date().toISOString(),
       read: false,
+      ...(photo ? { photoId: photo.id } : {}),
     });
     u.inquiries = u.inquiries.slice(0, 500);
   });
@@ -348,7 +452,7 @@ export async function sendInquiry(
       to: owner.profile.contactEmail || owner.email,
       replyTo: email,
       subject: `New inquiry from ${name}`,
-      text: `${name} (${email}) sent you a message through your Folio site.\n\n${date ? `Date: ${date}\n\n` : ""}${message}\n\nSee all inquiries: ${appUrl("/dashboard/manage/messages")}`,
+      text: `${name} (${email}) sent you a message through your Folio site.\n\n${photo ? `About the photo: ${photo.description || "untitled"}\n\n` : ""}${date ? `Date: ${date}\n\n` : ""}${message}\n\nSee all inquiries: ${appUrl("/dashboard/manage/messages")}`,
     });
   } catch (err) {
     // The inquiry is saved in the dashboard even if the email fails.

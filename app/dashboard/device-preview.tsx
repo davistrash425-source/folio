@@ -43,17 +43,32 @@ export function DevicePreview({ src, device, design, path, className = "" }: {
   const boxRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [box, setBox] = useState({ width: 0, height: 0 });
+  // False until the frame says it has drawn the site; shown as "Loading preview…".
+  const [ready, setReady] = useState(false);
   const pathRef = useRef(path);
   const framesSeen = useRef(new WeakSet<Window>());
 
   useEffect(() => {
     const el = boxRef.current;
     if (!el) return;
-    const observer = new ResizeObserver(([entry]) =>
-      setBox({ width: entry.contentRect.width, height: entry.contentRect.height }),
-    );
+    const observer = new ResizeObserver(([entry]) => {
+      setBox({ width: entry.contentRect.width, height: entry.contentRect.height });
+      // A hidden box drops the frame; a new one loads when it shows again.
+      if (entry.contentRect.width === 0) setReady(false);
+    });
     observer.observe(el);
     return () => observer.disconnect();
+  }, []);
+
+  // Any frame without a design to send is ready once it has loaded.
+  useEffect(() => {
+    function onMessage(e: MessageEvent) {
+      if (e.origin === window.location.origin && e.data?.type === READY_MESSAGE && e.source === frameRef.current?.contentWindow) {
+        setReady(true);
+      }
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
   }, []);
 
   // Send the design now, and again whenever the frame (re)loads.
@@ -100,8 +115,15 @@ export function DevicePreview({ src, device, design, path, className = "" }: {
             transformOrigin: "top left",
             left: Math.max(0, (box.width - width * scale) / 2),
           }}
+          onLoad={() => setReady(true)}
           className="absolute top-0 border-0 bg-card"
         />
+      )}
+      {!ready && (
+        <div className="absolute inset-0 flex items-center justify-center gap-3 bg-card text-sm text-ink-soft" role="status">
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-rule border-t-ink" aria-hidden="true" />
+          Loading preview…
+        </div>
       )}
     </div>
   );

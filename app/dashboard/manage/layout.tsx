@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { requireUser } from "@/lib/auth";
-import { SUPPORT_EMAIL } from "@/lib/site";
+import { isPublished, SUPPORT_EMAIL } from "@/lib/site";
+import { completedSteps } from "@/lib/steps";
 import { SideNav, SideNavView } from "../nav";
 import { VerifyEmailBanner } from "../panels";
 
@@ -25,7 +26,7 @@ export default function ManageLayout({ children }: LayoutProps<"/dashboard/manag
 
 async function SideNavWithCounts() {
   const user = await requireUser();
-  return <SideNav unread={(user.inquiries ?? []).filter((i) => !i.read).length} />;
+  return <SideNav unread={(user.inquiries ?? []).filter((i) => !i.read).length} done={completedSteps(user)} />;
 }
 
 async function AccountNotices() {
@@ -49,7 +50,7 @@ async function AccountNotices() {
           </Link>
         </p>
       )}
-      {!user.emailVerified && <VerifyEmailBanner email={user.email} />}
+      {!user.emailVerified && <VerifyEmailBanner email={user.email} hidingSite={isPublished(user) && !user.suspended} />}
     </>
   );
 }

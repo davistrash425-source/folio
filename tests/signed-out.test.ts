@@ -18,9 +18,12 @@ beforeEach(resetRequest);
 const needSignIn: Record<string, () => Promise<unknown>> = {
   uploadPhotos: async () => siteActions.uploadPhotos({}, formWith(await jpegFile())),
   deletePhoto: () => siteActions.deletePhoto("some-id"),
+  deletePhotos: () => siteActions.deletePhotos(["some-id"]),
   reorderPhotos: () => siteActions.reorderPhotos(["some-id"]),
   updatePhoto: () =>
     siteActions.updatePhoto("some-id", { description: "hacked", location: "", alt: "", albumIds: [] }),
+  updatePhotos: () => siteActions.updatePhotos(["some-id"], { description: "hacked" }),
+  addPhotosToAlbum: () => siteActions.addPhotosToAlbum(["some-id"], "some-album"),
   setPublished: () => siteActions.setPublished(false),
   saveProfile: () => siteActions.saveProfile({}, formOf({ name: "Hacked" })),
   saveAiTraining: () => siteActions.saveAiTraining({}, formOf({})),
@@ -44,7 +47,7 @@ const needSignIn: Record<string, () => Promise<unknown>> = {
 };
 
 // Actions anyone may call: visitors leaving a message, and the sign-in forms.
-const open = ["sendInquiry", "signup", "login", "logout", "requestPasswordReset", "resetPassword"];
+const open = ["sendInquiry", "signup", "login", "logout", "requestPasswordReset", "resetPassword", "completeGoogleSignup"];
 
 test("every server action is listed here as needing a login or as open to everyone", () => {
   const exported = [

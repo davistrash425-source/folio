@@ -77,9 +77,9 @@ export function validateSubdomain(value: string): string | null {
 }
 
 // Whether a new account's site is public right away or starts as a draft the
-// photographer publishes from the dashboard. Product decision: flip to false
-// to have new sites start as drafts.
-export const NEW_SITES_START_PUBLISHED = true;
+// photographer publishes from the dashboard. Product decision: new sites start
+// as drafts (false), so the photographer presses "Go live" when they're ready.
+export const NEW_SITES_START_PUBLISHED = false;
 
 export function isPublished(user: { published?: boolean }) {
   return user.published !== false;

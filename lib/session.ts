@@ -39,6 +39,8 @@ export async function hashPassword(password: string) {
 }
 
 export async function verifyPassword(password: string, stored: string) {
+  // Accounts made through Google have no password; nothing can match.
+  if (!stored) return false;
   const [salt, hash] = stored.split(":");
   if (!salt || !hash) return false;
   const expected = Buffer.from(hash, "hex");

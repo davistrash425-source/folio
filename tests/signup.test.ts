@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { signup } from "../app/actions/auth.ts";
 import { sendInquiry } from "../app/actions/site.ts";
 import { GET as verifyEmail } from "../app/verify-email/route.ts";
-import { deleteUser, findUserByEmail, findUserById } from "../lib/db.ts";
+import { deleteUser, findUserByEmail, findUserById, updateUser } from "../lib/db.ts";
 import { database } from "../lib/pg.ts";
 import { siteData } from "../lib/public-site.ts";
 import { validateSubdomain } from "../lib/site.ts";
@@ -22,17 +22,20 @@ function newcomer() {
   return { name: "Dana", email: `dana${n}@example.com`, password: "a long password", subdomain: `dana-${n}` };
 }
 
-test("a new site goes live only once its owner confirms their email", async (t) => {
+test("a new site starts as a draft and goes live only once it's published", async (t) => {
   const emails = captureEmails(t);
   const fields = newcomer();
   assert.equal(await redirectedTo(signup({}, formOf(fields))), "/dashboard");
   const user = (await findUserByEmail(fields.email))!;
-  assert.equal(user.published, true);
-  assert.equal(siteData(user), null, "not live before the email is confirmed");
+  assert.equal(user.published, false, "new sites start as drafts");
+  assert.equal(siteData(user), null, "not live before publishing");
 
   const link = /https?:\/\/\S+\/verify-email\?token=\S+/.exec(emails.join("\n"))![0];
   assert.equal(await redirectedTo(verifyEmail(new Request(link))), "/dashboard/manage/account?verified=1");
-  assert.ok(siteData((await findUserById(user.id))!), "live once confirmed");
+  assert.equal(siteData((await findUserById(user.id))!), null, "confirmed, but still a draft");
+
+  await updateUser(user.id, (u) => (u.published = true));
+  assert.ok(siteData((await findUserById(user.id))!), "live once published");
 });
 
 test("a site that isn't live yet takes no messages", async () => {

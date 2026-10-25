@@ -5,7 +5,6 @@ import { currentAdmin, requireUser } from "@/lib/auth";
 import { managedSites } from "@/lib/db";
 import { isLive, isPublished, siteUrl } from "@/lib/site";
 import { DashboardTabs, DashboardTabsView, SiteSwitcher, StickyBar } from "./nav";
-import { PublishToggle } from "./panels";
 
 export default function DashboardLayout({ children }: LayoutProps<"/dashboard">) {
   return (
@@ -28,9 +27,7 @@ export default function DashboardLayout({ children }: LayoutProps<"/dashboard">)
             <Suspense fallback={null}>
               <SiteStatus />
             </Suspense>
-            <form action={logout}>
-              <button className="text-ink-soft underline-offset-4 hover:text-ink hover:underline">Log out</button>
-            </form>
+            <AccountMenu />
           </div>
         </div>
       </StickyBar>
@@ -48,8 +45,8 @@ async function SiteMenu() {
   return <SiteSwitcher current={user.id} sites={sites.map((s) => ({ id: s.id, subdomain: s.subdomain, name: s.profile.name }))} />;
 }
 
-// Whether the site is visible to the public, with a switch and a link to it.
-// A site Folio has suspended stays offline whatever the switch says.
+// Where the site stands, as a link: view it when it's live, otherwise go to
+// the Go live page (which also covers confirming your email).
 async function SiteStatus() {
   const user = await requireUser();
   const published = isPublished(user);
@@ -58,29 +55,42 @@ async function SiteStatus() {
     return (
       <span className="flex items-center gap-2 text-accent">
         <span className="label border border-accent px-1.5">Suspended</span>
-        Visitors can’t see your site
+        <span className="hidden sm:inline">Visitors can’t see your site</span>
       </span>
     );
   }
+  if (isLive(user)) {
+    return (
+      <a href={url} target="_blank" rel="noopener noreferrer" className="group flex items-center gap-2 text-ink">
+        <span className="label bg-ink px-1.5 text-paper">Live</span>
+        <span className="underline-offset-4 group-hover:underline">{url.replace(/^https?:\/\//, "")} ↗</span>
+      </a>
+    );
+  }
   return (
-    <>
-      {isLive(user) ? (
-        <a href={url} target="_blank" rel="noopener noreferrer" className="group flex items-center gap-2 text-ink">
-          <span className="label bg-ink px-1.5 text-paper">Live</span>
-          <span className="underline-offset-4 group-hover:underline">{url.replace(/^https?:\/\//, "")} ↗</span>
-        </a>
-      ) : published ? (
-        <span className="flex items-center gap-2 text-ink-soft">
-          <span className="label border border-ink-faint px-1.5 text-ink-soft">Not live yet</span>
-          Confirm your email to put it online
-        </span>
-      ) : (
-        <span className="flex items-center gap-2 text-ink-soft">
-          <span className="label border border-ink-faint px-1.5 text-ink-soft">Offline</span>
-          Visitors can’t see your site
-        </span>
-      )}
-      <PublishToggle published={published} />
-    </>
+    <Link href="/dashboard/manage/publish" className="flex items-center gap-2 text-ink-soft hover:text-ink">
+      <span className="label border border-ink-faint px-1.5 text-ink-soft">{published ? "Not live yet" : "Draft"}</span>
+      <span className="underline-offset-4 hover:underline">{published ? "Confirm email →" : "Go live →"}</span>
+    </Link>
+  );
+}
+
+// "Log out" and the account settings, in one small menu instead of their own
+// header row. Uses <details> like SiteSwitcher, so it needs no JavaScript.
+function AccountMenu() {
+  return (
+    <details className="relative">
+      <summary className="flex h-8 cursor-pointer list-none items-center gap-1 text-ink-soft hover:text-ink">
+        Account <span aria-hidden="true" className="text-ink-faint">▾</span>
+      </summary>
+      <div className="absolute right-0 top-full z-50 mt-1 w-48 border border-ink bg-paper py-1 shadow-lg">
+        <Link href="/dashboard/manage/account" className="block px-3 py-2 text-sm hover:bg-card">
+          Account settings
+        </Link>
+        <form action={logout}>
+          <button className="block w-full px-3 py-2 text-left text-sm hover:bg-card">Log out</button>
+        </form>
+      </div>
+    </details>
   );
 }

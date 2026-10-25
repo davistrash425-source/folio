@@ -1,9 +1,10 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { buttonClass, secondaryButtonClass } from "@/app/ui/form";
+import { AddressClaim } from "@/app/ui/address-claim";
 import { ContactSheet, homePhoto, Photo } from "@/app/ui/frames";
 import { archivo, bebas, cormorant, shareTech, specialElite } from "@/app/sites/[subdomain]/themes/fonts";
-import { ROOT_DOMAIN } from "@/lib/site";
+import { ROOT_DOMAIN, SUPPORT_EMAIL } from "@/lib/site";
 
 // Printed along the edge of a roll of film, one frame per step.
 const steps = [
@@ -38,24 +39,25 @@ export default function Home() {
       </header>
 
       <main className="flex-1">
-        <section className="mx-auto grid w-full max-w-6xl gap-14 px-6 py-16 sm:py-24 lg:grid-cols-[1fr_1.05fr] lg:items-center lg:gap-16">
+        <section className="mx-auto grid w-full max-w-6xl gap-10 px-6 pt-6 pb-10 sm:py-24 lg:grid-cols-[1fr_1.05fr] lg:items-center lg:gap-16">
           <div>
             <p className="label text-accent">Portfolio sites for photographers</p>
-            <h1 className="mt-5 font-display text-5xl leading-[1.02] tracking-tight sm:text-7xl">
+            <h1 className="mt-5 font-display text-4xl leading-[1.05] tracking-tight sm:text-7xl">
               Give your pictures a <em className="text-accent">room</em> of their own.
             </h1>
-            <p className="mt-7 max-w-md text-lg leading-relaxed text-ink-soft">
+            <p className="mt-6 max-w-md text-lg leading-relaxed text-ink-soft">
               Folio turns a folder of photographs into a portfolio site at your own address. No code, no
               hosting, and no algorithm deciding who gets to see it.
             </p>
-            <div className="mt-9 flex flex-wrap items-center gap-3">
+            <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link href="/signup" className={`${buttonClass} h-12 px-6`}>
                 Create your site →
               </Link>
-              <Link href="/login" className={`${secondaryButtonClass} h-12 px-6`}>
-                Log in
+              <Link href="#themes" className={`${secondaryButtonClass} h-12 px-6`}>
+                See an example
               </Link>
             </div>
+            <p className="mt-4 text-sm text-ink-soft">Free to start · Pro coming soon.</p>
           </div>
           <ContactSheet />
         </section>
@@ -79,7 +81,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
+        <section id="themes" className="mx-auto max-w-6xl scroll-mt-6 px-6 py-20 sm:py-28">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <h2 className="font-display text-4xl tracking-tight sm:text-5xl">Four rooms to hang the work in.</h2>
             <p className="max-w-sm text-sm text-ink-soft">
@@ -161,23 +163,21 @@ export default function Home() {
           <h2 className="font-display text-4xl tracking-tight sm:text-6xl">
             Your name is the <em>address.</em>
           </h2>
-          <div className="mx-auto mt-10 flex max-w-xl flex-col gap-3 sm:flex-row">
-            <div className="flex h-12 flex-1 items-center overflow-hidden border border-ink bg-card px-4 font-label text-sm">
-              <span className="text-ink-faint">https://</span>
-              <span>yourname</span>
-              <span className="caret ml-px h-5 w-px bg-accent" />
-              <span className="truncate text-ink-faint">.{ROOT_DOMAIN}</span>
-            </div>
-            <Link href="/signup" className={`${buttonClass} h-12 px-6`}>
-              Claim it →
-            </Link>
-          </div>
+          <AddressClaim />
         </section>
       </main>
 
       <footer className="border-t border-ink">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-end justify-between gap-4 px-6 py-8">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-end justify-between gap-6 px-6 py-8">
           <span className="font-display text-5xl leading-none italic">Folio</span>
+          <nav className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-ink-soft">
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="underline-offset-4 hover:text-ink hover:underline">
+              Contact
+            </a>
+            <Link href="/report" className="underline-offset-4 hover:text-ink hover:underline">
+              Report a site
+            </Link>
+          </nav>
           <p className="label text-ink-faint">Made for people who make pictures</p>
         </div>
       </footer>
