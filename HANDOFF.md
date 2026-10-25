@@ -16,9 +16,12 @@
 
 - Phase 5 quick wins done: images decoded once (`lib/images.ts`), private changes (messages, legal hold, sign-out-everywhere) no longer clear the public cache, account export streams (`zipChunks`). "Send only each page's photos" was already true.
 
+- Phase 4 start: client galleries for Pro (see BACKLOG section 8 for files), `setPlan` admin action, `robots.txt` hides `/g/`. 395+ tests pass, build OK.
+- `docs/BACKLOG.md` fully updated (status table at top, stale items ticked).
+
 ## In progress / next (code-only, no owner input)
 4. Update CLAUDE.md/README for plans + consent + legal pages.
-5. Phase 4 items that need no owner input (Pro limits are in lib/plans.ts already).
+5. Next Phase 4 items without owner input: editable special themes (Exhibition/Index/Film Strip) for Pro, client gallery follow-ups. Payments need the owner.
 Remaining and skipped (needs owner or risky unattended): DB schema at deploy time (needs a real Neon check), fonts only on Folio pages (root-layout refactor), client galleries/payments (Phase 4), Terms/Privacy lawyer text, policy text/lawyer, photo domain on Cloudflare, 3 example sites.
 
 ## Decisions / gotchas

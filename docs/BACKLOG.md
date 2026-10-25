@@ -1,12 +1,25 @@
 # Folio — Improvement Backlog
 
-Oct 25, 2026 · Davi · Live, editable version (may be newer): https://claude.ai/artifact/2GPiZULFPDtucJhJ5WCXXF
+Updated Oct 25, 2026 (after Phase 3) · Davi · Live, editable version (may be newer): https://claude.ai/artifact/2GPiZULFPDtucJhJ5WCXXF
 
 **For coding agents:** read the Agent context section at the end of this file first, then `CLAUDE.md` and `AGENTS.md`.
 
 Every suggestion from the code review, the landing-page critique and the dashboard walkthrough, grouped by the part of Folio it changes. Tick items off as you ship them; delete anything you disagree with.
 
 **Start here (biggest wins):** orphaned R2 uploads, image decoding memory, public cache busting on draft edits, security headers, a working address box on the landing page, a branded 404, "Take offline" out of the header, a pinned design preview, bulk photo editing, autosave, step progress ticks.
+
+## Status right now
+
+| Phase | State |
+| --- | --- |
+| 0 Setup | Done |
+| 1 Design polish | Done and live on `main`, except two small items (demo sites per theme, Instagram link in footer) |
+| 2 Security | Built on branch `phase-2-security`, **not merged**; waiting on the owner checks below |
+| 3 Legal & launch (Free) | Code done on branch `phase-3-launch` (built on Phase 2), **not merged**. Left: lawyer-reviewed Terms/Privacy, photo domain, example sites, launch |
+| 4 Folio Pro | Started on `phase-3-launch`: 1,500-photo limit, 20-gallery limit, password-protected client galleries, staff can switch an account to Pro. Left: editable special themes, more themes, payments, 50 GB limit, lawyer review, launch |
+| 5 Speed & scale | Four items done (image decode, private changes keep the cache, streaming export, per-page photos). Left: split tables, schema at deploy, fonts, staging and stress tests |
+
+**Waiting on the owner:** `CRON_SECRET` in Vercel; Turnstile hostnames; browser-console CSP check; merge Phase 2 then Phase 3 and test uploads; legal text and review; DMCA agent registration with the Copyright Office; photo domain; example site photos; payment provider choice.
 
 ## Everything checklist, by phase
 
@@ -145,15 +158,17 @@ Every item in this doc, in the order you chose: design → security → legal �
 - [x] Free plan limit: 150 photos (lib/plans.ts); one site (extra sites are admin-only) and the four themes with uneditable special themes already match Free
 - [x] Browser tests for sign-up → upload → design → publish (Playwright, `npm run test:e2e`, tests/e2e)
 - [x] Split `design-editor.tsx` (done) and `editor.tsx` (done: photo-uploader.tsx, photo-drawer.tsx) into smaller components
-- [ ] Update Folio.md and HANDOFF.md (package.json renamed to "folio": done)
+- [x] Update HANDOFF.md and CLAUDE.md; rename `package.json` to "folio" (there is no Folio.md)
 - [ ] **Launch the Free plan**
 
 ### Phase 4 — Folio Pro
 
-- [ ] Pro limits in code: 1,500 photos, 20 client galleries, 50 GB ($12/mo, $120/yr launch price)
+- [ ] Pro limits in code: 1,500 photos and 20 client galleries are done (`lib/plans.ts`); the 50 GB storage limit is not ($12/mo, $120/yr launch price)
 - [ ] Editable special themes (Exhibition, Index, Film Strip) for Pro
 - [ ] More special themes for Pro
-- [ ] Password-protected client galleries
+- [x] Password-protected client galleries (Pro; dashboard "Client galleries", public link `name.folio.cam/g/<random>`, password cookie tied to the password, attempt limits, hidden from search; a link is private but the image files behind it are the same public web copies)
+- [x] Staff can move an account to Pro or Free by hand (admin site page, logged) until payments exist
+- [ ] Client gallery follow-ups: download-all zip, expiry dates, client favourites, email the link to the client, a "Made with Folio" footer on galleries
 - [ ] Payments + full pricing page
 - [ ] Lawyer review of Terms, Privacy and Copyright before charging
 - [ ] **Launch Pro**
@@ -202,39 +217,39 @@ Every item in this doc, in the order you chose: design → security → legal �
 
 ### Phase 6 — Later
 
-- [ ] Full admin options: roles, audit log, site switcher
+- [x] Full admin options: roles, audit log, site switcher (done in `/admin`)
 - [ ] Frank (AI assistant) and the "Describe a change" box
 
 ## Security & abuse
 
-- [ ] **Clean up orphaned direct uploads.** `/api/photos/start` hands out R2 upload URLs with no per-user limit, and an original that never reaches `/finish` is never deleted. A free account can fill the bucket. Rate-limit `start` and add a scheduled job that removes originals no photo record points to.
-- [ ] **Stop login lockout of other people.** Five wrong passwords against any email blocks that account for 15 minutes. Prefer per-IP limits plus a CAPTCHA or slowdown after failures instead of a hard per-account lock.
-- [ ] **Make rate limits real in production.** Without the Upstash env vars, limits are counted per serverless instance, which is close to no limit. Confirm Upstash is set on Vercel, and read the client IP from Vercel's trusted header instead of the first `x-forwarded-for` value.
-- [ ] **Equalize login timing.** When the email doesn't exist, the scrypt check is skipped, so the reply is faster and reveals which emails have accounts. Run a dummy hash on the not-found path.
-- [ ] **Shrink the server-action body limit.** `bodySizeLimit: "25mb"` applies to login and the contact form too. Keep large bodies only on upload routes, and validate inputs in `updatePhoto` and `reorderPhotos` (types, array lengths) so bad input is rejected cleanly instead of throwing a 500.
-- [ ] **Add security headers.** No CSP, HSTS or `frame-ancestors`, so the dashboard (including delete account) can be framed by another site. Set them in `next.config.ts` headers.
-- [ ] **Guard against random-subdomain floods.** With wildcard DNS, every made-up `xyz.folio.cam` costs a database lookup and a cache entry. Cache "not found" cheaply and rate-limit unknown hosts.
-- [ ] **Stronger contact-form spam protection.** A hidden honeypot field and a per-IP limit won't stop distributed spam. Add Turnstile or similar.
+- [x] **Clean up orphaned direct uploads.** `/api/photos/start` hands out R2 upload URLs with no per-user limit, and an original that never reaches `/finish` is never deleted. A free account can fill the bucket. Rate-limit `start` and add a scheduled job that removes originals no photo record points to.
+- [x] **Stop login lockout of other people.** Five wrong passwords against any email blocks that account for 15 minutes. Prefer per-IP limits plus a CAPTCHA or slowdown after failures instead of a hard per-account lock.
+- [x] **Make rate limits real in production.** Without the Upstash env vars, limits are counted per serverless instance, which is close to no limit. Confirm Upstash is set on Vercel, and read the client IP from Vercel's trusted header instead of the first `x-forwarded-for` value.
+- [x] **Equalize login timing.** When the email doesn't exist, the scrypt check is skipped, so the reply is faster and reveals which emails have accounts. Run a dummy hash on the not-found path.
+- [x] **Shrink the server-action body limit.** `bodySizeLimit: "25mb"` applies to login and the contact form too. Keep large bodies only on upload routes, and validate inputs in `updatePhoto` and `reorderPhotos` (types, array lengths) so bad input is rejected cleanly instead of throwing a 500.
+- [x] **Add security headers.** No CSP, HSTS or `frame-ancestors`, so the dashboard (including delete account) can be framed by another site. Set them in `next.config.ts` headers.
+- [x] **Guard against random-subdomain floods.** With wildcard DNS, every made-up `xyz.folio.cam` costs a database lookup and a cache entry. Cache "not found" cheaply and rate-limit unknown hosts.
+- [x] **Stronger contact-form spam protection.** A hidden honeypot field and a per-IP limit won't stop distributed spam. Add Turnstile or similar.
 - [x] **Keep the login email off public sites by default.** `contactEmail` starts as the sign-up email and is sent in the site data. Ask for a public contact email, or hide it until set.
 
 ## Performance & scaling
 
 - [ ] **Split the giant user row.** Each account is one JSON row holding photos, albums, up to 500 inquiries, the design and its undo history. Every login, dashboard click and public cache miss loads and rewrites all of it, password hash included. Move photos and inquiries into their own tables.
-- [ ] **Send only the photos a page shows.** `SiteData.photos` carries every photo (up to 2,000, with srcSets) on every public page, even About. Filter to what the page renders.
-- [ ] **Don't clear the public cache for private changes.** `updateUser` always calls `siteChanged()`, so draft autosaves, marking a message read, or a visitor sending an inquiry all throw away the visitor cache. Only revalidate when published data changes.
+- [x] **Send only the photos a page shows.** `SiteData.photos` carries every photo (up to 2,000, with srcSets) on every public page, even About. Filter to what the page renders.
+- [x] **Don't clear the public cache for private changes.** `updateUser` always calls `siteChanged()`, so draft autosaves, marking a message read, or a visitor sending an inquiry all throw away the visitor cache. Only revalidate when published data changes.
 - [ ] **Move schema setup out of cold starts.** The `ALTER TABLE ... IF NOT EXISTS` lines take an exclusive lock even when nothing changes. A burst of cold starts makes queries wait. Run migrations once at deploy time.
 - [x] **Use Neon's pooled connection string.** Each serverless instance opens up to 5 connections; a traffic spike can hit the database limit.
-- [ ] **Decode each image once.** `processImage` decodes the original once per size, in parallel. A 15,000 × 15,000 PNG is about 900 MB per decode. Decode once, use `.clone()` for sizes, and lower `limitInputPixels`.
-- [ ] **Stream the account export.** `/api/export` loads every original (up to 2,000 × 20 MB) into memory before zipping. Stream the zip, or build it in the background and email a link.
+- [x] **Decode each image once.** `processImage` decodes the original once per size, in parallel. A 15,000 × 15,000 PNG is about 900 MB per decode. Decode once, use `.clone()` for sizes, and lower `limitInputPixels`.
+- [x] **Stream the account export.** `/api/export` loads every original (up to 2,000 × 20 MB) into memory before zipping. Stream the zip, or build it in the background and email a link.
 - [ ] **Stop loading Folio's fonts on photographers' sites.** Plex, Newsreader and Geist are set in the root layout, so every portfolio downloads them on top of its theme fonts. Move them to the app's own layout.
 
 ## Reliability & code health
 
 - [x] **Add `error.tsx` and a root `not-found.tsx`.** A crash or unknown URL shows the default black Next.js screen.
 - [x] **Install error monitoring.** Sentry is connected to your account but not to the app, so production errors are invisible.
-- [ ] **Add browser tests.** Unit tests cover the server only. A Playwright run of signup → upload → design → publish would catch broken flows.
-- [ ] **Split the editor files.** `design-editor.tsx` is 47 KB and `editor.tsx` is 26 KB; break them into smaller components.
-- [ ] **Clean up storage on account deletion failures.** Accounts are deleted from the database before their files; if storage removal fails, files are orphaned. Log and retry.
+- [x] **Add browser tests.** Unit tests cover the server only. A Playwright run of signup → upload → design → publish would catch broken flows.
+- [x] **Split the editor files.** `design-editor.tsx` is 47 KB and `editor.tsx` is 26 KB; break them into smaller components.
+- [x] **Clean up storage on account deletion failures.** Accounts are deleted from the database before their files; if storage removal fails, files are orphaned. Log and retry.
 
 ## Landing page
 
@@ -331,11 +346,11 @@ Every item in this doc, in the order you chose: design → security → legal �
 
 ## Legal, business & housekeeping
 
-- [ ] Publish Terms, Privacy and Copyright Policy pages (the code already refers to a Copyright Policy).
-- [ ] Decide Free vs Pro limits; `MAX_PHOTOS = 2000` is a placeholder, so a free account can store about 40 GB.
-- [ ] Rename `package.json` from `"my-app"`.
-- [ ] Update `Folio.md` and `HANDOFF.md`, which still describe Folio+, Frank and the `folio-plus` branch.
-- [ ] Move `data/dev-test-account.txt` (plain-text test password) out of the OneDrive-synced folder.
+- [x] Terms, Privacy and Copyright pages exist as drafts (`app/(legal)`); still need a policy generator or lawyer pass, then `LEGAL_DRAFT=false`.
+- [x] Free vs Pro limits decided and in code: Free 150 photos, Pro 1,500 photos and 20 galleries (`lib/plans.ts`).
+- [x] Rename `package.json` from `"my-app"` (now `folio`).
+- [x] `HANDOFF.md` and `CLAUDE.md` updated. `Folio.md` does not exist in the repo, so nothing to do.
+- [x] Move `data/dev-test-account.txt` (plain-text test password) out of the OneDrive-synced folder.
 
 ## Stress-test checklist
 
@@ -465,7 +480,7 @@ Run them on a separate staging copy: a Vercel preview deployment with its own Ne
 
 # Agent context
 
-Everything a coding agent needs to implement this backlog without re-deriving it. Read this, then the repo's `CLAUDE.md` and `AGENTS.md`, before writing code. Snapshot as of Oct 25, 2026, commit `6afec2b` on `main`.
+Everything a coding agent needs to implement this backlog without re-deriving it. Read this, then the repo's `CLAUDE.md` and `AGENTS.md`, before writing code. Snapshot as of Oct 25, 2026. Phase 1 is on `main`; Phase 2 is on `phase-2-security` and Phase 3 plus the start of Phase 4 on `phase-3-launch` (neither merged).
 
 ## 1. Project snapshot
 
@@ -480,7 +495,7 @@ Everything a coding agent needs to implement this backlog without re-deriving it
 | Photos | Cloudflare R2: `folio-originals` (private), `folio-photos` (public, served from r2.dev for now) |
 | Email | Resend (`EMAIL_FROM`, `RESEND_API_KEY`) |
 | Errors | Sentry org `davi-k7`, project `folio`, DSN in `NEXT_PUBLIC_SENTRY_DSN` |
-| CI | `.github/workflows/ci.yml`: lint → typegen → tsc → `npm test` → build → smoke test |
+| CI | `.github/workflows/ci.yml`: lint → typegen → tsc → `npm test` → build → smoke test → Playwright browser test (`npm run test:e2e`) |
 | Users | None real yet. Pre-launch |
 | Branches | `main` = production (auto-deploys). A local-only `folio-plus` branch holds parked Folio+ work (client inquiries tables, replies via Resend inbound); do not merge it |
 
@@ -496,8 +511,9 @@ Everything a coding agent needs to implement this backlog without re-deriving it
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Set | Yes (`lib/rate-limit.ts`) |
 | `REPORTS_EMAIL`, `ADMIN_EMAILS` | Set | Yes |
 | `NEXT_PUBLIC_SENTRY_DSN` | Set | Yes (`lib/sentry.ts`) |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Set | **No**: Phase 2 work |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Set. Google app in Testing mode; redirect URIs `https://folio.cam/api/auth/google/callback` and `http://localhost:3000/api/auth/google/callback` | **No**: Phase 1 work |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Set | Yes, on `phase-2-security` (not merged) |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Set. Google app in Testing mode; redirect URIs `https://folio.cam/api/auth/google/callback` and `http://localhost:3000/api/auth/google/callback` | Yes (Continue with Google) |
+| `CRON_SECRET` | **Not set yet** (owner) | Yes, on `phase-2-security`: daily cleanup job |
 
 Open infra item: photo domain. folio.cam DNS must stay on Vercel (wildcard certs), so R2 needs a second domain on Cloudflare (e.g. `img.foliocdn.com`), then update `R2_PUBLIC_URL`.
 
@@ -597,9 +613,10 @@ Ship as five rounds, one branch and preview link each.
 
 ## 8. Phase 3–5 notes
 
-- Plans: add optional `User.plan` (`"free" | "pro"`, missing = free). Free `MAX_PHOTOS` 150 (currently 2,000 in `lib/uploads.ts`); Pro 1,500. Existing accounts over the limit keep their photos but can't add more.
+- Plans: DONE. `User.plan` (`"free" | "pro"`, missing = free) and `photoLimit` / `galleryLimit` are in `lib/plans.ts`; accounts over their limit keep their photos but can't add more. Staff set the plan by hand (`setPlan` in `app/actions/admin.ts`) until payments exist.
+- Client galleries: `User.galleries` (`ClientGallery` in `lib/db.ts`), helpers in `lib/galleries.ts`, actions in `app/actions/galleries.ts`, dashboard in `app/dashboard/manage/galleries` + `app/dashboard/galleries.tsx`, public page `app/sites/[subdomain]/g/[gallery]`, password cookie in `lib/session.ts`. Not done: download-all, expiry dates, per-photo favourites, email the link to the client.
 - Payments: Stripe has historically not onboarded Israeli businesses (Globes, 2021 — verify). Alternatives: Paddle or Lemon Squeezy as merchant of record (they handle US sales tax). Vercel Hobby forbids commercial use: upgrade to Pro (~$20/mo) before charging.
-- Performance: `lib/public-site.ts` L30 sends every photo to every page; `lib/images.ts` L39 decodes the original once per width in parallel; `app/api/export/route.ts` zips in memory; `lib/pg.ts` runs `ALTER TABLE` on every cold start; root `app/layout.tsx` loads Folio's fonts on photographers' sites.
+- Performance: image decoding, private-change cache clearing and the streamed export are done. Still open: `lib/pg.ts` runs `ALTER TABLE` on every cold start (needs a deploy-time migration; check against Neon first) and the root `app/layout.tsx` loads Folio's fonts on photographers' sites (needs separate root layouts).
 - DB split: move photos and inquiries to their own tables (the parked `folio-plus` branch already moved inquiries — reuse that migration if it fits).
 
 ## 9. File map
@@ -610,10 +627,11 @@ Ship as five rounds, one branch and preview link each.
 | Data | `lib/db.ts` (User/Photo/Album types, `updateUser`), `lib/pg.ts` (schema, connection) |
 | Auth | `lib/session.ts`, `lib/auth.ts`, `lib/tokens.ts`, `app/actions/auth.ts`, `app/(auth)/*` |
 | Uploads | `lib/uploads.ts`, `lib/images.ts`, `lib/photo-upload.ts`, `lib/compress-image.ts`, `app/api/photos/*` |
-| Dashboard | `app/dashboard/*` (`editor.tsx`, `design-editor.tsx`, `albums.tsx`, `nav.tsx`, `panels.tsx`, `manage/*`) |
+| Dashboard | `app/dashboard/*` (`editor.tsx`, `photo-uploader.tsx`, `photo-drawer.tsx`, `design-editor.tsx` + `design/*`, `albums.tsx`, `galleries.tsx`, `nav.tsx`, `panels.tsx`, `manage/*`) |
 | Design model | `lib/design.ts` (zod `SiteDesign`), `lib/templates.ts`, `lib/themes.ts` |
 | Public sites | `lib/public-site.ts`, `lib/site-data.ts`, `app/sites/[subdomain]/*` (themes, lightbox, contact form, metadata) |
 | Admin & reports | `lib/admin.ts`, `lib/admin-emails.ts`, `lib/reports.ts`, `app/actions/admin.ts`, `app/actions/report.ts`, `app/admin/*` |
+| Plans & legal | `lib/plans.ts`, `lib/galleries.ts`, `lib/legal.ts`, `app/(legal)/*` |
 | Services | `lib/email.ts`, `lib/rate-limit.ts`, `lib/sentry.ts`, `instrumentation*.ts` |
 | Landing | `app/page.tsx`, `app/ui/frames.tsx`, `app/ui/home-photos.json`, `public/home/` |
 | Tests | `tests/*.test.ts`, `tests/helpers.ts`, `tests/setup.ts`, `tests/stubs/` |
