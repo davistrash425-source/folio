@@ -47,8 +47,8 @@ Why: R2 CORS is unverified. Uploads go straight from the browser to the private 
 2. Sign in at `https://folio.cam`, go to the dashboard, and upload one JPEG and one large one (over 20 MB, to test browser compression).
 3. Verify: the photo appears in the dashboard, and `folio-photos` holds three WebP sizes under your user id. If it errors, open DevTools → Console/Network and look for a CORS error on the PUT to `*.r2.cloudflarestorage.com`.
 
-### 4. Check the CSP in the browser console, then enforce it (IN PROGRESS Oct 25, 2026)
-Status: enforcing it on folio.cam froze the design editor tab in Chrome (twice), so it was reverted. Claude pushed the enforcing change to branch `csp-preview`; Vercel builds a preview at https://folio-git-csp-preview-davi-438d.vercel.app. You log in there (Google sign-in won't work on that address), then Claude opens the editor to see if it freezes. Merge `csp-preview` only if the editor works.
+### 4. Check the CSP in the browser console, then enforce it (DONE Oct 25, 2026 by Claude)
+The policy is enforced on folio.cam. If a page ever misbehaves, the header is in `lib/security-headers.ts` (renaming it back to `Content-Security-Policy-Report-Only` turns enforcement off).
 Why: the full Content-Security-Policy is report-only, so it logs problems but blocks nothing.
 1. Open these in Chrome with DevTools → Console open: `folio.cam`, the sign-up page, the dashboard, the design editor with its preview, a published site, a client gallery, and `/admin`. Do an upload while you're there.
 2. Look for red lines starting "[Report Only] Refused to …". Note each one (which page, which address).

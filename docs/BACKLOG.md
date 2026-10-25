@@ -27,7 +27,7 @@ The working list for picking up Folio one task per session. Step-by-step instruc
 
 - [x] 1. Add `CRON_SECRET` in Vercel (done Oct 25, 2026, by Claude via the Vercel connector: Production, Sensitive, redeployed). The daily cleanup job doesn't run without it.
 - [x] 2. Confirm Turnstile covers folio.cam and *.folio.cam. (done Oct 25, 2026: sign-up on www.folio.cam passed in Chrome; owner confirmed the contact form on a photographer's subdomain works.)
-- [ ] 3. Check the browser console for CSP report-only messages, then enforce the policy. (Oct 25, 2026: no violations found, but enforcing it on folio.cam froze the design editor tab in Chrome, twice; reverted to report-only within minutes. Cause unknown; a local dev run showed no real violations. Being retried on a Vercel preview of branch `csp-preview` (the enforcing header only, `main` untouched): log in there and open the editor. If it works, merge that branch; if it freezes, capture the console first.)
+- [x] 3. Check the browser console for CSP report-only messages, then enforce the policy. (done Oct 25, 2026: the full policy is enforced on folio.cam. The first attempt froze the editor tab and was reverted; the second went through a Vercel preview first, then production, and the editor, upload, galleries and a published site all work. The one violation seen is zod's harmless eval probe. The first freeze was never explained.)
 - [x] 4. Test a photo upload on folio.cam. (done Oct 25, 2026: upload through the dashboard worked, the PUT to R2 returned 200; test photo deleted again.)
 - [ ] 5. Get a lawyer to review the Terms, Privacy and Copyright pages, then set `LEGAL_DRAFT=false`.
 - [ ] 6. Register a DMCA agent with the Copyright Office.
@@ -149,7 +149,7 @@ Every item in this doc, in the order you chose: design → security → legal �
 - [x] Replace the per-account login lockout with per-IP limits + slowdown (no CAPTCHA after failures yet)
 - [x] Equalize login timing for unknown emails
 - [x] Shrink server-action body limits; validate inputs in `updatePhoto` / `reorderPhotos`
-- [x] Security headers: HSTS, `frame-ancestors` enforced; full CSP is report-only until checked in a browser
+- [x] Security headers: HSTS, `frame-ancestors` enforced; full CSP enforced since Oct 25, 2026
 - [x] Cheap "not found" caching for random subdomains (per-IP limit would be a Vercel firewall rule)
 - [x] Turnstile on the contact form and sign-up
 - [x] Keep the login email off public site data
@@ -160,7 +160,7 @@ Every item in this doc, in the order you chose: design → security → legal �
 
 - [x] Add `CRON_SECRET` in Vercel so the daily cleanup job runs
 - [ ] Make sure the Turnstile widget covers `folio.cam` and `*.folio.cam`; test sign-up and a contact form
-- [ ] Check the browser console on folio.cam for report-only CSP messages, then enforce the full policy
+- [x] Check the browser console on folio.cam for report-only CSP messages, then enforce the full policy
 - [ ] Test photo upload on folio.cam (Phase 2 and 3 are merged)
 - [ ] Optional: CAPTCHA after repeated failed logins; Vercel Firewall rule for floods of unknown subdomains
 
