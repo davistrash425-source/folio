@@ -59,6 +59,7 @@ export type Inquiry = {
   message: string;
   createdAt: string;
   read: boolean;
+  photoId?: string; // asked about from a photo's "Inquire" button
 };
 
 export type User = {
@@ -72,6 +73,9 @@ export type User = {
     name: string;
     bio: string;
     contactEmail: string;
+    // Whether visitors see contactEmail. Missing means hidden: it starts as
+    // the login email, which shouldn't go public unless the photographer says so.
+    showEmail?: boolean;
     phone: string;
     location: string;
     social: SocialLinks;
@@ -94,6 +98,7 @@ export type User = {
   design?: SiteDesign;
   draftDesign?: SiteDesign;
   designHistory?: SiteDesign[]; // earlier saved drafts, newest last, for undo
+  designHistoryAt?: number; // when an autosave last added to designHistory (ms)
   // Login cookies issued before this time (ms) no longer work. Set by a
   // password reset and by "sign out everywhere".
   sessionsValidFrom?: number;
@@ -108,6 +113,9 @@ export type User = {
   // An admin's extra site: the admin's account id. It has no password and a
   // made-up email; the admin reaches it by switching sites (app/actions/sites.ts).
   managedBy?: string;
+  // Set when the account was created (or later linked) via "Continue with
+  // Google". Google users have an empty passwordHash and confirm by address.
+  googleId?: string;
 };
 
 // One-time links for password resets and email verification. Only a hash of
@@ -160,6 +168,8 @@ export async function createUser(input: {
   subdomain: string;
   name: string;
   published: boolean;
+  googleId?: string;
+  emailVerified?: boolean;
 }) {
   const email = input.email.toLowerCase();
   const subdomain = input.subdomain.toLowerCase();
@@ -181,9 +191,10 @@ export async function createUser(input: {
     photos: [],
     published: input.published,
     design: presetDesign(),
-    emailVerified: false,
+    emailVerified: input.emailVerified ?? false,
     albums: [],
     inquiries: [],
+    ...(input.googleId ? { googleId: input.googleId } : {}),
   };
   const db = await database();
   try {
@@ -213,7 +224,9 @@ function siteChanged(subdomain: string) {
 
 // Reads the user, lets `fn` change it, and saves it, with the row locked
 // throughout. If `fn` throws, nothing is saved.
-export async function updateUser(id: string, fn: (user: User) => void) {
+// Pass `{ publicChange: false }` for changes visitors can't see (like the
+// design draft), so they don't throw away the public site's cache.
+export async function updateUser(id: string, fn: (user: User) => void, opts: { publicChange?: boolean } = {}) {
   const db = await database();
   const user = await db.transaction(async (query) => {
     const { rows } = await query<{ data: User }>("select data from users where id = $1 for update", [id]);
@@ -223,7 +236,7 @@ export async function updateUser(id: string, fn: (user: User) => void) {
     await save(query, user);
     return user;
   });
-  siteChanged(user.subdomain);
+  if (opts.publicChange !== false) siteChanged(user.subdomain);
   return user;
 }
 

@@ -27,77 +27,77 @@ Every item in this doc, in the order you chose: design → security → legal �
 
 **Landing page**
 
-- [ ] Make the "yourname.folio.cam" box a real input with a live availability check that carries into sign-up
-- [ ] Fix theme previews showing empty boxes while scrolling (placeholders, load before view)
+- [x] Make the "yourname.folio.cam" box a real input with a live availability check that carries into sign-up
+- [x] Fix theme previews showing empty boxes while scrolling (placeholders, load before view)
 - [ ] Make each theme preview open a full demo site
-- [ ] Replace the duplicate hero "Log in" with "See an example"
-- [ ] Add a pricing / FAQ teaser ("Free. Pro coming soon.")
+- [x] Replace the duplicate hero "Log in" with "See an example"
+- [x] Add a pricing / FAQ teaser ("Free. Pro coming soon.")
 - [ ] Fill the footer: Terms, Privacy, contact, Instagram
-- [ ] Shorten the hero on phones so the contact sheet shows on the first screen
+- [x] Shorten the hero on phones so the contact sheet shows on the first screen
 
 **Sign-up & log in**
 
-- [ ] Tie field hints to inputs with aria-describedby (labels are already linked; checked in code)
-- [ ] Live site-address check (✓ / ✗) while typing
-- [ ] Keep the password after a failed submit; focus the wrong field
-- [ ] Folio-styled inline errors instead of the browser bubble
-- [ ] Red border on the field in error
-- [ ] Show-password toggle + "you can change it later" hint under the address
-- [ ] Add "Continue with Google"
-- [ ] Own tab title per page ("Create your site · Folio")
+- [x] Tie field hints to inputs with aria-describedby (labels are already linked; checked in code)
+- [x] Live site-address check (✓ / ✗) while typing
+- [x] Keep the password after a failed submit; focus the wrong field
+- [x] Folio-styled inline errors instead of the browser bubble
+- [x] Red border on the field in error
+- [x] Show-password toggle + "you can change it later" hint under the address
+- [x] Add "Continue with Google"
+- [x] Own tab title per page ("Create your site · Folio")
 
 **Error & empty pages**
 
-- [ ] Branded 404 for folio.cam linking home and sign-up
-- [ ] "Claim this address →" on "This site doesn't exist yet"
-- [ ] "Temporarily offline" page for offline sites, in the photographer's theme
-- [ ] Clear notice when a site is hidden because the email isn't verified
+- [x] Branded 404 for folio.cam linking home and sign-up
+- [x] "Claim this address →" on "This site doesn't exist yet"
+- [x] "Temporarily offline" page for offline sites, in the photographer's theme
+- [x] Clear notice when a site is hidden because the email isn't verified
 
 **Dashboard frame & navigation**
 
-- [ ] Move "Take offline" out of the header; put "View site ↗" / "Publish" there
-- [ ] Slim the pinned header (about 180 px today)
-- [ ] Put "Log out" in an account menu
+- [x] Move "Take offline" out of the header; put "View site ↗" / "Publish" there
+- [x] Slim the pinned header (about 180 px today)
+- [x] Put "Log out" in an account menu
 - [ ] Keep the header the same on every page
-- [ ] Stop the step strip scrolling sideways; collapse it on narrow widths
-- [ ] ✓ on finished steps + "2 of 5 done"
-- [ ] Send new users to Upload (step 1)
+- [x] Stop the step strip scrolling sideways; collapse it on narrow widths
+- [x] ✓ on finished steps + "2 of 5 done"
+- [x] Send new users to Upload (step 1)
 - [ ] Make "Preview website" a button labelled draft or live
-- [ ] Site switcher closes on outside click and works with arrow keys
-- [ ] Unmissable "verify your email" banner
-- [ ] Replace browser `confirm()` pop-ups with Folio dialogs or undo toasts
+- [x] Site switcher closes on outside click and works with arrow keys
+- [x] Unmissable "verify your email" banner
+- [x] Replace browser `confirm()` pop-ups with Folio dialogs or undo toasts
 - [ ] Dashboard works well on laptop, tablet and phone
 
 **Photos & albums**
 
-- [ ] Denser photo grid (4–6 per row) with a size slider
-- [ ] Quiet marker instead of red "No description" on every photo
-- [ ] Multi-select: caption, location, album, delete many at once
-- [ ] Autosave in the photo drawer
-- [ ] Neutral placeholders ("Add a caption…")
-- [ ] Photo drawer: trap focus and return it on close (labels and dialog role already in place)
-- [ ] Albums empty state explaining why, create form in a dialog
-- [ ] "New album from selection"
-- [ ] Tell users when a delete didn't happen (legal hold)
+- [x] Denser photo grid (4–6 per row) with a size slider
+- [x] Quiet marker instead of red "No description" on every photo
+- [x] Multi-select: caption, location, album, delete many at once
+- [x] Autosave in the photo drawer
+- [x] Neutral placeholders ("Add a caption…")
+- [x] Photo drawer: trap focus and return it on close (labels and dialog role already in place)
+- [x] Albums empty state explaining why, create form in a dialog
+- [x] "New album from selection"
+- [x] Tell users when a delete didn't happen (legal hold)
 
 **Web design editor**
 
-- [ ] Live preview visible while editing at every width
-- [ ] Theme first, before Pages and Sections
-- [ ] Previous render or labelled spinner while the preview loads
-- [ ] Hide the "Describe a change … coming soon" box (keep it for Frank later)
-- [ ] Autosave drafts; one Publish button + "Draft saved" status
-- [ ] "3 unpublished changes" status
+- [x] Live preview visible while editing at every width
+- [x] Theme first, before Pages and Sections
+- [x] Previous render or labelled spinner while the preview loads
+- [x] Hide the "Describe a change … coming soon" box (keep it for Frank later)
+- [x] Autosave drafts; one Publish button + "Draft saved" status
+- [x] "3 unpublished changes" status
 - [x] Already done in code (named buttons, `aria-pressed`)
-- [ ] Explain on theme cards that special themes set their own layout (editable on Pro)
+- [x] Explain on theme cards that special themes set their own layout (editable on Pro)
 
 **Go live, Account & Messages**
 
-- [ ] New sites start as drafts + reminder email if not published after a few days
+- [x] New sites start as drafts + reminder email if not published after a few days
 - [ ] Optional quality checks on Go live: captions, About text, contact details
-- [ ] "Take offline" shown once, on Go live only
+- [x] "Take offline" shown once, on Go live only
 - [ ] Move name, bio and contact details into Web design (About page)
-- [ ] Contact email hidden by default, with a prominent switch to make it public
+- [x] Contact email hidden by default, with a prominent switch to make it public
 - [ ] Validate social links (Instagram handle, not any URL)
 - [ ] "Change address" as a secondary button with an old → new confirm
 - [ ] Name the "other site" in the delete-account warning
@@ -105,12 +105,12 @@ Every item in this doc, in the order you chose: design → security → legal �
 
 **Public sites & lightbox**
 
-- [ ] Trap focus in the lightbox
-- [ ] A URL and history entry per photo (`?photo=3`), Back closes the viewer
-- [ ] Preload next/previous; fade in from the small version
-- [ ] Swipe follows the finger
-- [ ] Controls on dark backing circles
-- [ ] "Inquire about this photo" button that pre-fills the contact form
+- [x] Trap focus in the lightbox
+- [x] A URL and history entry per photo (`?photo=3`), Back closes the viewer
+- [x] Preload next/previous; fade in from the small version
+- [x] Swipe follows the finger
+- [x] Controls on dark backing circles
+- [x] "Inquire about this photo" button that pre-fills the contact form
 
 ### Phase 2 — Security & abuse
 
@@ -123,7 +123,7 @@ Every item in this doc, in the order you chose: design → security → legal �
 - [ ] Cheap "not found" caching + limits for random subdomains
 - [ ] Turnstile on the contact form and sign-up
 - [ ] Keep the login email off public site data
-- [ ] Sentry and the crash page are live; still add `error.tsx` and a root `not-found.tsx`
+- [x] Sentry and the crash page are live; still add `error.tsx` and a root `not-found.tsx`
 - [ ] Log and retry storage cleanup when an account is deleted
 
 ### Phase 3 — Legal & launch (Free plan)
@@ -236,7 +236,7 @@ Every item in this doc, in the order you chose: design → security → legal �
 - [ ] Replace the duplicate hero "Log in" button with "See an example".
 - [ ] Add pricing / FAQ, even just "Free. Pro coming soon."
 - [ ] Fill the footer: Terms, Privacy, contact, Instagram.
-- [ ] Shorten the hero on phones so the contact sheet shows on the first screen.
+- [x] Shorten the hero on phones so the contact sheet shows on the first screen.
 
 ## Sign-up & log in
 

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { createUser, deleteUser, findUserByEmail, findUserBySubdomain, managedSites, subdomainOnHold, updateUser } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
+import { clearGoogleSignup, readGoogleSignup } from "@/lib/google";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import {
   clearManager,
@@ -32,7 +33,13 @@ The link works for 48 hours.`,
   });
 }
 
-export type FormState = { error?: string; ok?: string; fields?: Record<string, string> };
+export type FormState = {
+  error?: string;
+  ok?: string;
+  fields?: Record<string, string>;
+  // Which field the form should focus (and mark red) after a failed submit.
+  field?: "name" | "email" | "password" | "subdomain";
+};
 
 export async function signup(_prev: FormState, formData: FormData): Promise<FormState> {
   const name = String(formData.get("name") ?? "").trim();
@@ -42,11 +49,11 @@ export async function signup(_prev: FormState, formData: FormData): Promise<Form
   const fields = { name, email, subdomain };
 
   if (!(await rateLimit(`signup:${await clientIp()}`, 10, HOUR))) return { error: TOO_MANY, fields };
-  if (!name) return { error: "Please enter your name.", fields };
-  if (!/^\S+@\S+\.\S+$/.test(email)) return { error: "Please enter a valid email.", fields };
-  if (password.length < 8) return { error: "Password must be at least 8 characters.", fields };
+  if (!name) return { error: "Please enter your name.", fields, field: "name" };
+  if (!/^\S+@\S+\.\S+$/.test(email)) return { error: "Please enter a valid email.", fields, field: "email" };
+  if (password.length < 8) return { error: "Password must be at least 8 characters.", fields, field: "password" };
   const subError = validateSubdomain(subdomain);
-  if (subError) return { error: subError, fields };
+  if (subError) return { error: subError, fields, field: "subdomain" };
   if (await subdomainOnHold(subdomain, ADDRESS_HOLD_MONTHS)) {
     return {
       error: `That address belonged to a site that closed recently, so it's held for a year. Try another, or write to ${SUPPORT_EMAIL} if it was yours.`,
@@ -75,6 +82,56 @@ export async function signup(_prev: FormState, formData: FormData): Promise<Form
     const msg = (err as Error).message;
     if (msg === "EMAIL_TAKEN") return { error: "An account with that email already exists.", fields };
     if (msg === "SUBDOMAIN_TAKEN") return { error: "That site address is taken — try another.", fields };
+    throw err;
+  }
+  redirect("/dashboard");
+}
+
+// The last step for someone who signed in with Google but has no account yet:
+// they pick their name and site address. There is no password (they sign in
+// with Google), and their email is already confirmed by Google.
+export async function completeGoogleSignup(_prev: FormState, formData: FormData): Promise<FormState> {
+  const name = String(formData.get("name") ?? "").trim();
+  const subdomain = String(formData.get("subdomain") ?? "").trim().toLowerCase();
+  const fields = { name, subdomain };
+
+  const identity = await readGoogleSignup();
+  if (!identity) return { error: "That link has expired. Start again with Continue with Google.", fields };
+  if (!(await rateLimit(`signup:${await clientIp()}`, 10, HOUR))) return { error: TOO_MANY, fields };
+
+  if (!name) return { error: "Please enter your name.", fields, field: "name" };
+  const subError = validateSubdomain(subdomain);
+  if (subError) return { error: subError, fields, field: "subdomain" };
+  if (await subdomainOnHold(subdomain, ADDRESS_HOLD_MONTHS)) {
+    return {
+      error: `That address belonged to a site that closed recently, so it's held for a year. Try another, or write to ${SUPPORT_EMAIL} if it was yours.`,
+      fields,
+      field: "subdomain",
+    };
+  }
+  if (await findUserBySubdomain(subdomain)) {
+    return { error: "That site address is taken — try another.", fields, field: "subdomain" };
+  }
+  if (await findUserByEmail(identity.email)) {
+    return { error: "An account with that email already exists.", fields };
+  }
+
+  try {
+    const user = await createUser({
+      name,
+      email: identity.email,
+      subdomain,
+      passwordHash: "",
+      published: NEW_SITES_START_PUBLISHED,
+      googleId: identity.googleId,
+      emailVerified: true,
+    });
+    await clearGoogleSignup();
+    await createSession(user.id);
+  } catch (err) {
+    const msg = (err as Error).message;
+    if (msg === "EMAIL_TAKEN") return { error: "An account with that email already exists.", fields };
+    if (msg === "SUBDOMAIN_TAKEN") return { error: "That site address is taken — try another.", fields, field: "subdomain" };
     throw err;
   }
   redirect("/dashboard");
@@ -176,7 +233,10 @@ export async function signOutEverywhereElse(): Promise<FormState> {
 export async function deleteAccount(_prev: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser();
   if (!(await rateLimit(`delete:${user.id}`, 5, 15 * 60 * 1000))) return { error: TOO_MANY };
-  if (user.managedBy) {
+  // An admin's extra site has no password; neither does a Google-only account.
+  // Both confirm by typing the site's address instead.
+  const hasPassword = Boolean(user.passwordHash);
+  if (user.managedBy || !hasPassword) {
     if (String(formData.get("confirm") ?? "").trim().toLowerCase() !== user.subdomain) {
       return { error: "Type the site's address to confirm." };
     }

@@ -1,9 +1,10 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element -- user uploads are served by our own route */
-import { useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { discardDraftDesign, publishDesign, saveDraftDesign, undoDesign, type DesignResult } from "@/app/actions/design";
 import { Button, chipClass, inputClass } from "@/app/ui/form";
+import { ConfirmButton } from "@/app/ui/confirm";
 import {
   PAGE_TEMPLATES,
   FILM_STOCKS,
@@ -32,6 +33,7 @@ import {
 import { TEMPLATES } from "@/lib/templates";
 import { THEME_INFO } from "@/lib/themes";
 import { DevicePreview, DeviceButtons, type Device } from "./device-preview";
+import { countChanges } from "./design/changes";
 
 export type EditorPhoto = { id: string; src: string; srcSet?: string; description: string; location: string };
 export type EditorAlbum = { id: string; slug: string; title: string; photoCount: number };
@@ -57,6 +59,11 @@ const PAGE_TEMPLATE_LABELS: Record<PageTemplate, string> = {
 
 const makeId = () => crypto.randomUUID();
 
+// Edits save as a draft this long after the last change.
+const AUTOSAVE_DELAY = 1000;
+// The "Describe a change" box waits for Frank, the AI assistant (parked).
+const SHOW_AI_BOX = false;
+
 export function DesignEditor(props: {
   draft: SiteDesign;
   published: SiteDesign;
@@ -73,6 +80,11 @@ export function DesignEditor(props: {
   const [device, setDevice] = useState<Device>("desktop");
   const [pageId, setPageId] = useState(props.draft.pages[0].id);
   const [pending, startTransition] = useTransition();
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+  const [showPreview, setShowPreview] = useState(true); // below the large breakpoint
+  const lastSent = useRef<SiteDesign | null>(null);
+  const toSave = useRef<SiteDesign | null>(null); // for the save when leaving
 
   const unsaved = !sameDesign(design, saved);
   const unpublished = !sameDesign(design, published);
@@ -80,10 +92,11 @@ export function DesignEditor(props: {
     const result = designSchema.safeParse(design);
     return result.success ? null : (result.error.issues[0]?.message ?? "Something in the design isn’t valid.");
   }, [design]);
+  const changes = useMemo(() => countChanges(design, published), [design, published]);
   const page = design.pages.find((p) => p.id === pageId) ?? design.pages[0];
   const albumSlugs = props.albums.map((a) => a.slug);
 
-  // Warn before leaving with unsaved changes.
+  // Warn before leaving with changes that haven't saved yet.
   useEffect(() => {
     if (!unsaved) return;
     const warn = (e: BeforeUnloadEvent) => e.preventDefault();
@@ -91,8 +104,50 @@ export function DesignEditor(props: {
     return () => window.removeEventListener("beforeunload", warn);
   }, [unsaved]);
 
+  // Saves the draft in the background. What's on screen is left alone, so
+  // typing carries on while it saves.
+  const autosave = useEffectEvent((next: SiteDesign) => {
+    if (lastSent.current && sameDesign(next, lastSent.current)) return;
+    lastSent.current = next;
+    setSaving(true);
+    saveDraftDesign(next, { autosave: true }).then(
+      (result) => {
+        setSaving(false);
+        if (result.error || !result.draft) {
+          setSaveError(true);
+          return;
+        }
+        setSaveError(false);
+        setSaved(result.draft);
+        if (result.published) setPublished(result.published);
+        setCanUndo(Boolean(result.canUndo));
+      },
+      () => {
+        setSaving(false);
+        setSaveError(true);
+        lastSent.current = null; // try again on the next edit
+      },
+    );
+  });
+
+  useEffect(() => {
+    toSave.current = unsaved && !problem ? design : null;
+    if (!toSave.current) return;
+    const timer = setTimeout(() => autosave(design), AUTOSAVE_DELAY);
+    return () => clearTimeout(timer);
+  }, [design, unsaved, problem]);
+
+  // Leaving the page within the dashboard saves what's left.
+  useEffect(
+    () => () => {
+      if (toSave.current) autosave(toSave.current);
+    },
+    [],
+  );
+
   function run(action: () => Promise<DesignResult>) {
     setError(undefined);
+    setSaveError(false);
     startTransition(async () => {
       const result = await action();
       if (result.error) return setError(result.error);
@@ -118,14 +173,24 @@ export function DesignEditor(props: {
     setPageId(created.id);
   }
 
-  const status = unsaved ? "Unsaved changes" : unpublished ? "Draft saved — not live yet" : "Live on your site";
+  // At least one: the count is rough, and "unpublished" is exact.
+  const changeTotal = Math.max(1, changes);
+  const changeCount = `${changeTotal} unpublished change${changeTotal === 1 ? "" : "s"}`;
+  const saveState = saveError
+    ? "Couldn’t save your draft. Check your connection; it will try again when you next edit."
+    : problem
+      ? "Not saved yet"
+      : saving || unsaved
+        ? "Saving…"
+        : "Draft saved";
+  const status = unpublished ? `${saveState} · ${changeCount}` : saving || unsaved ? saveState : "Live: everything is published";
 
   return (
     <div className="space-y-4">
       {/* Sits under the dashboard's top bar, which is pinned too (--dash-bar is its height). */}
       <div className="sticky top-[var(--dash-bar,55px)] z-30 -mx-6 flex flex-wrap items-center gap-3 border-b border-rule bg-paper/95 px-6 py-3 backdrop-blur md:mx-0 md:border md:bg-paper/95">
-        <span className={`flex items-center gap-2 text-sm ${unsaved || unpublished ? "text-accent" : "text-ink"}`} aria-live="polite">
-          <span className={`h-2 w-2 rounded-full ${unsaved || unpublished ? "bg-accent" : "bg-ink"}`} aria-hidden="true" />
+        <span className={`flex items-center gap-2 text-sm ${saveError || unpublished ? "text-accent" : "text-ink"}`} aria-live="polite">
+          <span className={`h-2 w-2 rounded-full ${saveError || unpublished ? "bg-accent" : "bg-ink"}`} aria-hidden="true" />
           {status}
         </span>
         {(problem || error) && <span role="alert" className="text-sm text-accent">{problem ?? error}</span>}
@@ -133,115 +198,29 @@ export function DesignEditor(props: {
           <ToolbarButton
             disabled={pending || (!unsaved && !canUndo)}
             onClick={() => (unsaved ? setDesign(saved) : run(undoDesign))}
-            title={unsaved ? "Undo changes since your last save" : "Go back to your previous saved draft"}
+            title="Go back a step"
           >
             Undo
           </ToolbarButton>
-          <ToolbarButton
+          <ConfirmButton
+            label="Discard"
+            message="Discard all changes that aren’t live yet?"
+            confirmLabel="Discard"
             disabled={pending || !unpublished}
-            onClick={() => {
-              if (confirm("Discard all changes that aren’t live yet?")) run(discardDraftDesign);
-            }}
-          >
-            Discard
-          </ToolbarButton>
-          <ToolbarButton disabled={pending || !unsaved || Boolean(problem)} onClick={() => run(() => saveDraftDesign(design))}>
-            Save draft
-          </ToolbarButton>
+            onConfirm={() => run(discardDraftDesign)}
+            className="h-9 px-4 text-sm font-medium border border-rule hover:bg-ink/5 disabled:opacity-40"
+            confirmClassName="bg-accent h-9 px-4 text-sm font-medium text-paper hover:bg-ink"
+          />
           <Button disabled={pending || !unpublished || Boolean(problem)} onClick={() => run(() => publishDesign(design))} className="h-9">
-            {pending ? "Saving…" : "Publish changes"}
+            {pending ? "Working…" : "Publish"}
           </Button>
         </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)] xl:grid-cols-[26rem_minmax(0,1fr)]">
-        <div className="space-y-4">
-          <AiPlaceholder />
-
-          <Group title="Pages">
-            <ul className="space-y-1">
-              {design.pages.map((p, i) => (
-                <li
-                  key={p.id}
-                  className={`flex items-center gap-2 px-3 py-2 text-sm border ${p.id === page.id ? "bg-ink text-paper border-ink" : "bg-paper border-rule"}`}
-                >
-                  <button type="button" onClick={() => setPageId(p.id)} aria-pressed={p.id === page.id} className="flex flex-1 items-baseline gap-2 text-left">
-                    <span className="font-medium">{p.title || "Untitled"}</span>
-                    <span className={p.id === page.id ? "text-paper/60" : "text-ink-faint"}>/{p.slug}</span>
-                    {!p.showInNav && <span className={p.id === page.id ? "text-paper/60" : "text-ink-faint"}>· hidden from menu</span>}
-                  </button>
-                  {i > 0 && (
-                    <>
-                      <IconButton label={`Move ${p.title} up`} disabled={i === 1} onClick={() => update({ pages: swap(design.pages, i, i - 1) })}>↑</IconButton>
-                      <IconButton label={`Move ${p.title} down`} disabled={i === design.pages.length - 1} onClick={() => update({ pages: swap(design.pages, i, i + 1) })}>↓</IconButton>
-                    </>
-                  )}
-                </li>
-              ))}
-            </ul>
-            <AddMenu
-              label="Add page"
-              options={(Object.keys(PAGE_TEMPLATE_LABELS) as PageTemplate[]).map((t) => [t, PAGE_TEMPLATE_LABELS[t]])}
-              onAdd={addPage}
-              disabled={design.pages.length >= 20}
-            />
-            <p className="text-xs text-ink-soft">The first page is your home page; open another page to make it the home page instead. Menu order follows this list.</p>
-          </Group>
-
-          <Group title={`Page: ${page.title || "Untitled"}`} key={page.id}>
-            <PageSettings
-              page={page}
-              isHome={page.id === design.pages[0].id}
-              onChange={(patch) => updatePage(page.id, patch)}
-              onDelete={() => {
-                if (!confirm(`Delete the page “${page.title}”?`)) return;
-                setDesign((d) => ({ ...d, pages: d.pages.filter((p) => p.id !== page.id) }));
-                setPageId(design.pages[0].id);
-              }}
-              onMakeHome={() => update({ pages: makeHomePage(design.pages, page.id, albumSlugs) })}
-              suggestSlug={(title) => uniqueSlug(title, [...design.pages.filter((p) => p.id !== page.id).map((p) => p.slug), ...albumSlugs])}
-              albumSlugs={albumSlugs}
-            />
-            {design.theme === "classic" && (
-              <PageHeaderPhoto
-                page={page}
-                photos={props.photos}
-                onChange={setSections}
-              />
-            )}
-            <div>
-              <p className="label mb-2 text-ink-soft">Sections, top to bottom</p>
-              {page.sections.length === 0 && <p className="mb-2 text-sm text-ink-soft">This page has no sections yet.</p>}
-              <ul className="space-y-2">
-                {page.sections.map((section, i) => (
-                  <SectionCard
-                    key={section.id}
-                    section={section}
-                    index={i}
-                    count={page.sections.length}
-                    photos={props.photos}
-                    albums={props.albums}
-                    classic={design.theme === "classic"}
-                    defaults={{
-                      heading: page.slug === "" ? props.profile.name : page.title,
-                      subheading: page.slug === "" ? props.profile.location : "",
-                      bio: props.profile.bio,
-                    }}
-                    onChange={(next) => setSections(page.sections.map((s) => (s.id === section.id ? next : s)))}
-                    onMove={(to) => setSections(swap(page.sections, i, to))}
-                    onRemove={() => setSections(page.sections.filter((s) => s.id !== section.id))}
-                  />
-                ))}
-              </ul>
-            </div>
-            <AddMenu
-              label="Add section"
-              options={(Object.keys(SECTION_LABELS) as SectionType[]).map((t) => [t, SECTION_LABELS[t]])}
-              onAdd={(type) => setSections([...page.sections, newSection(type, makeId)])}
-              disabled={page.sections.length >= 30}
-            />
-          </Group>
-
+        {/* Room below for the pinned preview on smaller screens. */}
+        <div className={`space-y-4 ${showPreview ? "max-lg:pb-[48vh]" : ""}`}>
+          {SHOW_AI_BOX && <AiPlaceholder />}
           <Group title="Theme">
             <ThemePicker theme={design.theme} photos={props.photos} onPick={(theme) => setDesign((d) => applyTheme(d, theme))} />
             <p className="text-sm text-ink-soft">{THEME_INFO[design.theme].description}</p>
@@ -354,6 +333,90 @@ export function DesignEditor(props: {
           </Group>
           )}
 
+
+          <Group title="Pages">
+            <ul className="space-y-1">
+              {design.pages.map((p, i) => (
+                <li
+                  key={p.id}
+                  className={`flex items-center gap-2 px-3 py-2 text-sm border ${p.id === page.id ? "bg-ink text-paper border-ink" : "bg-paper border-rule"}`}
+                >
+                  <button type="button" onClick={() => setPageId(p.id)} aria-pressed={p.id === page.id} className="flex flex-1 items-baseline gap-2 text-left">
+                    <span className="font-medium">{p.title || "Untitled"}</span>
+                    <span className={p.id === page.id ? "text-paper/60" : "text-ink-faint"}>/{p.slug}</span>
+                    {!p.showInNav && <span className={p.id === page.id ? "text-paper/60" : "text-ink-faint"}>· hidden from menu</span>}
+                  </button>
+                  {i > 0 && (
+                    <>
+                      <IconButton label={`Move ${p.title} up`} disabled={i === 1} onClick={() => update({ pages: swap(design.pages, i, i - 1) })}>↑</IconButton>
+                      <IconButton label={`Move ${p.title} down`} disabled={i === design.pages.length - 1} onClick={() => update({ pages: swap(design.pages, i, i + 1) })}>↓</IconButton>
+                    </>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <AddMenu
+              label="Add page"
+              options={(Object.keys(PAGE_TEMPLATE_LABELS) as PageTemplate[]).map((t) => [t, PAGE_TEMPLATE_LABELS[t]])}
+              onAdd={addPage}
+              disabled={design.pages.length >= 20}
+            />
+            <p className="text-xs text-ink-soft">The first page is your home page; open another page to make it the home page instead. Menu order follows this list.</p>
+          </Group>
+
+          <Group title={`Page: ${page.title || "Untitled"}`} key={page.id}>
+            <PageSettings
+              page={page}
+              isHome={page.id === design.pages[0].id}
+              onChange={(patch) => updatePage(page.id, patch)}
+              onDelete={() => {
+                setDesign((d) => ({ ...d, pages: d.pages.filter((p) => p.id !== page.id) }));
+                setPageId(design.pages[0].id);
+              }}
+              onMakeHome={() => update({ pages: makeHomePage(design.pages, page.id, albumSlugs) })}
+              suggestSlug={(title) => uniqueSlug(title, [...design.pages.filter((p) => p.id !== page.id).map((p) => p.slug), ...albumSlugs])}
+              albumSlugs={albumSlugs}
+            />
+            {design.theme === "classic" && (
+              <PageHeaderPhoto
+                page={page}
+                photos={props.photos}
+                onChange={setSections}
+              />
+            )}
+            <div>
+              <p className="label mb-2 text-ink-soft">Sections, top to bottom</p>
+              {page.sections.length === 0 && <p className="mb-2 text-sm text-ink-soft">This page has no sections yet.</p>}
+              <ul className="space-y-2">
+                {page.sections.map((section, i) => (
+                  <SectionCard
+                    key={section.id}
+                    section={section}
+                    index={i}
+                    count={page.sections.length}
+                    photos={props.photos}
+                    albums={props.albums}
+                    classic={design.theme === "classic"}
+                    defaults={{
+                      heading: page.slug === "" ? props.profile.name : page.title,
+                      subheading: page.slug === "" ? props.profile.location : "",
+                      bio: props.profile.bio,
+                    }}
+                    onChange={(next) => setSections(page.sections.map((s) => (s.id === section.id ? next : s)))}
+                    onMove={(to) => setSections(swap(page.sections, i, to))}
+                    onRemove={() => setSections(page.sections.filter((s) => s.id !== section.id))}
+                  />
+                ))}
+              </ul>
+            </div>
+            <AddMenu
+              label="Add section"
+              options={(Object.keys(SECTION_LABELS) as SectionType[]).map((t) => [t, SECTION_LABELS[t]])}
+              onAdd={(type) => setSections([...page.sections, newSection(type, makeId)])}
+              disabled={page.sections.length >= 30}
+            />
+          </Group>
+
           <Group title="Captions">
             {design.theme === "index" && (
               <p className="text-xs text-ink-soft">Index always lists each photo’s description and location in its rows. This setting controls the captions in the full-screen viewer.</p>
@@ -414,16 +477,41 @@ export function DesignEditor(props: {
           </Group>
         </div>
 
-        <div className="min-w-0 space-y-3 lg:sticky lg:top-[calc(var(--dash-bar,4rem)+5rem)] lg:self-start">
-          <div className="flex items-center justify-between gap-3">
+        {/* Beside the controls on large screens; pinned to the bottom below that, and can be hidden. */}
+        <div
+          className={`min-w-0 lg:sticky lg:top-[calc(var(--dash-bar,4rem)+5rem)] lg:block lg:self-start ${
+            showPreview ? "max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-30 max-lg:flex max-lg:h-[45vh] max-lg:flex-col max-lg:border-t max-lg:border-ink max-lg:bg-paper max-lg:px-3 max-lg:pb-2 max-lg:pt-2" : "hidden"
+          }`}
+        >
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 lg:mb-3">
             <p className="text-sm text-ink-soft">
-              Live preview: <span className="font-medium text-ink">{page.title}</span>
-              {unsaved ? " (unsaved)" : ""}
+              Preview: <span className="font-medium text-ink">{page.title}</span>
+              {unpublished ? " (draft)" : ""}
             </p>
-            <DeviceButtons device={device} onChange={setDevice} />
+            <div className="flex items-center gap-3">
+              <DeviceButtons device={device} onChange={setDevice} />
+              <button type="button" onClick={() => setShowPreview(false)} className="label text-ink-soft hover:text-ink lg:hidden">
+                Hide
+              </button>
+            </div>
           </div>
-          <DevicePreview src="/site-preview" device={device} design={design} path={page.slug} className="h-[70vh] min-h-[28rem]" />
+          <DevicePreview
+            src="/site-preview"
+            device={device}
+            design={design}
+            path={page.slug}
+            className="max-lg:min-h-0 max-lg:flex-1 lg:h-[70vh] lg:min-h-[28rem]"
+          />
         </div>
+        {!showPreview && (
+          <button
+            type="button"
+            onClick={() => setShowPreview(true)}
+            className="fixed bottom-4 right-4 z-30 border border-ink bg-ink px-4 py-2 text-sm font-medium text-paper shadow-lg lg:hidden"
+          >
+            Show preview
+          </button>
+        )}
       </div>
     </div>
   );
@@ -488,9 +576,13 @@ function PageSettings({ page, isHome, onChange, onDelete, onMakeHome, suggestSlu
             <button type="button" onClick={onMakeHome} className="border border-rule px-3 py-1.5 text-sm hover:border-ink">
               Make this the home page
             </button>
-            <button type="button" onClick={onDelete} className="px-3 py-1.5 text-sm text-accent hover:bg-accent-soft">
-              Delete page
-            </button>
+            <ConfirmButton
+              label="Delete page"
+              message={`Delete the page “${page.title}”?`}
+              onConfirm={onDelete}
+              className="px-3 py-1.5 text-sm text-accent hover:bg-accent-soft"
+              confirmClassName="bg-accent px-3 py-1.5 text-sm text-paper hover:bg-ink"
+            />
           </div>
         )}
       </div>
@@ -904,6 +996,11 @@ function ThemePicker({ theme, photos, onPick }: { theme: ThemeId; photos: Editor
           <ThemeArt theme={id} photos={photos} />
           <span className="mt-2 block font-display text-xl leading-none">{THEME_INFO[id].name}</span>
           <span className="label mt-1 block text-ink-faint">{THEME_INFO[id].tagline}</span>
+          <span className="mt-1.5 block text-xs text-ink-soft">
+            {id === "classic"
+              ? "You choose the layout, colors and fonts."
+              : "Sets its own layout and colors. Full editing comes with Pro."}
+          </span>
         </button>
       ))}
     </div>

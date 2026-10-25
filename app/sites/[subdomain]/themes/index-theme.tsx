@@ -6,7 +6,7 @@
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 import { visibleAlbums, type Section, type SitePage } from "@/lib/design";
-import { copyrightLine, siteHref } from "@/lib/site-data";
+import { contactHref, copyrightLine, siteHref } from "@/lib/site-data";
 import { readableOn, sortPhotos } from "@/lib/theme-utils";
 import type { PhotoSource } from "@/lib/uploads";
 import { ContactForm } from "../contact-form";
@@ -76,7 +76,7 @@ export function IndexTheme({ site }: ThemeProps) {
         )}
       </header>
 
-      <Lightbox photos={galleries.all} captions={galleries.captions}>
+      <Lightbox photos={galleries.all} captions={galleries.captions} inquireHref={contactHref(site)}>
         <HoverPreview>
           <main>
             {sections.length === 0 && <p className={`${GUTTER} ${MONO} py-20 text-[var(--muted)]`}>This page is empty.</p>}

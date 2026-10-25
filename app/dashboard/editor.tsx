@@ -13,13 +13,20 @@ import {
   useTransition,
 } from "react";
 import {
+  addPhotosToAlbum,
   deletePhoto,
+  deletePhotos,
   reorderPhotos,
   saveProfile,
   updatePhoto,
+  updatePhotos,
   uploadPhotos,
 } from "@/app/actions/site";
 import { Button, Field, Input, Message, inputClass, chipClass } from "@/app/ui/form";
+import { ConfirmButton } from "@/app/ui/confirm";
+import { Dialog } from "@/app/ui/dialog";
+import { CreateAlbumForm } from "./albums";
+import { useFocusTrap } from "@/app/ui/use-focus-trap";
 import {
   CompressError,
   MAX_UPLOAD_BYTES,
@@ -319,6 +326,13 @@ export function PhotoLibrary({
   const [openId, setOpenId] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [size, setSize] = useState(1); // 0 small … 2 large
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [newAlbumOpen, setNewAlbumOpen] = useState(false);
+  const [bulk,setBulk] = useState({ description: "", location: "" });
+  const [notice, setNotice] = useState<{ error?: string; ok?: string }>({});
 
   if (photos.length === 0) {
     return (
@@ -328,10 +342,12 @@ export function PhotoLibrary({
     );
   }
 
+  // The open photo stays listed even once it no longer matches the filter
+  // (its caption autosaved), so the drawer doesn't close while you type.
   const visible = order.filter((p) =>
-    filter === "no-album" ? p.albumIds.length === 0 : filter === "no-description" ? !p.description : true,
+    p.id === openId || (filter === "no-album" ? p.albumIds.length === 0 : filter === "no-description" ? !p.description : true),
   );
-  const canReorder = filter === "all";
+  const canReorder = filter === "all" && !selecting;
   const openIndex = visible.findIndex((p) => p.id === openId);
 
   function moved(id: string, to: number) {
@@ -350,6 +366,33 @@ export function PhotoLibrary({
     startTransition(() => reorderPhotos(next.map((p) => p.id)));
   }
 
+  function toggleSelected(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function run(action: () => Promise<{ error?: string; ok?: string }>) {
+    startTransition(async () => {
+      const result = await action();
+      setNotice(result);
+      if (result.ok) {
+        setSelected(new Set());
+        setSelecting(false);
+        setBulkOpen(false);
+      }
+    });
+  }
+
+  const cols = {
+    0: "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6",
+    1: "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5",
+    2: "grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4",
+  }[size];
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -367,66 +410,196 @@ export function PhotoLibrary({
             </button>
           );
         })}
-        <span className="ml-auto text-sm text-ink-soft">
-          {canReorder ? "Click a photo to edit it. Drag to reorder." : "Click a photo to edit it."}
+        <button
+          type="button"
+          aria-pressed={selecting}
+          onClick={() => {
+            setSelecting((s) => !s);
+            setSelected(new Set());
+          }}
+          className={chipClass(selecting)}
+        >
+          Select
+        </button>
+        <label className="ml-auto flex items-center gap-2 text-sm text-ink-soft">
+          <input
+            type="range"
+            min={0}
+            max={2}
+            value={size}
+            onChange={(e) => setSize(Number(e.target.value))}
+            aria-label="Photo size"
+            className="w-24"
+          />
+        </label>
+        <span className="text-sm text-ink-soft">
+          {selecting
+            ? "Click photos to choose them."
+            : canReorder
+              ? "Click a photo to edit it. Drag to reorder."
+              : "Click a photo to edit it."}
         </span>
       </div>
+
+      {selected.size > 0 && (
+        <div className="flex flex-wrap items-center gap-2 border border-accent bg-accent-soft/40 px-3 py-2">
+          <span className="text-sm font-medium">{selected.size} selected</span>
+          <select
+            value=""
+            onChange={(e) => {
+              if (e.target.value) run(() => addPhotosToAlbum([...selected], e.target.value));
+            }}
+            aria-label="Add selected photos to an album"
+            className="border border-rule bg-card px-2 py-1.5 text-sm"
+          >
+            <option value="">Add to album…</option>
+            {albums.map((a) => (
+              <option key={a.id} value={a.id}>{a.title}</option>
+            ))}
+          </select>
+          <button type="button" onClick={() => setNewAlbumOpen(true)} className="border border-rule bg-card px-3 py-1.5 text-sm hover:border-ink">
+            New album from these
+          </button>
+          <button type="button" onClick={() => setBulkOpen((o) => !o)} className="border border-rule bg-card px-3 py-1.5 text-sm hover:border-ink">
+            Edit details
+          </button>
+          <ConfirmButton
+            label="Delete"
+            message={`Delete ${selected.size} photo${selected.size === 1 ? "" : "s"}?`}
+            onConfirm={() => run(() => deletePhotos([...selected]))}
+            className="px-3 py-1.5 text-sm text-accent hover:bg-accent-soft"
+            confirmClassName="bg-accent px-3 py-1.5 text-sm text-paper hover:bg-ink"
+          />
+          <Message error={notice.error} ok={notice.ok} />
+          <button
+            type="button"
+            onClick={() => {
+              setSelecting(false);
+              setSelected(new Set());
+            }}
+            className="ml-auto px-3 py-1.5 text-sm text-ink-soft hover:text-ink"
+          >
+            Done
+          </button>
+        </div>
+      )}
+
+      {newAlbumOpen && (
+        <Dialog title={`New album with ${selected.size} photo${selected.size === 1 ? "" : "s"}`} onClose={() => setNewAlbumOpen(false)}>
+          <CreateAlbumForm photoIds={[...selected]} />
+        </Dialog>
+      )}
+
+      {bulkOpen && (
+        <div className="flex flex-wrap items-end gap-3 border border-rule bg-card px-3 py-3">
+          <label className="min-w-48 flex-1 text-sm">
+            <span className="label text-ink-soft">Caption</span>
+            <input
+              value={bulk.description}
+              onChange={(e) => setBulk((b) => ({ ...b, description: e.target.value }))}
+              maxLength={500}
+              placeholder="Set a caption"
+              className={`mt-1 ${inputClass}`}
+            />
+          </label>
+          <label className="min-w-40 flex-1 text-sm">
+            <span className="label text-ink-soft">Location</span>
+            <input
+              value={bulk.location}
+              onChange={(e) => setBulk((b) => ({ ...b, location: e.target.value }))}
+              maxLength={120}
+              placeholder="Set a location"
+              className={`mt-1 ${inputClass}`}
+            />
+          </label>
+          <Button
+            type="button"
+            disabled={!bulk.description.trim() && !bulk.location.trim()}
+            onClick={() => {
+              const details: { description?: string; location?: string } = {};
+              if (bulk.description.trim()) details.description = bulk.description.trim();
+              if (bulk.location.trim()) details.location = bulk.location.trim();
+              run(() => updatePhotos([...selected], details));
+            }}
+          >
+            Apply
+          </Button>
+          <button type="button" onClick={() => setBulkOpen(false)} className="h-10 px-3 text-sm hover:bg-ink/5">
+            Cancel
+          </button>
+        </div>
+      )}
 
       {visible.length === 0 ? (
         <p className="py-10 text-center text-sm text-ink-soft">Nothing here — nice work.</p>
       ) : (
-        <ul className={`grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 ${pending ? "opacity-80" : ""}`}>
-          {visible.map((photo, i) => (
-            <li
-              key={photo.id}
-              draggable={canReorder}
-              onDragStart={(e) => {
-                setDragId(photo.id);
-                e.dataTransfer.effectAllowed = "move";
-              }}
-              onDragOver={(e) => {
-                if (!dragId) return;
-                e.preventDefault();
-                const next = moved(dragId, i);
-                if (next) setOrder(next);
-              }}
-              onDrop={(e) => e.preventDefault()}
-              onDragEnd={() => {
-                if (dragId && order.some((p, j) => p.id !== photos[j].id)) {
-                  startTransition(() => reorderPhotos(order.map((p) => p.id)));
-                }
-                setDragId(null);
-              }}
-              className={`group relative ${dragId === photo.id ? "opacity-40" : ""}`}
-            >
-              <button
-                type="button"
-                onClick={() => setOpenId(photo.id)}
-                aria-label={`Edit photo${photo.description ? `: ${photo.description}` : ` ${i + 1}`}`}
-                className="block w-full bg-ink/5 outline-offset-2 hover:outline hover:outline-1 hover:outline-ink"
+        <ul className={`grid ${cols} gap-x-4 gap-y-6 ${pending ? "opacity-80" : ""}`}>
+          {visible.map((photo, i) => {
+            const isSelected = selected.has(photo.id);
+            return (
+              <li
+                key={photo.id}
+                draggable={canReorder}
+                onDragStart={(e) => {
+                  setDragId(photo.id);
+                  e.dataTransfer.effectAllowed = "move";
+                }}
+                onDragOver={(e) => {
+                  if (!dragId) return;
+                  e.preventDefault();
+                  const next = moved(dragId, i);
+                  if (next) setOrder(next);
+                }}
+                onDrop={(e) => e.preventDefault()}
+                onDragEnd={() => {
+                  if (dragId && order.some((p, j) => p.id !== photos[j].id)) {
+                    startTransition(() => reorderPhotos(order.map((p) => p.id)));
+                  }
+                  setDragId(null);
+                }}
+                className={`group relative ${dragId === photo.id ? "opacity-40" : ""}`}
               >
-                {photo.removed ? (
-                  <span className="label flex aspect-square w-full items-center justify-center text-accent">Taken down</span>
-                ) : (
-                  <img src={photo.src} srcSet={photo.srcSet} sizes="240px" alt="" draggable={false} className="aspect-square w-full object-cover" />
-                )}
-              </button>
-              {/* Caption under the frame, like a contact sheet. */}
-              <div className="pointer-events-none mt-2 text-xs">
-                <p className="flex gap-2">
-                  <span className="label text-ink-faint">{String(order.indexOf(photo) + 1).padStart(2, "0")}</span>
-                  <span className="truncate">{photo.description || <span className="text-accent">No description</span>}</span>
-                </p>
-                {photo.location && <p className="truncate pl-7 text-ink-soft">{photo.location}</p>}
-              </div>
-              {canReorder && (
-                <div className="absolute right-1 top-1 flex gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
-                  <SmallButton label="Move earlier" disabled={i === 0} onClick={() => moveAndSave(photo.id, i - 1)}>←</SmallButton>
-                  <SmallButton label="Move later" disabled={i === visible.length - 1} onClick={() => moveAndSave(photo.id, i + 1)}>→</SmallButton>
+                <button
+                  type="button"
+                  data-photo={photo.id}
+                  onClick={() => (selecting ? toggleSelected(photo.id) : setOpenId(photo.id))}
+                  aria-pressed={selecting ? isSelected : undefined}
+                  aria-label={selecting ? `${isSelected ? "Unselect" : "Select"} photo ${i + 1}` : `Edit photo${photo.description ? `: ${photo.description}` : ` ${i + 1}`}`}
+                  className="relative block w-full bg-ink/5 outline-offset-2 hover:outline hover:outline-1 hover:outline-ink"
+                >
+                  {photo.removed ? (
+                    <span className="label flex aspect-square w-full items-center justify-center text-accent">Taken down</span>
+                  ) : (
+                    <img src={photo.src} srcSet={photo.srcSet} sizes="240px" alt="" draggable={false} className="aspect-square w-full object-cover" />
+                  )}
+                  {selecting && (
+                    <span
+                      aria-hidden="true"
+                      className={`absolute left-1.5 top-1.5 flex h-5 w-5 items-center justify-center border text-xs ${
+                        isSelected ? "border-accent bg-accent text-paper" : "border-ink bg-paper/90"
+                      }`}
+                    >
+                      {isSelected ? "✓" : ""}
+                    </span>
+                  )}
+                </button>
+                {/* Caption under the frame, like a contact sheet. */}
+                <div className="pointer-events-none mt-2 text-xs">
+                  <p className="flex gap-2">
+                    <span className="label text-ink-faint">{String(order.indexOf(photo) + 1).padStart(2, "0")}</span>
+                    <span className="truncate">{photo.description || <span className="text-ink-faint">No description</span>}</span>
+                  </p>
+                  {photo.location && <p className="truncate pl-7 text-ink-soft">{photo.location}</p>}
                 </div>
-              )}
-            </li>
-          ))}
+                {canReorder && (
+                  <div className="absolute right-1 top-1 flex gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
+                    <SmallButton label="Move earlier" disabled={i === 0} onClick={() => moveAndSave(photo.id, i - 1)}>←</SmallButton>
+                    <SmallButton label="Move later" disabled={i === visible.length - 1} onClick={() => moveAndSave(photo.id, i + 1)}>→</SmallButton>
+                  </div>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
 
@@ -435,7 +608,12 @@ export function PhotoLibrary({
           key={visible[openIndex].id}
           photo={visible[openIndex]}
           albums={albums}
-          onClose={() => setOpenId(null)}
+          onClose={() => {
+            // Back to the photo you were last on, not the one you opened.
+            const id = openId;
+            setOpenId(null);
+            requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-photo="${id}"]`)?.focus());
+          }}
           onPrev={openIndex > 0 ? () => setOpenId(visible[openIndex - 1].id) : undefined}
           onNext={openIndex < visible.length - 1 ? () => setOpenId(visible[openIndex + 1].id) : undefined}
         />
@@ -444,7 +622,8 @@ export function PhotoLibrary({
   );
 }
 
-// Side panel for one photo's details.
+// Side panel for one photo's details. The frame stays open while you move
+// between photos; the form inside is replaced for each one.
 function PhotoDrawer({ photo, albums, onClose, onPrev, onNext }: {
   photo: LibraryPhoto;
   albums: { id: string; title: string }[];
@@ -452,14 +631,8 @@ function PhotoDrawer({ photo, albums, onClose, onPrev, onNext }: {
   onPrev?: () => void;
   onNext?: () => void;
 }) {
-  const [description, setDescription] = useState(photo.description);
-  const [location, setLocation] = useState(photo.location);
-  const [alt, setAlt] = useState(photo.alt);
-  const [albumIds, setAlbumIds] = useState(photo.albumIds);
-  const [saved, setSaved] = useState(false);
-  const [pending, startTransition] = useTransition();
-  const dirty =
-    description !== photo.description || location !== photo.location || alt !== photo.alt || albumIds.join() !== photo.albumIds.join();
+  const ref = useRef<HTMLDivElement>(null);
+  useFocusTrap(ref);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -469,24 +642,85 @@ function PhotoDrawer({ photo, albums, onClose, onPrev, onNext }: {
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  function save(after?: () => void) {
-    startTransition(async () => {
-      await updatePhoto(photo.id, { description, location, alt, albumIds });
-      setSaved(true);
-      after?.();
-    });
-  }
-
   return (
     <div className="fixed inset-0 z-40 flex justify-end bg-ink/30" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div role="dialog" aria-modal="true" aria-label="Photo details" className="flex h-full w-full max-w-md flex-col overflow-y-auto bg-card border-l border-ink pb-[var(--keyboard,0px)]">
+      <div
+        ref={ref}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Photo details"
+        tabIndex={-1}
+        className="flex h-full w-full max-w-md flex-col overflow-y-auto bg-card border-l border-ink pb-[var(--keyboard,0px)]"
+      >
         <div className="flex items-center justify-between border-b border-rule px-5 py-3">
           <div className="flex gap-1">
-            <SmallButton label="Previous photo" disabled={!onPrev} onClick={() => (dirty ? save(onPrev) : onPrev?.())}>←</SmallButton>
-            <SmallButton label="Next photo" disabled={!onNext} onClick={() => (dirty ? save(onNext) : onNext?.())}>→</SmallButton>
+            <SmallButton label="Previous photo" disabled={!onPrev} onClick={onPrev}>←</SmallButton>
+            <SmallButton label="Next photo" disabled={!onNext} onClick={onNext}>→</SmallButton>
           </div>
           <button type="button" onClick={onClose} aria-label="Close" className="px-3 py-1 text-xl hover:bg-ink/5">×</button>
         </div>
+        <PhotoDetails key={photo.id} photo={photo} albums={albums} onDeleted={onClose} />
+      </div>
+    </div>
+  );
+}
+
+type PhotoFields = { description: string; location: string; alt: string; albumIds: string[] };
+
+const sameFields = (a: PhotoFields, b: PhotoFields) =>
+  a.description === b.description && a.location === b.location && a.alt === b.alt && a.albumIds.join() === b.albumIds.join();
+
+// Changes save themselves a moment after you stop typing, and straight away
+// when you move to another photo or close the drawer.
+const AUTOSAVE_DELAY = 800;
+
+function PhotoDetails({ photo, albums, onDeleted }: {
+  photo: LibraryPhoto;
+  albums: { id: string; title: string }[];
+  onDeleted: () => void;
+}) {
+  const [fields, setFields] = useState<PhotoFields>({
+    description: photo.description,
+    location: photo.location,
+    alt: photo.alt,
+    albumIds: photo.albumIds,
+  });
+  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [deleteError, setDeleteError] = useState<string>();
+  const [deleting, startDelete] = useTransition();
+  const saved = useRef(fields); // what the server has
+  const latest = useRef(fields); // what's on screen, for the save on leaving
+
+  function change(patch: Partial<PhotoFields>) {
+    const next = { ...fields, ...patch };
+    latest.current = next;
+    setFields(next);
+  }
+
+  const persist = useEffectEvent((values: PhotoFields) => {
+    if (sameFields(values, saved.current)) return;
+    const before = saved.current;
+    saved.current = values;
+    setStatus("saving");
+    updatePhoto(photo.id, values).then(
+      () => setStatus(sameFields(latest.current, values) ? "saved" : "saving"),
+      () => {
+        saved.current = before;
+        setStatus("error");
+      },
+    );
+  });
+
+  useEffect(() => {
+    const timer = setTimeout(() => persist(fields), AUTOSAVE_DELAY);
+    return () => clearTimeout(timer);
+  }, [fields]);
+
+  // Leaving this photo (next, previous or close) saves what's left.
+  useEffect(() => () => persist(latest.current), []);
+
+  return (
+    <>
         {photo.removed ? (
           <p className="border-b border-rule bg-card px-5 py-4 text-sm">
             <span className="font-medium text-accent">Taken down by Folio.</span> This photo isn’t on your site. We emailed
@@ -495,33 +729,27 @@ function PhotoDrawer({ photo, albums, onClose, onPrev, onNext }: {
         ) : (
           <img src={photo.src} srcSet={photo.srcSet} sizes="448px" alt="" className="max-h-80 w-full bg-ink/5 object-contain" />
         )}
-        <form
-          className="flex flex-1 flex-col gap-4 p-5"
-          onSubmit={(e) => {
-            e.preventDefault();
-            save();
-          }}
-        >
+        <form className="flex flex-1 flex-col gap-4 p-5" onSubmit={(e) => e.preventDefault()}>
           <Field label="Description" hint="Shown as a caption if your design turns captions on.">
             <textarea
-              value={description}
-              onChange={(e) => { setDescription(e.target.value); setSaved(false); }}
+              value={fields.description}
+              onChange={(e) => change({ description: e.target.value })}
               rows={3}
               maxLength={500}
-              placeholder="Couple on the beach at sunset"
+              placeholder="Add a caption…"
               className={inputClass}
             />
           </Field>
           <Field label="Location">
-            <Input
-              value={location}
-              onChange={(e) => { setLocation(e.target.value); setSaved(false); }}
-              maxLength={120}
-              placeholder="Cascais, Portugal"
-            />
+            <Input value={fields.location} onChange={(e) => change({ location: e.target.value })} maxLength={120} placeholder="Add a place…" />
           </Field>
           <Field label="Alt text (for screen readers)" hint="Leave empty to use the description.">
-            <Input value={alt} onChange={(e) => { setAlt(e.target.value); setSaved(false); }} maxLength={300} placeholder={description} />
+            <Input
+              value={fields.alt}
+              onChange={(e) => change({ alt: e.target.value })}
+              maxLength={300}
+              placeholder={fields.description || "Describe what’s in the photo…"}
+            />
           </Field>
           <fieldset>
             <legend className="label text-ink-soft">Albums</legend>
@@ -536,11 +764,12 @@ function PhotoDrawer({ photo, albums, onClose, onPrev, onNext }: {
                     <label className="flex items-center gap-2 text-sm">
                       <input
                         type="checkbox"
-                        checked={albumIds.includes(a.id)}
-                        onChange={(e) => {
-                          setAlbumIds(e.target.checked ? [...albumIds, a.id] : albumIds.filter((id) => id !== a.id));
-                          setSaved(false);
-                        }}
+                        checked={fields.albumIds.includes(a.id)}
+                        onChange={(e) =>
+                          change({
+                            albumIds: e.target.checked ? [...fields.albumIds, a.id] : fields.albumIds.filter((id) => id !== a.id),
+                          })
+                        }
                       />
                       {a.title}
                     </label>
@@ -550,25 +779,37 @@ function PhotoDrawer({ photo, albums, onClose, onPrev, onNext }: {
             )}
           </fieldset>
           <div className="mt-auto flex flex-wrap items-center gap-3 border-t border-rule pt-4">
-            <Button type="submit" disabled={pending || !dirty}>{pending ? "Saving…" : "Save"}</Button>
-            {saved && !dirty && <Message ok="Saved." />}
-            <button
-              type="button"
-              onClick={() => {
-                if (!confirm("Delete this photo? It will be removed from your site and albums.")) return;
-                startTransition(async () => {
-                  await deletePhoto(photo.id);
-                  onClose();
-                });
-              }}
+            <p className="text-sm text-ink-soft" aria-live="polite">
+              {status === "saving" ? (
+                "Saving…"
+              ) : status === "saved" ? (
+                "Saved"
+              ) : status === "error" ? (
+                <span className="text-accent">Couldn’t save. Check your connection, then edit again to retry.</span>
+              ) : (
+                "Changes save automatically."
+              )}
+            </p>
+            <ConfirmButton
+              label={deleting ? "Deleting…" : "Delete photo"}
+              disabled={deleting}
+              message="Delete this photo? It will be removed from your site and albums."
+              onConfirm={() =>
+                startDelete(async () => {
+                  // Nothing left to save once it's gone.
+                  saved.current = latest.current;
+                  const result = await deletePhoto(photo.id);
+                  if (result.error) setDeleteError(result.error);
+                  else onDeleted();
+                })
+              }
               className="ml-auto px-3 py-2 text-sm text-accent hover:bg-accent-soft"
-            >
-              Delete photo
-            </button>
+              confirmClassName="bg-accent px-3 py-2 text-sm text-paper hover:bg-ink"
+            />
+            {deleteError && <div className="w-full"><Message error={deleteError} /></div>}
           </div>
         </form>
-      </div>
-    </div>
+    </>
   );
 }
 
@@ -612,9 +853,19 @@ export function ProfileForm({ profile }: { profile: User["profile"] }) {
           />
         </Field>
       </div>
-      <Field label="Contact email">
-        <Input name="contactEmail" type="email" defaultValue={profile.contactEmail} />
-      </Field>
+      <div className="space-y-2 border border-rule bg-paper p-4 sm:col-span-2">
+        <Field label="Contact email" hint="Messages from your site's contact form are sent here.">
+          <Input name="contactEmail" type="email" defaultValue={profile.contactEmail} />
+        </Field>
+        {/* Hidden by default: it starts as the login email. */}
+        <label className="flex items-start gap-3 text-sm">
+          <input type="checkbox" name="showEmail" defaultChecked={Boolean(profile.showEmail)} className="mt-0.5 h-4 w-4" />
+          <span>
+            <span className="font-medium">Show this email on my site</span>
+            <span className="block text-ink-soft">Off: visitors reach you through the contact form only, and your address stays private.</span>
+          </span>
+        </label>
+      </div>
       <Field label="Phone">
         <Input name="phone" type="tel" defaultValue={profile.phone} />
       </Field>

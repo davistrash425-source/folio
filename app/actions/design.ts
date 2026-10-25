@@ -26,19 +26,33 @@ function done(draft: SiteDesign, published: SiteDesign, historyLength: number): 
   return { draft, published, canUndo: historyLength > 0 };
 }
 
+// Autosaves within this long of the last undo step join that step, so one
+// burst of editing is undone at once instead of a keystroke at a time.
+const HISTORY_COALESCE_MS = 30_000;
+
 // Validates and saves the photographer's draft. Visitors don't see it until
-// publishDesign. The previous draft goes on the undo stack.
-export async function saveDraftDesign(input: unknown): Promise<DesignResult> {
+// publishDesign. The previous draft goes on the undo stack, except that
+// autosaves close together share one entry.
+export async function saveDraftDesign(input: unknown, opts?: { autosave?: boolean }): Promise<DesignResult> {
   const userId = await currentUserId();
   const parsed = designSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "That design isn't valid." };
+  const autosave = opts?.autosave === true;
 
-  const user = await updateUser(userId, (u) => {
-    const previous = draftDesign(u);
-    if (JSON.stringify(previous) === JSON.stringify(parsed.data)) return;
-    u.designHistory = [...(u.designHistory ?? []), previous].slice(-HISTORY_LIMIT);
-    u.draftDesign = parsed.data;
-  });
+  const user = await updateUser(
+    userId,
+    (u) => {
+      const previous = draftDesign(u);
+      if (JSON.stringify(previous) === JSON.stringify(parsed.data)) return;
+      const now = Date.now();
+      const joinsLastStep = autosave && u.designHistoryAt !== undefined && now - u.designHistoryAt < HISTORY_COALESCE_MS;
+      if (!joinsLastStep) u.designHistory = [...(u.designHistory ?? []), previous].slice(-HISTORY_LIMIT);
+      if (autosave) u.designHistoryAt = joinsLastStep ? u.designHistoryAt : now;
+      else delete u.designHistoryAt;
+      u.draftDesign = parsed.data;
+    },
+    { publicChange: false },
+  );
   return done(draftDesign(user), publishedDesign(user), user.designHistory?.length ?? 0);
 }
 
@@ -57,13 +71,19 @@ export async function publishDesign(input: unknown): Promise<DesignResult> {
 // Goes back to the previously saved draft.
 export async function undoDesign(): Promise<DesignResult> {
   const userId = await currentUserId();
-  const user = await updateUser(userId, (u) => {
-    const history = u.designHistory ?? [];
-    const previous = history.pop();
-    if (!previous) return;
-    u.draftDesign = previous;
-    u.designHistory = history;
-  });
+  const user = await updateUser(
+    userId,
+    (u) => {
+      const history = u.designHistory ?? [];
+      const previous = history.pop();
+      if (!previous) return;
+      u.draftDesign = previous;
+      u.designHistory = history;
+      // The next edit starts a new undo step.
+      delete u.designHistoryAt;
+    },
+    { publicChange: false },
+  );
   return done(draftDesign(user), publishedDesign(user), user.designHistory?.length ?? 0);
 }
 

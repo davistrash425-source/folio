@@ -6,7 +6,7 @@
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 import { showsCaption, visibleAlbums, type Section, type SitePage } from "@/lib/design";
-import { copyrightLine, siteHref, type SiteData } from "@/lib/site-data";
+import { contactHref, copyrightLine, siteHref, type SiteData } from "@/lib/site-data";
 import type { PhotoSource } from "@/lib/uploads";
 import { ContactForm } from "../contact-form";
 import { Lightbox } from "../lightbox";
@@ -69,7 +69,7 @@ export function ExhibitionTheme({ site }: ThemeProps) {
         )}
       </header>
 
-      <Lightbox photos={galleries.all} captions={galleries.captions}>
+      <Lightbox photos={galleries.all} captions={galleries.captions} inquireHref={contactHref(site)}>
         <SidewaysScroller label={page.title} footer={
             <>
               {copyrightLine(site.profile)} · <ReportLink site={site} />

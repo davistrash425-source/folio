@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { requireUser } from "@/lib/auth";
+import { photoSource } from "@/lib/uploads";
 import { Inbox } from "../../panels";
 import { Loading, PageHeader } from "../section";
 
@@ -18,9 +19,19 @@ export default function MessagesPage() {
 
 async function Messages() {
   const user = await requireUser();
+  const inquiries = user.inquiries ?? [];
+  const asked = new Set(inquiries.map((q) => q.photoId));
+  const photos = Object.fromEntries(
+    user.photos
+      .filter((p) => asked.has(p.id) && !p.removed)
+      .map((p) => {
+        const source = photoSource(user.id, p);
+        return [p.id, { src: source.srcSet?.split(",")[0].trim().split(" ")[0] ?? source.src, label: p.description ?? "" }];
+      }),
+  );
   return (
     <div className="bg-card border border-rule">
-      <Inbox inquiries={user.inquiries ?? []} />
+      <Inbox inquiries={inquiries} photos={photos} />
     </div>
   );
 }

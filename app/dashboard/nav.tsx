@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useRef, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { switchSite } from "@/app/actions/sites";
 
 // The dashboard's top bar, pinned to the top of the screen. On phones only its
@@ -33,11 +33,39 @@ export function StickyBar({ className, children }: { className: string; children
 export type SiteChoice = { id: string; subdomain: string; name: string };
 
 // For admins, who can have several sites: which one the dashboard is showing,
-// and a menu to switch to another or start a new one.
+// and a menu to switch to another or start a new one. Closes on outside click
+// (the browser already closes it on Escape).
 export function SiteSwitcher({ current, sites }: { current: string; sites: SiteChoice[] }) {
+  const ref = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const details = ref.current!;
+    const onClick = (e: globalThis.MouseEvent) => {
+      if (!details.contains(e.target as Node)) details.removeAttribute("open");
+    };
+    document.addEventListener("click", onClick);
+    return () => document.removeEventListener("click", onClick);
+  }, []);
   const close = (e: MouseEvent<HTMLElement>) => e.currentTarget.closest("details")?.removeAttribute("open");
+  // Up and Down move through the sites; Escape closes the menu and returns to its button.
+  const onKeyDown = (e: KeyboardEvent<HTMLDetailsElement>) => {
+    const details = ref.current!;
+    if (e.key === "Escape" && details.open) {
+      e.preventDefault();
+      details.removeAttribute("open");
+      details.querySelector("summary")?.focus();
+      return;
+    }
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    const items = Array.from(details.querySelectorAll<HTMLElement>("button:not([disabled]), a[href]"));
+    if (items.length === 0) return;
+    e.preventDefault();
+    if (!details.open) details.setAttribute("open", "");
+    const at = items.indexOf(document.activeElement as HTMLElement);
+    const next = e.key === "ArrowDown" ? (at + 1) % items.length : (at <= 0 ? items.length : at) - 1;
+    items[next].focus();
+  };
   return (
-    <details className="relative">
+    <details ref={ref} onKeyDown={onKeyDown} className="relative">
       <summary className="flex h-8 cursor-pointer list-none items-center gap-2 border border-rule px-2.5 text-sm hover:border-ink">
         <span className="label text-ink-faint">Site</span>
         <span className="font-medium">{sites.find((s) => s.id === current)?.subdomain}</span>
@@ -121,16 +149,18 @@ const SECONDARY = [
   { href: "/dashboard/manage/account", label: "Account" },
 ];
 
-export function SideNav({ unread }: { unread: number }) {
-  return <SideNavView unread={unread} pathname={usePathname()} />;
+export function SideNav({ unread, done }: { unread: number; done?: boolean[] }) {
+  return <SideNavView unread={unread} done={done} pathname={usePathname()} />;
 }
 
-export function SideNavView({ unread, pathname }: { unread: number; pathname: string }) {
+export function SideNavView({ unread, done = [], pathname }: { unread: number; done?: boolean[]; pathname: string }) {
+  const finished = done.filter(Boolean).length;
   // Numbered like frames on a contact sheet, each in its own box so they read
-  // as steps. The boxes are all one size (tall enough for a two-line hint)
-  // rather than fitting their text.
+  // as steps. Finished steps tick themselves off; the boxes are all one size
+  // (tall enough for a two-line hint) rather than fitting their text.
   const step = (s: (typeof STEPS)[number], n: number) => {
     const active = pathname.startsWith(s.href);
+    const isDone = Boolean(done[n - 1]);
     return (
       <li key={s.href} className="shrink-0">
         <Link
@@ -142,7 +172,9 @@ export function SideNavView({ unread, pathname }: { unread: number; pathname: st
               : "border-rule text-ink-soft hover:border-ink-faint hover:bg-card hover:text-ink"
           }`}
         >
-          <span className={`label ${active ? "text-accent" : "text-ink-faint"}`}>{String(n).padStart(2, "0")}</span>
+          <span className={`label ${active || isDone ? "text-accent" : "text-ink-faint"}`}>
+            {isDone ? "✓" : String(n).padStart(2, "0")}
+          </span>
           <span className="flex-1">
             <span className={`block ${active ? "font-medium" : ""}`}>{s.label}</span>
             <span className="mt-0.5 hidden text-xs leading-snug text-ink-faint md:block">{s.hint}</span>
@@ -173,8 +205,11 @@ export function SideNavView({ unread, pathname }: { unread: number; pathname: st
   };
   return (
     <nav aria-label="Manage website" className="md:sticky md:top-[calc(var(--dash-bar,4rem)+2rem)]">
-      {/* A sidebar on wide screens; a scrolling row of links on phones. */}
-      <ul className="-mx-6 flex gap-2 overflow-x-auto px-6 pb-1 md:mx-0 md:flex-col md:overflow-visible md:px-0 md:pb-0">
+      {/* A sidebar on wide screens; a wrapping row of steps on phones. */}
+      <p className="mb-3 hidden text-xs text-ink-faint md:block">
+        {finished} of {STEPS.length} done
+      </p>
+      <ul className="flex flex-wrap gap-2 md:flex-col md:gap-0">
         {STEPS.map((s, i) => step(s, i + 1))}
         <li aria-hidden="true" className="hidden md:my-3 md:block md:border-t md:border-rule" />
         {SECONDARY.map(other)}

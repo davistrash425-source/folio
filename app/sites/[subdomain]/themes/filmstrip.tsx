@@ -5,7 +5,7 @@
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 import { visibleAlbums, type Section, type SitePage } from "@/lib/design";
-import { copyrightLine, siteHref, type SiteData } from "@/lib/site-data";
+import { contactHref, copyrightLine, siteHref, type SiteData } from "@/lib/site-data";
 import type { PhotoSource } from "@/lib/uploads";
 import { ContactForm } from "../contact-form";
 import { Lightbox } from "../lightbox";
@@ -85,7 +85,7 @@ export function FilmstripTheme({ site }: ThemeProps) {
         )}
       </header>
 
-      <Lightbox photos={galleries.all} captions={galleries.captions}>
+      <Lightbox photos={galleries.all} captions={galleries.captions} inquireHref={contactHref(site)}>
         <main className="mx-auto w-full max-w-6xl px-4 pb-10 md:px-6">
           {sections.length === 0 && <p className={`${EDGE} py-20 text-center text-[var(--muted)]`}>This page is empty.</p>}
           {sections.map((section) => (

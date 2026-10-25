@@ -47,7 +47,11 @@ async function Account({ searchParams }: { searchParams: PageProps<"/dashboard/m
         </Card>
       ) : (
         <Card title="Account" subtitle={`Signed in as ${user.email}.`}>
-          <AccountSettings extraSites={(await managedSites(user.id)).length} />
+          <AccountSettings
+            extraSites={(await managedSites(user.id)).length}
+            hasPassword={Boolean(user.passwordHash)}
+            address={user.subdomain}
+          />
         </Card>
       )}
     </>

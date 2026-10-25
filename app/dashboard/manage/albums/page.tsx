@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { requireUser } from "@/lib/auth";
 import { photoSource } from "@/lib/uploads";
-import { CreateAlbumForm } from "../../albums";
+import { NewAlbumButton } from "../../albums";
 import { Card, Loading, PageHeader } from "../section";
 
 export const metadata = { title: "Albums — Folio" };
@@ -11,10 +11,11 @@ export const metadata = { title: "Albums — Folio" };
 export default function AlbumsPage() {
   return (
     <>
-      <PageHeader title="Albums" subtitle="Group photos into collections like Weddings or Portraits. Each album gets its own page on your site." />
-      <Card title="New album">
-        <CreateAlbumForm />
-      </Card>
+      <PageHeader
+        title="Albums"
+        subtitle="Group photos into collections like Weddings or Portraits. Each album gets its own page on your site."
+        actions={<NewAlbumButton />}
+      />
       <Suspense fallback={<Loading />}>
         <AlbumList />
       </Suspense>
@@ -25,7 +26,27 @@ export default function AlbumsPage() {
 async function AlbumList() {
   const user = await requireUser();
   const albums = user.albums ?? [];
-  if (albums.length === 0) return <p className="text-sm text-ink-soft">No albums yet.</p>;
+  if (albums.length === 0) {
+    return (
+      <Card>
+        <div className="max-w-xl space-y-3 py-6">
+          <h2 className="font-display text-2xl">No albums yet</h2>
+          <p className="text-ink-soft">
+            Albums let visitors browse your work by subject instead of scrolling one long page. Each one gets its own
+            page and menu link on your site, like <span className="text-ink">/weddings</span> or{" "}
+            <span className="text-ink">/portraits</span>.
+          </p>
+          <p className="text-sm text-ink-soft">
+            Tip: in <Link href="/dashboard/manage/photos" className="underline">All photos</Link>, press Select, pick
+            photos, then “New album from these”.
+          </p>
+          <div className="pt-2">
+            <NewAlbumButton label="Create your first album" primary />
+          </div>
+        </div>
+      </Card>
+    );
+  }
   const byId = new Map(user.photos.filter((p) => !p.removed).map((p) => [p.id, p]));
   return (
     <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

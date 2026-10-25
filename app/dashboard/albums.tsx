@@ -4,22 +4,50 @@
 import { useRouter } from "next/navigation";
 import { useActionState, useState, useTransition } from "react";
 import { createAlbum, deleteAlbum, setAlbumCover, setAlbumPhotos, updateAlbum } from "@/app/actions/site";
-import { Button, Field, Input, Message, inputClass } from "@/app/ui/form";
+import { Button, Field, Input, Message, buttonClass, inputClass, secondaryButtonClass } from "@/app/ui/form";
+import { ConfirmButton } from "@/app/ui/confirm";
+import { Dialog } from "@/app/ui/dialog";
 
-export function CreateAlbumForm() {
+// photoIds: start the album with these (from a selection in the photo grid).
+export function CreateAlbumForm({ photoIds = [] }: { photoIds?: string[] }) {
   const [state, action, pending] = useActionState(createAlbum, {});
 
   return (
-    <form action={action} className="grid gap-4 sm:grid-cols-[1fr_2fr_auto] sm:items-end">
+    <form action={action} className="space-y-4">
+      {photoIds.map((id) => (
+        <input key={id} type="hidden" name="photoIds" value={id} />
+      ))}
       <Field label="Album name">
-        <Input name="title" required maxLength={60} placeholder="Weddings" />
+        <Input name="title" required maxLength={60} placeholder="e.g. Weddings" data-autofocus />
       </Field>
       <Field label="Short description" hint="Optional. Shown on the album page.">
-        <Input name="description" maxLength={500} placeholder="Celebrations along the coast, 2024–2026" />
+        <Input name="description" maxLength={500} placeholder="Add a line about these photos…" />
       </Field>
-      <Button type="submit" disabled={pending} className="sm:mb-5">{pending ? "Creating…" : "Create album"}</Button>
-      <div className="sm:col-span-3"><Message error={state.error} /></div>
+      <div className="flex items-center gap-3">
+        <Button type="submit" disabled={pending}>{pending ? "Creating…" : "Create album"}</Button>
+        <Message error={state.error} />
+      </div>
     </form>
+  );
+}
+
+export function NewAlbumButton({ label = "New album", primary = false }: { label?: string; primary?: boolean }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className={primary ? buttonClass : secondaryButtonClass}
+      >
+        {label}
+      </button>
+      {open && (
+        <Dialog title="New album" onClose={() => setOpen(false)}>
+          <CreateAlbumForm />
+        </Dialog>
+      )}
+    </>
   );
 }
 
@@ -146,20 +174,18 @@ export function DeleteAlbumButton({ albumId, title }: { albumId: string; title: 
   const [pending, startTransition] = useTransition();
   const router = useRouter();
   return (
-    <button
-      type="button"
-      disabled={pending}
-      onClick={() => {
-        if (!confirm(`Delete the album “${title}”? The photos stay in your library.`)) return;
+    <ConfirmButton
+      label={pending ? "Deleting…" : "Delete album"}
+      message={`Delete the album “${title}”? The photos stay in your library.`}
+      onConfirm={() =>
         startTransition(async () => {
           await deleteAlbum(albumId);
           router.push("/dashboard/manage/albums");
-        });
-      }}
+        })
+      }
       className="px-4 py-2 text-sm text-accent hover:bg-accent-soft disabled:opacity-50"
-    >
-      {pending ? "Deleting…" : "Delete album"}
-    </button>
+      confirmClassName="bg-accent px-4 py-2 text-sm text-paper hover:bg-ink"
+    />
   );
 }
 

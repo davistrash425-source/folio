@@ -42,6 +42,14 @@ export function resolvePath(site: Pick<SiteData, "design" | "albums" | "path">) 
   return album ? { album } : null;
 }
 
+// Where the site's contact form is: the first page with a visible contact
+// section, or null if the design has none (the lightbox then offers no
+// "Inquire" button).
+export function contactHref(site: Pick<SiteData, "design" | "preview">) {
+  const page = site.design.pages.find((p) => p.sections.some((s) => s.type === "contact" && s.visible));
+  return page ? `${siteHref(site, page.slug)}#inquire` : null;
+}
+
 export function siteHref(site: Pick<SiteData, "preview">, path = "") {
   if (site.preview) return `/site-preview${path ? `?path=${path}` : ""}`;
   return `/${path}`;

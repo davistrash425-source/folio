@@ -3,10 +3,12 @@
 import { beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  addPhotosToAlbum,
   createAlbum,
   deleteAlbum,
   deleteInquiry,
   deletePhoto,
+  deletePhotos,
   reorderPhotos,
   saveProfile,
   setAlbumCover,
@@ -15,6 +17,7 @@ import {
   setPublished,
   updateAlbum,
   updatePhoto,
+  updatePhotos,
 } from "../app/actions/site.ts";
 import { discardDraftDesign, publishDesign, saveDraftDesign, undoDesign } from "../app/actions/design.ts";
 import { findUserById, updateUser } from "../lib/db.ts";
@@ -55,9 +58,13 @@ type World = Awaited<ReturnType<typeof world>>;
 
 const attacks: Record<string, (w: World) => Promise<unknown>> = {
   "deleting her photo": (w) => deletePhoto(w.a1.photo.id),
+  "deleting several of her photos": (w) => deletePhotos([w.a1.photo.id, w.a2.photo.id]),
   "reordering her photos": (w) => reorderPhotos([w.a2.photo.id, w.a1.photo.id]),
   "editing her photo's caption": (w) =>
     updatePhoto(w.a1.photo.id, { description: "hacked", location: "hacked", alt: "hacked", albumIds: [] }),
+  "editing several of her photos at once": (w) =>
+    updatePhotos([w.a1.photo.id, w.a2.photo.id], { description: "hacked", location: "hacked" }),
+  "putting his photos in her album": (w) => addPhotosToAlbum([w.b1.photo.id, w.a1.photo.id], w.aAlbum.id),
   "renaming her album": (w) => updateAlbum(w.aAlbum.id, {}, formOf({ title: "hacked", description: "hacked" })),
   "emptying her album": (w) => setAlbumPhotos(w.aAlbum.id, []),
   "reordering her album": (w) => setAlbumPhotos(w.aAlbum.id, [w.a2.photo.id, w.a1.photo.id]),
@@ -206,6 +213,7 @@ test("a visitor's view of a site has no private details", async () => {
   await updateUser(alice.id, (u) => {
     u.profile.bio = "Photographer in Lisbon";
     u.profile.contactEmail = "hello@alice-photo.example";
+    u.profile.showEmail = true;
   });
   const user = (await findUserById(alice.id))!;
   assert.ok(photo.file.includes(".orig."));

@@ -16,7 +16,7 @@ import {
   type SiteDesign,
   type SitePage,
 } from "@/lib/design";
-import { copyrightLine, resolvePath, siteHref, type SiteAlbum, type SiteData } from "@/lib/site-data";
+import { contactHref, copyrightLine, resolvePath, siteHref, type SiteAlbum, type SiteData } from "@/lib/site-data";
 import type { PhotoSource } from "@/lib/uploads";
 import { ContactForm } from "../contact-form";
 import { Lightbox } from "../lightbox";
@@ -173,7 +173,7 @@ function PageSection({ section, page, site }: Props & { section: Section; page: 
       return (
         <section aria-label={section.title || "Photos"} className="px-2 py-6 sm:px-6">
           {section.title && <div className="px-4"><SectionHeading>{section.title}</SectionHeading></div>}
-          <Gallery design={design} section={section} photos={galleryPhotos(section, site.photos, site.albums)} />
+          <Gallery design={design} section={section} photos={galleryPhotos(section, site.photos, site.albums)} inquireHref={contactHref(site)} />
         </section>
       );
     case "albums":
@@ -274,13 +274,18 @@ function AlbumPage({ site, album }: Props & { album: SiteAlbum }) {
         {album.description && <p className="mt-3 max-w-2xl whitespace-pre-line text-[var(--muted)]">{album.description}</p>}
       </section>
       <section aria-label="Photos" className="px-2 py-6 sm:px-6">
-        <Gallery design={site.design} photos={photos} />
+        <Gallery design={site.design} photos={photos} inquireHref={contactHref(site)} />
       </section>
     </main>
   );
 }
 
-function Gallery({ design, photos, section }: { design: SiteDesign; photos: PhotoSource[]; section?: GallerySection }) {
+function Gallery({ design, photos, section, inquireHref }: {
+  design: SiteDesign;
+  photos: PhotoSource[];
+  section?: GallerySection;
+  inquireHref: string | null;
+}) {
   if (photos.length === 0) return <p className="py-20 text-center text-[var(--muted)]">Photos coming soon.</p>;
   const { columns, spacing, cropping } = design.gallery;
   const layout = section && section.layout !== "default" ? section.layout : design.gallery.layout;
@@ -327,7 +332,7 @@ function Gallery({ design, photos, section }: { design: SiteDesign; photos: Phot
     );
   }
   const captions = Object.fromEntries(photos.map((p) => [p.id, captionText(p, design)]));
-  return <Lightbox photos={photos} captions={captions}>{content}</Lightbox>;
+  return <Lightbox photos={photos} captions={captions} inquireHref={inquireHref}>{content}</Lightbox>;
 }
 
 // A photo that opens in the lightbox, with its caption if the design shows one.

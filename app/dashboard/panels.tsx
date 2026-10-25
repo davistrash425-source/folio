@@ -5,31 +5,44 @@ import { deleteAccount, resendVerification, signOutEverywhereElse, type FormStat
 import { changeAddress, deleteInquiry, saveAiTraining, setInquiryRead, setPublished } from "@/app/actions/site";
 import { createSite } from "@/app/actions/sites";
 import { Button, Field, Input, Message, buttonClass, secondaryButtonClass } from "@/app/ui/form";
+import { ConfirmButton } from "@/app/ui/confirm";
 import type { Inquiry } from "@/lib/db";
 
 export function PublishToggle({ published }: { published: boolean }) {
   const [pending, startTransition] = useTransition();
+  if (published) {
+    return (
+      <ConfirmButton
+        label="Take offline"
+        confirmLabel="Take offline"
+        message="Take your site offline?"
+        onConfirm={() => startTransition(() => setPublished(false))}
+        className={`${secondaryButtonClass} h-8 px-3`}
+        confirmClassName={`${secondaryButtonClass} h-8 px-3`}
+      />
+    );
+  }
   return (
     <button
       type="button"
       disabled={pending}
-      onClick={() => {
-        if (published && !confirm("Take your site offline? Visitors will see a “doesn’t exist” page until you put it back online.")) return;
-        startTransition(() => setPublished(!published));
-      }}
-      className={`${published ? secondaryButtonClass : buttonClass} h-8 px-3`}
+      onClick={() => startTransition(() => setPublished(true))}
+      className={`${buttonClass} h-8 px-3`}
     >
-      {pending ? "Saving…" : published ? "Take offline" : "Put site online"}
+      {pending ? "Saving…" : "Put site online"}
     </button>
   );
 }
 
-export function VerifyEmailBanner({ email }: { email: string }) {
+// hidingSite: the site is set to be online, and the unconfirmed email is the
+// only thing keeping it from visitors.
+export function VerifyEmailBanner({ email, hidingSite }: { email: string; hidingSite?: boolean }) {
   const [state, setState] = useState<FormState>({});
   const [pending, startTransition] = useTransition();
   return (
     <div className="flex flex-wrap items-center gap-3 border-l-2 border-accent bg-card px-5 py-3 text-sm">
       <span className="flex-1">
+        {hidingSite && <strong className="font-medium text-accent">Visitors can’t see your site yet. </strong>}
         Confirm your email address ({email}) to put your site online. Open the link we emailed you; it also lets you
         reset your password if you ever forget it.
       </span>
@@ -49,7 +62,8 @@ export function VerifyEmailBanner({ email }: { email: string }) {
   );
 }
 
-export function Inbox({ inquiries }: { inquiries: Inquiry[] }) {
+// photos: the photos inquiries asked about, by id.
+export function Inbox({ inquiries, photos = {} }: { inquiries: Inquiry[]; photos?: Record<string, { src: string; label: string }> }) {
   const [pending, startTransition] = useTransition();
   const [openId, setOpenId] = useState<string | null>(null);
 
@@ -86,6 +100,13 @@ export function Inbox({ inquiries }: { inquiries: Inquiry[] }) {
                   <a href={`mailto:${q.email}`} className="underline">{q.email}</a>
                   {q.date && <> · Date: {q.date}</>}
                 </p>
+                {q.photoId && photos[q.photoId] && (
+                  <p className="flex items-center gap-3 text-ink-soft">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- user uploads are served by our own route */}
+                    <img src={photos[q.photoId].src} alt="" className="h-12 w-12 object-cover" />
+                    About this photo{photos[q.photoId].label && `: ${photos[q.photoId].label}`}
+                  </p>
+                )}
                 <p className="whitespace-pre-line">{q.message}</p>
                 <div className="flex gap-2">
                   <a
@@ -101,15 +122,13 @@ export function Inbox({ inquiries }: { inquiries: Inquiry[] }) {
                   >
                     Mark unread
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (confirm("Delete this message?")) startTransition(() => deleteInquiry(q.id));
-                    }}
+                  <ConfirmButton
+                    label="Delete"
+                    message="Delete this message?"
+                    onConfirm={() => startTransition(() => deleteInquiry(q.id))}
                     className="px-3 py-1.5 text-accent hover:bg-accent-soft"
-                  >
-                    Delete
-                  </button>
+                    confirmClassName="bg-accent px-3 py-1.5 text-sm text-paper hover:bg-ink"
+                  />
                 </div>
               </div>
             )}
@@ -204,10 +223,23 @@ export function NewSiteForm({ domain }: { domain: string }) {
 
 // `extraSite` is the address of an admin's extra site, which has no password
 // or login of its own: it's deleted by typing that address. `extraSites` is
-// how many extra sites an admin's account has (deleted along with it).
-export function AccountSettings({ extraSite, extraSites = 0 }: { extraSite?: string; extraSites?: number }) {
+// how many extra sites an admin's account has (deleted along with it). A
+// Google-only account (no password) is also deleted by typing its address.
+export function AccountSettings({
+  extraSite,
+  extraSites = 0,
+  hasPassword = true,
+  address,
+}: {
+  extraSite?: string;
+  extraSites?: number;
+  hasPassword?: boolean;
+  address?: string;
+}) {
   const [state, action, pending] = useActionState(deleteAccount, {});
   const [confirming, setConfirming] = useState(false);
+  const confirmByAddress = Boolean(extraSite) || !hasPassword;
+  const confirmAddress = extraSite ?? address ?? "";
 
   return (
     <div className="space-y-6">
@@ -231,8 +263,8 @@ export function AccountSettings({ extraSite, extraSites = 0 }: { extraSite?: str
         {confirming ? (
           <form action={action} className="flex flex-wrap items-end gap-3">
             <div className="min-w-48 flex-1">
-              {extraSite ? (
-                <Field label={`Type ${extraSite} to confirm`}>
+              {confirmByAddress ? (
+                <Field label={`Type ${confirmAddress} to confirm`}>
                   <Input name="confirm" required autoCapitalize="none" spellCheck={false} />
                 </Field>
               ) : (
