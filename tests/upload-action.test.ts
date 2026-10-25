@@ -1,10 +1,11 @@
 // The photo upload form (the uploadPhotos server action).
 import { beforeEach, test } from "node:test";
+import { FREE_PHOTO_LIMIT } from "../lib/plans.ts";
 import assert from "node:assert/strict";
 import { uploadPhotos } from "../app/actions/site.ts";
 import { randomUUID } from "crypto";
 import { deleteUser, findUserById, updateUser } from "../lib/db.ts";
-import { MAX_PHOTOS, MAX_PHOTO_BYTES, PHOTO_LIMIT_MESSAGE, storage } from "../lib/uploads.ts";
+import { MAX_PHOTO_BYTES, storage } from "../lib/uploads.ts";
 import {
   databaseText,
   filesOf,
@@ -21,6 +22,8 @@ import {
 import { revalidated } from "./stubs/next-cache.ts";
 
 beforeEach(resetRequest);
+
+const LIMIT_MESSAGE = "You've reached the limit of 150 photos. Delete some to make room.";
 
 test("signed-out visitors can't upload, and nothing is saved", async () => {
   await makeUser("Alice");
@@ -145,21 +148,41 @@ test("an account can't hold more than the photo limit, and nothing over it is ke
   await signInAs(alice);
   // Fill the account up to two short of the limit, without real files.
   await updateUser(alice.id, (u) => {
-    u.photos = Array.from({ length: MAX_PHOTOS - 2 }, (_, i) => ({ id: `p${i}`, file: `p${i}.orig.jpg`, createdAt: "" }));
+    u.photos = Array.from({ length: FREE_PHOTO_LIMIT - 2 }, (_, i) => ({ id: `p${i}`, file: `p${i}.orig.jpg`, createdAt: "" }));
   });
   const result = await uploadPhotos({}, formWith(await jpegFile("a.jpg"), await jpegFile("b.jpg"), await jpegFile("c.jpg")));
-  assert.match(result.ok!, /^Uploaded 2 photos\. 1 more didn't fit: You've reached the limit of 2,000 photos/);
-  assert.equal((await findUserById(alice.id))!.photos.length, MAX_PHOTOS);
+  assert.match(result.ok!, /^Uploaded 2 photos\. 1 more didn't fit: You've reached the limit of 150 photos/);
+  assert.equal((await findUserById(alice.id))!.photos.length, FREE_PHOTO_LIMIT);
   const kept = (await findUserById(alice.id))!.photos.slice(-2);
   assert.equal(filesOf(alice.id).length, kept.reduce((n, p) => n + 1 + p.variants!.length, 0), "the extra photo's files are gone");
 
-  assert.deepEqual(await uploadPhotos({}, formWith(await jpegFile())), { error: PHOTO_LIMIT_MESSAGE });
-  assert.deepEqual(await startUpload("image/jpeg", 1000), { error: PHOTO_LIMIT_MESSAGE }, "no upload address either");
+  assert.deepEqual(await uploadPhotos({}, formWith(await jpegFile())), { error: LIMIT_MESSAGE });
+  assert.deepEqual(await startUpload("image/jpeg", 1000), { error: LIMIT_MESSAGE }, "no upload address either");
 
   // A direct upload that arrives after the account filled up is refused and deleted.
   const file = `${randomUUID()}.orig.jpg`;
   const jpeg = Buffer.from(await (await jpegFile()).arrayBuffer());
   await storage.put(alice.id, file, jpeg);
-  assert.deepEqual(await finishUpload(file), { error: PHOTO_LIMIT_MESSAGE });
+  assert.deepEqual(await finishUpload(file), { error: LIMIT_MESSAGE });
   assert.equal(filesOf(alice.id).some((f) => f.startsWith(file.split(".")[0])), false);
+});
+
+test("a Pro account gets the higher photo limit", async () => {
+  const alice = await makeUser("Alice");
+  await signInAs(alice);
+  await updateUser(alice.id, (u) => {
+    u.plan = "pro";
+    u.photos = Array.from({ length: FREE_PHOTO_LIMIT + 5 }, (_, i) => ({ id: `p${i}`, file: `p${i}.orig.jpg`, createdAt: "" }));
+  });
+  assert.equal((await uploadPhotos({}, formWith(await jpegFile()))).ok, "Uploaded 1 photo.");
+});
+
+test("an account already over the limit keeps its photos but can't add more", async () => {
+  const alice = await makeUser("Alice");
+  await signInAs(alice);
+  await updateUser(alice.id, (u) => {
+    u.photos = Array.from({ length: FREE_PHOTO_LIMIT + 5 }, (_, i) => ({ id: `p${i}`, file: `p${i}.orig.jpg`, createdAt: "" }));
+  });
+  assert.deepEqual(await uploadPhotos({}, formWith(await jpegFile())), { error: LIMIT_MESSAGE });
+  assert.equal((await findUserById(alice.id))!.photos.length, FREE_PHOTO_LIMIT + 5);
 });

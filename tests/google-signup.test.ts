@@ -15,7 +15,7 @@ const identity = { googleId: "google-123", email: "dana@gmail.com", name: "Dana 
 test("a Google sign-up creates a confirmed account with no password", async () => {
   fromIp("198.51.100.21");
   await stashGoogleSignup(identity);
-  assert.equal(await redirectedTo(completeGoogleSignup({}, formOf({ name: "Dana", subdomain: "dana-g" }))), "/dashboard");
+  assert.equal(await redirectedTo(completeGoogleSignup({}, formOf({ name: "Dana", subdomain: "dana-g", terms: "on" }))), "/dashboard");
 
   const user = (await findUserByEmail("dana@gmail.com"))!;
   assert.equal(user.googleId, "google-123");
@@ -30,8 +30,8 @@ test("a Google sign-up needs a valid, free address", async () => {
   await stashGoogleSignup(identity);
   const before = await databaseText();
 
-  assert.match((await completeGoogleSignup({}, formOf({ name: "Dana", subdomain: "no" }))).error!, /3–30 lowercase/);
-  assert.match((await completeGoogleSignup({}, formOf({ name: "Dana", subdomain: davi.subdomain }))).error!, /taken/);
+  assert.match((await completeGoogleSignup({}, formOf({ name: "Dana", subdomain: "no", terms: "on" }))).error!, /3–30 lowercase/);
+  assert.match((await completeGoogleSignup({}, formOf({ name: "Dana", subdomain: davi.subdomain, terms: "on" }))).error!, /taken/);
   assert.equal(await databaseText(), before, "nothing was created for a bad address");
 });
 
@@ -39,7 +39,7 @@ test("a Google sign-up without the pending identity goes nowhere", async () => {
   await clearGoogleSignup();
   fromIp("198.51.100.23");
   const before = await databaseText();
-  const result = await completeGoogleSignup({}, formOf({ name: "Dana", subdomain: "dana-h" }));
+  const result = await completeGoogleSignup({}, formOf({ name: "Dana", subdomain: "dana-h", terms: "on" }));
   assert.match(result.error!, /expired/);
   assert.equal(await databaseText(), before, "nothing was created");
 });

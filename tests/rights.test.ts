@@ -84,7 +84,7 @@ test("a site asks AI training crawlers to stay away unless its photographer allo
   const blocked = await robots();
   assert.deepEqual(blocked.rules, [
     { userAgent: AI_TRAINING_CRAWLERS, disallow: "/" },
-    { userAgent: "*", allow: "/" },
+    { userAgent: "*", allow: "/", disallow: "/g/" },
   ]);
   for (const bot of ["GPTBot", "ClaudeBot", "Google-Extended", "CCBot"]) assert.ok(AI_TRAINING_CRAWLERS.includes(bot), bot);
   for (const bot of ["Googlebot", "Bingbot"]) assert.ok(!AI_TRAINING_CRAWLERS.includes(bot), `${bot} is a search engine`);
@@ -94,7 +94,7 @@ test("a site asks AI training crawlers to stay away unless its photographer allo
   await saveAiTraining({}, formOf({})); // the box unticked
   const allowing = (await findUserById(alice.id))!;
   assert.equal(allowing.allowAiTraining, true);
-  assert.deepEqual((await robots()).rules, { userAgent: "*", allow: "/" });
+  assert.deepEqual((await robots()).rules, { userAgent: "*", allow: "/", disallow: "/g/" });
   assert.equal(siteMetadata(alice.subdomain, siteData(allowing)).other, undefined);
 
   await saveAiTraining({}, formOf({ blockAi: "yes" }));

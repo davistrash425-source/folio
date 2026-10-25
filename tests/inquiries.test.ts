@@ -3,8 +3,9 @@
 // so it matters that it reaches the right one and nothing else.
 import { beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
-import { sendInquiry } from "../app/actions/site.ts";
+import { deleteInquiry, sendInquiry, setInquiryRead } from "../app/actions/site.ts";
 import { findUserById, updateUser } from "../lib/db.ts";
+import { revalidated } from "./stubs/next-cache.ts";
 import { addInquiry, captureEmails, formOf, fromIp, makeUser, resetRequest, signInAs, signOut } from "./helpers.ts";
 
 beforeEach(resetRequest);
@@ -211,4 +212,21 @@ test("line breaks can't be used to add email headers", async (t) => {
   assert.equal(emails.length, 1);
   assert.match(emails[0], /To: alice@example\.com Bcc: spy@example\.com\n/);
   assert.match(emails[0], /Subject: New inquiry from Sam Bcc: spy@example\.com\n/);
+});
+
+test("messages arriving, being read and being deleted don't clear the public site's cache", async (t) => {
+  captureEmails(t);
+  const alice = await makeUser("Alice");
+  const tag = `tag:site:${alice.subdomain}`;
+  signOut();
+  newVisitor();
+  revalidated.length = 0;
+  await sendInquiry(alice.subdomain, {}, message());
+  assert.ok(!revalidated.includes(tag), "a new message is private");
+
+  await signInAs(alice);
+  const [sent] = await inbox(alice.id);
+  await setInquiryRead(sent.id, true);
+  await deleteInquiry(sent.id);
+  assert.ok(!revalidated.includes(tag), "reading and deleting are private");
 });

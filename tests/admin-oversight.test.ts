@@ -106,6 +106,7 @@ test("a read-only viewer is refused by every admin action and changes nothing", 
     unsuspendSite: () => adminActions.unsuspendSite(form({ userId: alice.id })),
     placeLegalHold: () => adminActions.placeLegalHold(form({ userId: alice.id })),
     releaseLegalHold: () => adminActions.releaseLegalHold(form({ userId: alice.id })),
+    setPlan: () => adminActions.setPlan(form({ userId: alice.id, plan: "pro" })),
     addRightsToOlderPhotos: () => adminActions.addRightsToOlderPhotos(),
     addAdminNote: () => adminActions.addAdminNote(form({ userId: alice.id, text: "x" })),
     signOutAccountEverywhere: () => adminActions.signOutAccountEverywhere(form({ userId: alice.id })),
@@ -365,4 +366,14 @@ test("deleting an account needs the address typed, is blocked by a legal hold, a
   const refused = await redirectedTo(adminActions.deleteAccountAsAdmin(form({ userId: viewer.id, confirm: viewer.subdomain })));
   assert.match(doneMessage(refused), /can't be deleted here/);
   assert.ok(await findUserById(viewer.id));
+});
+
+test("a full admin can move an account to Pro and back, and it is logged", async () => {
+  const { admin, alice } = await staff();
+  await signInAs(admin);
+  await redirectedTo(adminActions.setPlan(form({ userId: alice.id, plan: "pro" })));
+  assert.equal((await findUserById(alice.id))!.plan, "pro");
+  await redirectedTo(adminActions.setPlan(form({ userId: alice.id, plan: "free" })));
+  assert.equal((await findUserById(alice.id))!.plan, "free");
+  assert.equal((await adminActionsFor(alice.id)).filter((a) => a.action === "set-plan").length, 2);
 });

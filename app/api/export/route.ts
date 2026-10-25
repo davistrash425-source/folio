@@ -1,6 +1,6 @@
 import { currentUser, impersonationBlock } from "@/lib/auth";
 import { storage } from "@/lib/uploads";
-import { createZip } from "@/lib/zip";
+import { zipChunks } from "@/lib/zip";
 
 // Downloads everything in the account: profile, albums, inquiries and the
 // original photo files.
@@ -13,20 +13,29 @@ export async function GET() {
   const account: Partial<typeof user> = { ...user };
   delete account.passwordHash;
   delete account.adminNotes; // Folio's private notes about the account, not the photographer's data
-  const photos = await Promise.all(
-    user.photos.map(async (p, i) => {
+  // One photo at a time, so a big account never has to fit in memory at once.
+  const files = [
+    async () => ({ name: "account.json", data: Buffer.from(JSON.stringify(account, null, 2)) }),
+    ...user.photos.map((p, i) => async () => {
       const ext = p.file.split(".").pop();
       const name = `photos/${String(i + 1).padStart(3, "0")}-${p.id}.${ext}`;
       const data: Buffer | null = await storage.get(user.id, p.file).catch(() => null);
       return data && { name, data };
     }),
-  );
-  const zip = createZip([
-    { name: "account.json", data: Buffer.from(JSON.stringify(account, null, 2)) },
-    ...photos.filter((p) => p !== null),
-  ]);
+  ];
+  const chunks = zipChunks(files);
+  const body = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      const { value, done } = await chunks.next();
+      if (done) controller.close();
+      else controller.enqueue(new Uint8Array(value));
+    },
+    async cancel() {
+      await chunks.return(undefined);
+    },
+  });
 
-  return new Response(new Uint8Array(zip), {
+  return new Response(body, {
     headers: {
       "Content-Type": "application/zip",
       "Content-Disposition": `attachment; filename="folio-${user.subdomain}.zip"`,

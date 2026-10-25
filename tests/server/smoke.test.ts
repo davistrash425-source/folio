@@ -21,7 +21,7 @@ function get(pathname: string, host = base.host, headers: Record<string, string>
   });
 }
 
-for (const page of ["/", "/login", "/signup", "/forgot-password"]) {
+for (const page of ["/", "/login", "/signup", "/forgot-password", "/terms", "/privacy", "/copyright"]) {
   test(`${page} loads`, async () => {
     assert.equal((await get(page)).status, 200);
   });

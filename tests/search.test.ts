@@ -28,11 +28,11 @@ test("the app's robots.txt keeps private and duplicate addresses out of search",
   assert.equal(r.sitemap, "http://localhost:3000/sitemap.xml");
 });
 
-test("a site's robots.txt allows everything and points at its own sitemap", async () => {
+test("a site's robots.txt allows everything except client galleries and points at its own sitemap", async () => {
   visit("alice.localhost:3000");
   const r = await robots();
   const rules = Array.isArray(r.rules) ? r.rules[0] : r.rules;
-  assert.equal(rules.disallow, undefined);
+  assert.equal(rules.disallow, "/g/");
   assert.equal(r.sitemap, "http://alice.localhost:3000/sitemap.xml");
 });
 

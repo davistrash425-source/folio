@@ -6,6 +6,7 @@ import {
   addAdminNote,
   deleteAccountAsAdmin,
   placeLegalHold,
+  setPlan,
   releaseLegalHold,
   resendAccountVerification,
   restorePhotos,
@@ -231,6 +232,15 @@ async function SiteView({ params, searchParams }: PageProps<"/admin/sites/[subdo
                 <SecondaryButton type="submit">Place a hold</SecondaryButton>
               </form>
             )}
+          </Card>
+
+          <Card title="Plan" subtitle="Folio Pro isn't on sale yet, so staff can switch it on for an account by hand.">
+            <form action={setPlan} className="flex flex-wrap items-center gap-3">
+              <UserId id={user.id} />
+              <input type="hidden" name="plan" value={user.plan === "pro" ? "free" : "pro"} />
+              <span className="text-sm text-ink-soft">Now on {user.plan === "pro" ? "Pro" : "Free"}.</span>
+              <SecondaryButton type="submit">{user.plan === "pro" ? "Move to Free" : "Move to Pro"}</SecondaryButton>
+            </form>
           </Card>
 
           <Card title="Help with the account">

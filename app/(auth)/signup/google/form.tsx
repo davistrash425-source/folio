@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { completeGoogleSignup } from "@/app/actions/auth";
 import { ROOT_DOMAIN } from "@/lib/site";
@@ -63,6 +64,13 @@ export function GoogleSignupForm({ name, email }: { name: string; email: string 
           </div>
           <span id="google-address-hint" className="mt-1.5 block text-xs text-ink-faint">
             <AddressHint status={status} message={message} checking={checking} />
+          </span>
+        </label>
+        <label className="flex items-start gap-2 text-sm text-ink-soft">
+          <input type="checkbox" name="terms" className="mt-0.5" />
+          <span>
+            I agree to the <Link href="/terms" target="_blank" className="underline">Terms</Link> and{" "}
+            <Link href="/privacy" target="_blank" className="underline">Privacy Policy</Link>.
           </span>
         </label>
         <Message error={state.error} />

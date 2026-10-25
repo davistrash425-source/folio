@@ -11,7 +11,8 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
   const subdomain = siteSubdomain((await headers()).get("host") ?? "");
   if (subdomain) {
     const site = await loadSite(subdomain);
-    const everyone = { userAgent: "*", allow: "/" };
+    // Client galleries (/g/<link>) are private, so crawlers are asked to skip them.
+    const everyone = { userAgent: "*", allow: "/", disallow: "/g/" };
     return {
       rules: site && !site.allowAiTraining ? [{ userAgent: AI_TRAINING_CRAWLERS, disallow: "/" }, everyone] : everyone,
       sitemap: `${siteUrl(subdomain)}/sitemap.xml`,

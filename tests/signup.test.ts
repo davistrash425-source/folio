@@ -19,7 +19,7 @@ let n = 0;
 function newcomer() {
   n++;
   fromIp(`198.51.100.${n}`);
-  return { name: "Dana", email: `dana${n}@example.com`, password: "a long password", subdomain: `dana-${n}` };
+  return { name: "Dana", email: `dana${n}@example.com`, password: "a long password", subdomain: `dana-${n}`, terms: "on" };
 }
 
 test("a new site starts as a draft and goes live only once it's published", async (t) => {
@@ -64,4 +64,13 @@ test("Folio's own and official-looking names can't be claimed", () => {
     assert.equal(validateSubdomain(name), "That name is reserved.", name);
   }
   assert.equal(validateSubdomain("jane-doe"), null);
+});
+
+test("signing up needs the Terms box ticked, and the time is saved", async () => {
+  const full = newcomer();
+  const unticked = Object.fromEntries(Object.entries(full).filter(([key]) => key !== "terms"));
+  assert.match((await signup({}, formOf(unticked))).error!, /agree to the Terms/);
+  assert.equal(await findUserByEmail(full.email), null);
+  assert.equal(await redirectedTo(signup({}, formOf({ ...unticked, terms: "on" }))), "/dashboard");
+  assert.match((await findUserByEmail(full.email))!.termsAcceptedAt!, /^\d{4}-/);
 });

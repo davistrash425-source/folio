@@ -48,3 +48,17 @@ test("applies EXIF orientation", async () => {
 test("rejects files that are not images", async () => {
   await assert.rejects(processImage(Buffer.from("not an image")));
 });
+
+test("every size is made from one decode and keeps the photo's colors and transparency", async () => {
+  const png = await sharp({ create: { width: 3000, height: 2000, channels: 4, background: { r: 200, g: 40, b: 40, alpha: 0.5 } } })
+    .png()
+    .toBuffer();
+  const result = await processImage(png);
+  assert.deepEqual(result.variants.map((v) => v.width), [640, 1280, 2048]);
+  for (const v of result.variants) {
+    const { data, info } = await sharp(v.data).raw().toBuffer({ resolveWithObject: true });
+    assert.equal(info.channels, 4, "alpha kept");
+    assert.ok(Math.abs(data[0] - 200) <= 4 && Math.abs(data[1] - 40) <= 4, `color kept at ${v.width}`);
+    assert.ok(Math.abs(data[3] - 128) <= 4, "half transparent");
+  }
+});

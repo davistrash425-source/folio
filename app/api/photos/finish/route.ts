@@ -1,10 +1,9 @@
 import { revalidatePath } from "next/cache";
 import { currentUser } from "@/lib/auth";
 import { updateUser } from "@/lib/db";
+import { photoLimit, photoLimitMessage } from "@/lib/plans";
 import {
-  MAX_PHOTOS,
   PHOTO_ERRORS,
-  PHOTO_LIMIT_MESSAGE,
   deletePhotoFiles,
   finishDirectUpload,
   photoRights,
@@ -63,7 +62,7 @@ export async function POST(req: Request) {
   try {
     await updateUser(user.id, (u) => {
       if (u.photos.some((p) => p.id === photo.id)) return; // finished twice
-      full = u.photos.length >= MAX_PHOTOS;
+      full = u.photos.length >= photoLimit(u);
       if (!full) u.photos.push({ ...photo, createdAt: new Date().toISOString() });
     });
   } catch (err) {
@@ -76,7 +75,7 @@ export async function POST(req: Request) {
   lap("save");
   if (full) {
     await deletePhotoFiles(user.id, { ...photo, createdAt: "" });
-    return answer({ error: PHOTO_LIMIT_MESSAGE });
+    return answer({ error: photoLimitMessage(user) });
   }
   // The browser refreshes the page itself once the whole batch is done.
   revalidatePath("/dashboard", "layout");

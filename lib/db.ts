@@ -51,6 +51,17 @@ export type Album = {
   photoIds: string[]; // in display order
 };
 
+// A private page for one client's photos, opened with a link and a password
+// (lib/galleries.ts). It is separate from the portfolio site.
+export type ClientGallery = {
+  id: string;
+  slug: string; // random, in the link: name.folio.cam/g/<slug>
+  title: string;
+  passwordHash: string;
+  photoIds: string[]; // from the photo library, in display order
+  createdAt: string;
+};
+
 export type Inquiry = {
   id: string;
   name: string;
@@ -86,6 +97,13 @@ export type User = {
   photos: Photo[];
   // Optional so accounts created before these fields existed still load.
   published?: boolean; // missing means published
+  // When they agreed to the Terms and Privacy Policy at sign-up. Missing on
+  // accounts made before the checkbox existed.
+  termsAcceptedAt?: string;
+  // Pro only (lib/plans.ts). Missing means none.
+  galleries?: ClientGallery[];
+  // Missing means "free" (lib/plans.ts).
+  plan?: "free" | "pro";
   emailVerified?: boolean;
   // Missing means the site asks AI companies' crawlers not to collect it for
   // training (app/robots.ts); the photographer can allow them.
@@ -175,6 +193,8 @@ export async function createUser(input: {
   published: boolean;
   googleId?: string;
   emailVerified?: boolean;
+  // The person ticked "I agree to the Terms and Privacy Policy".
+  termsAcceptedAt?: boolean;
 }) {
   const email = input.email.toLowerCase();
   const subdomain = input.subdomain.toLowerCase();
@@ -200,6 +220,7 @@ export async function createUser(input: {
     albums: [],
     inquiries: [],
     ...(input.googleId ? { googleId: input.googleId } : {}),
+    ...(input.termsAcceptedAt ? { termsAcceptedAt: new Date().toISOString() } : {}),
   };
   const db = await database();
   try {

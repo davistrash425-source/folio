@@ -30,6 +30,8 @@ export type FormState = {
   field?: "name" | "email" | "password" | "subdomain";
 };
 
+const TERMS_REQUIRED = "Please agree to the Terms and Privacy Policy to create an account.";
+
 export async function signup(_prev: FormState, formData: FormData): Promise<FormState> {
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
@@ -41,6 +43,7 @@ export async function signup(_prev: FormState, formData: FormData): Promise<Form
   if (!(await rateLimit(`signup:${ip}`, 10, HOUR))) return { error: TOO_MANY, fields };
   if (!(await verifyTurnstile(formData.get(TURNSTILE_FIELD), ip))) return { error: NOT_HUMAN, fields };
   if (!name) return { error: "Please enter your name.", fields, field: "name" };
+  if (!formData.get("terms")) return { error: TERMS_REQUIRED, fields };
   if (!/^\S+@\S+\.\S+$/.test(email)) return { error: "Please enter a valid email.", fields, field: "email" };
   if (password.length < 8) return { error: "Password must be at least 8 characters.", fields, field: "password" };
   const subError = validateSubdomain(subdomain);
@@ -66,6 +69,7 @@ export async function signup(_prev: FormState, formData: FormData): Promise<Form
       subdomain,
       passwordHash: await hashPassword(password),
       published: NEW_SITES_START_PUBLISHED,
+      termsAcceptedAt: true,
     });
     await createSession(user.id);
     await sendVerificationEmail(user).catch((err) => console.error("Verification email failed", err));
@@ -91,6 +95,7 @@ export async function completeGoogleSignup(_prev: FormState, formData: FormData)
   if (!(await rateLimit(`signup:${await clientIp()}`, 10, HOUR))) return { error: TOO_MANY, fields };
 
   if (!name) return { error: "Please enter your name.", fields, field: "name" };
+  if (!formData.get("terms")) return { error: TERMS_REQUIRED, fields };
   const subError = validateSubdomain(subdomain);
   if (subError) return { error: subError, fields, field: "subdomain" };
   if (await subdomainOnHold(subdomain, ADDRESS_HOLD_MONTHS)) {
@@ -116,6 +121,7 @@ export async function completeGoogleSignup(_prev: FormState, formData: FormData)
       published: NEW_SITES_START_PUBLISHED,
       googleId: identity.googleId,
       emailVerified: true,
+      termsAcceptedAt: true,
     });
     await clearGoogleSignup();
     await createSession(user.id);
@@ -223,7 +229,7 @@ export async function signOutEverywhereElse(): Promise<FormState> {
   if (blocked) return { error: blocked };
   await updateUser(user.id, (u) => {
     u.sessionsValidFrom = Date.now();
-  });
+  }, { publicChange: false });
   await createSession(user.id);
   return { ok: "Signed out everywhere else." };
 }

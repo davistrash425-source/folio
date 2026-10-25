@@ -54,7 +54,7 @@ test("if Cloudflare can't be reached, people aren't shut out", async (t) => {
 test("sign-up without a passing check creates no account", async (t) => {
   turnstileOn(t, robot);
   fromIp("203.0.113.40");
-  const result = await signup({}, formOf({ name: "Bot", email: "bot@example.com", password: "password123", subdomain: "botsite" }));
+  const result = await signup({}, formOf({ name: "Bot", email: "bot@example.com", password: "password123", subdomain: "botsite", terms: "on" }));
   assert.match(result.error!, /person/);
   assert.equal(await findUserByEmail("bot@example.com"), null);
 });

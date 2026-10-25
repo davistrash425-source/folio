@@ -7,14 +7,14 @@ import { randomUUID } from "crypto";
 import { AwsClient } from "aws4fetch";
 import type { Photo } from "./db";
 import { DATA_DIR } from "./pg";
+import { PRO_PHOTO_LIMIT } from "./plans";
 import { processImage, variantName, type PhotoRights } from "./images";
 
 export const UPLOAD_DIR = path.join(DATA_DIR, "uploads");
 export const MAX_PHOTO_BYTES = 20 * 1024 * 1024;
-// Photos one account can hold, to keep storage costs bounded. A placeholder
-// until plans are decided; a paid plan might raise it.
-export const MAX_PHOTOS = 2000;
-export const PHOTO_LIMIT_MESSAGE = `You've reached the limit of ${MAX_PHOTOS.toLocaleString("en-US")} photos. Delete some to make room.`;
+// The most photos any plan allows, for sizing request checks. What one
+// account may hold is `photoLimit(user)` in lib/plans.ts.
+export const MAX_PHOTOS = PRO_PHOTO_LIMIT;
 
 export const IMAGE_TYPES: Record<string, string> = {
   "image/jpeg": "jpg",
