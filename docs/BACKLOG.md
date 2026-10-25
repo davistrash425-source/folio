@@ -29,7 +29,7 @@ The working list for picking up Folio one task per session. Step-by-step instruc
 - [x] 2. Confirm Turnstile covers folio.cam and *.folio.cam. (done Oct 25, 2026: sign-up on www.folio.cam passed in Chrome; owner confirmed the contact form on a photographer's subdomain works.)
 - [x] 3. Check the browser console for CSP report-only messages, then enforce the policy. (done Oct 25, 2026: the full policy is enforced on folio.cam. The first attempt froze the editor tab and was reverted; the second went through a Vercel preview first, then production, and the editor, upload, galleries and a published site all work. The one violation seen is zod's harmless eval probe. The first freeze was never explained.)
 - [x] 4. Test a photo upload on folio.cam. (done Oct 25, 2026: upload through the dashboard worked, the PUT to R2 returned 200; test photo deleted again.)
-- [ ] 5. Get a lawyer to review the Terms, Privacy and Copyright pages, then set `LEGAL_DRAFT=false`.
+- [ ] 5. Get a lawyer to review the Terms, Privacy and Copyright pages, then set `LEGAL_DRAFT=false`. (Oct 26, 2026: owner details added to the pages in `lib/legal.ts`; `docs/LAWYER-BRIEF.md` written; support@folio.cam forwards via ImprovMX (MX records set, alias not yet test-sent). Left: lawyer sign-off.)
 - [ ] 6. Register a DMCA agent with the Copyright Office.
 - [ ] 7. Set up the photo domain on Cloudflare and update `R2_PUBLIC_URL`.
 - [ ] 8. Supply photos for the example sites.

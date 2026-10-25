@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { OPERATOR_ADDRESS, OPERATOR_NAME, OPERATOR_STATUS } from "@/lib/legal";
 import { SUPPORT_EMAIL } from "@/lib/site";
 
 export const metadata = { title: "Privacy Policy — Folio" };
@@ -8,6 +9,9 @@ export default function PrivacyPage() {
     <>
       <h1>Privacy Policy</h1>
       <p>This explains what Folio collects and why. We don’t sell your data.</p>
+      <p>
+        Folio is run by {OPERATOR_NAME}, {OPERATOR_STATUS}, {OPERATOR_ADDRESS}.
+      </p>
       <h2>What we collect</h2>
       <ul>
         <li>Account details: name, email, a hashed password (or your Google sign-in), and your site address.</li>
