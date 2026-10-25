@@ -127,6 +127,14 @@ Every item in this doc, in the order you chose: design → security → legal �
 - [x] Sentry and the crash page are live; still add `error.tsx` and a root `not-found.tsx`
 - [x] Log and retry storage cleanup when an account is deleted
 
+**Phase 2 follow-ups (you)**
+
+- [ ] Add `CRON_SECRET` in Vercel so the daily cleanup job runs
+- [ ] Make sure the Turnstile widget covers `folio.cam` and `*.folio.cam`; test sign-up and a contact form
+- [ ] Check the browser console on folio.cam for report-only CSP messages, then enforce the full policy
+- [ ] Merge `phase-2-security` and test photo upload on folio.cam
+- [ ] Optional: CAPTCHA after repeated failed logins; Vercel Firewall rule for floods of unknown subdomains
+
 ### Phase 3 — Legal & launch (Free plan)
 
 - [ ] Terms and Privacy pages (from a policy generator)
