@@ -29,7 +29,11 @@ export default function PrivacyPage() {
         service to Folio.
       </p>
       <h2>Cookies</h2>
-      <p>One cookie keeps you signed in. We don’t use advertising or tracking cookies.</p>
+      <p>
+        Cookies keep you signed in and let visitors open a password-protected client gallery. Our bot check
+        (Cloudflare Turnstile) may set its own cookie on sign-up and contact forms. We don’t use advertising or
+        tracking cookies.
+      </p>
       <h2>Your choices</h2>
       <ul>
         <li>Export all your data and photos, or delete your account, from your account settings.</li>
