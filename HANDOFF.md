@@ -1,33 +1,27 @@
 # Handoff
 
-**Status: Phase 3 code work is DONE (owner-only items remain); extra Phase 5 items done. Phases 2 and 3 plus client galleries are MERGED into `main` (Oct 25, 2026).**
+**Status: everything built so far is merged into `main` and pushed (Oct 25, 2026). Working tree clean. Paused by the owner between Phase 4 items.**
 
-**Goal:** Do Phase 3 (legal & launch, Free plan) from `docs/BACKLOG.md`, then keep going with the next backlog items. Owner is away: never block on them; skip items needing their input and move on. Owner gave full permission; still don't merge to main or touch production settings. Keep this file and the backlog ticks current.
+**Goal:** Ship the phases in `docs/BACKLOG.md` (design polish -> security -> legal -> speed), now working through Phase 4 (Folio Pro). Owner may be away: skip items that need them and move on; they gave full permission for code work. Don't change production settings (Vercel env, DNS) and don't spend money.
 
-## Done
-- Free plan photo limit: `lib/plans.ts` (`photoLimit`, `photoLimitMessage`, 150 free / 1,500 pro), optional `User.plan`; wired into `app/actions/site.ts`, `app/api/photos/{start,finish}`. `MAX_PHOTOS` in `lib/uploads.ts` is now just the absolute ceiling (1,500). Tests updated + 2 new. tsc and 383 tests pass.
+## Done (all on `main`)
+- Phase 1 design polish; Phase 2 security (trusted IP, login limits, Turnstile, daily cron, headers, full CSP still report-only); Phase 3 (150-photo Free limit in `lib/plans.ts`, sign-up consent checkbox + `User.termsAcceptedAt`, DRAFT Terms/Privacy/Copyright pages in `app/(legal)` controlled by `LEGAL_DRAFT` in `lib/legal.ts`, Playwright test `npm run test:e2e`, big editor files split into `app/dashboard/design/*`, `photo-uploader.tsx`, `photo-drawer.tsx`).
+- Phase 4 so far: Pro limits (1,500 photos, 20 galleries) in `lib/plans.ts`; password-protected client galleries (`User.galleries`, `lib/galleries.ts`, `app/actions/galleries.ts`, dashboard `app/dashboard/manage/galleries` + `galleries.tsx`, public `app/sites/[subdomain]/g/[gallery]`, cookie in `lib/session.ts`); staff can switch an account to Pro/Free (`setPlan` in `app/actions/admin.ts`, button on the admin site page).
+- Phase 5 so far: images decoded once (`lib/images.ts`), private changes don't clear the public cache (`{ publicChange: false }`), account export streams (`zipChunks` in `lib/zip.ts`).
+- Checks at last run: tsc, lint, build, 396 unit tests pass. Playwright test passes locally; its CI step is unverified.
 
-- Sign-up consent: required `terms` checkbox on both sign-up forms, `User.termsAcceptedAt`, tests updated (384 pass, lint/tsc/build OK).
-- Draft legal pages /terms /privacy /copyright in `app/(legal)` (banner controlled by `LEGAL_DRAFT` in `lib/legal.ts`); footer links on landing. package.json renamed "folio".
+## Next (no owner input needed), in this order
+1. **Editable special themes for Pro.** Today Exhibition/Index/Film Strip each have 2 settings, offered to everyone (`themeSettings` in `lib/design.ts`, schema ~L170, defaults `defaultThemeSettings`, editor UI `ThemeSettings` in `app/dashboard/design/themes.tsx`, theme code in `app/sites/[subdomain]/themes/*.tsx`). Plan: add richer optional settings (e.g. Exhibition spacing/frame/label font; Index font + row size; Film Strip frame size/border), keep the current basic ones free, gate the new ones with `plan === "pro"` (server side in `saveDraftDesign`/`publishDesign` in `app/actions/design.ts`: reset Pro-only fields to defaults for Free accounts; editor shows them locked with a "Folio Pro" note). Keep new schema fields optional/defaulted so old designs still parse (`readDesign` upgrades).
+2. Client gallery follow-ups: download-all zip (reuse `zipChunks`), expiry date, client favourites, email the link to the client.
+3. 50 GB storage limit: photos don't store byte sizes yet. Add optional `Photo.bytes` (original + variants) recorded in `finishDirectUpload`/`savePhoto` in `lib/uploads.ts`, a `storageUsed(user)` helper in `lib/plans.ts`, and check it where `photoLimit` is checked. Older photos count as unknown/0 until a backfill script.
+4. "More special themes for Pro" (new theme components).
 
-- Split `design-editor.tsx` into `app/dashboard/design/{types,ui,pickers,themes,sections}`; split `editor.tsx` into `photo-uploader.tsx` + `photo-drawer.tsx`. Checks pass.
-
-- Playwright browser test `tests/e2e/journey.spec.ts` (`npm run test:e2e`, config `playwright.config.ts`, dev server on port 3100) passes locally; added to CI after the smoke test (unverified on GitHub).
-
-- Phase 5 quick wins done: images decoded once (`lib/images.ts`), private changes (messages, legal hold, sign-out-everywhere) no longer clear the public cache, account export streams (`zipChunks`). "Send only each page's photos" was already true.
-
-- Phase 4 start: client galleries for Pro (see BACKLOG section 8 for files), `setPlan` admin action, `robots.txt` hides `/g/`. 395+ tests pass, build OK.
-- `docs/BACKLOG.md` fully updated (status table at top, stale items ticked).
-
-## In progress / next (code-only, no owner input)
-4. Update CLAUDE.md/README for plans + consent + legal pages.
-5. Next Phase 4 items without owner input: editable special themes (Exhibition/Index/Film Strip) for Pro, client gallery follow-ups. Payments need the owner.
-Remaining and skipped (needs owner or risky unattended): DB schema at deploy time (needs a real Neon check), fonts only on Folio pages (root-layout refactor), client galleries/payments (Phase 4), Terms/Privacy lawyer text, policy text/lawyer, photo domain on Cloudflare, 3 example sites.
+## Needs the owner (do not attempt)
+`CRON_SECRET` in Vercel (daily cleanup job doesn't run until set); Turnstile hostnames; browser-console CSP check then enforce the policy (rename report-only header in `lib/security-headers.ts`, update `tests/security-headers.test.ts`); test photo upload on folio.cam (R2 CORS unverified); Terms/Privacy text + lawyer review then `LEGAL_DRAFT=false`; DMCA agent registration; photo domain on Cloudflare + `R2_PUBLIC_URL`; example-site photos; payment provider (Stripe may not take Israeli businesses; Paddle/Lemon Squeezy; Vercel free tier forbids commercial use); launch decisions.
 
 ## Decisions / gotchas
-- Some files are CRLF, some LF; edit with care (scripts must preserve endings).
-- Phase 2 owner checks still pending (CRON_SECRET, Turnstile hostnames, CSP console check, upload test on folio.cam).
-- Backlog is mirrored in the Claude Doc "Folio — Improvement Backlog"; edit both (see CLAUDE.md Conventions).
-
-## Open questions
-- Policy text for Terms/Privacy; second domain for photos.
+- **The backlog lives in two places and both must be edited together:** `docs/BACKLOG.md` and the Claude Doc "Folio — Improvement Backlog" (https://claude.ai/artifact/2GPiZULFPDtucJhJ5WCXXF, doc id `0a3f4b76-c114-422c-a3f5-1f7c452c175a`, tabs: backlog + "Agent context"). Use the Claude Docs connector (`read` outline, then `update`/replace lists by block id with `ifHash`/`ifRev`). The doc's Phase 1 lists and old planning sections were not re-checked against the file.
+- Windows: some files are CRLF, some LF. Preserve line endings in scripted edits. In the Bash tool, long heredocs containing certain quotes can fail to parse; write files with the Write tool instead.
+- Gallery links are private but the image files are the same public web copies as the portfolio (state this honestly in any UI copy).
+- Skipped on purpose (risky unattended): schema setup at deploy time (needs a check against real Neon), Folio fonts only on Folio pages (needs separate root layouts), splitting photos/inquiries into tables (needs a maintenance window).
+- Commit/push rules: owner gave full permission this session; normally commit only when asked and ask before pushing.
