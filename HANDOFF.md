@@ -4,7 +4,7 @@
 
 **Goal:** Ship the phases in `docs/BACKLOG.md` (design polish -> security -> legal -> speed), now working through Phase 4 (Folio Pro). Owner may be away: skip items that need them and move on; they gave full permission for code work. Don't change production settings (Vercel env, DNS) and don't spend money.
 
-**Latest (Oct 25, 2026):** Claude Doc backlog synced with `docs/BACKLOG.md`. Wrote `docs/OWNER-CHECKLIST.md` (uncommitted): step-by-step guide for the owner-only items. `CRON_SECRET` was set in Vercel Production by Claude (owner to-do item 1, ticked in both backlogs; redeployed); Turnstile keys and all six `R2_*` vars are set (`R2_PUBLIC_URL` is an r2.dev address). Next: owner works the checklist; Claude then enforces the CSP, flips `LEGAL_DRAFT`, etc. when told.
+**Latest (Oct 25, 2026):** Claude Doc backlog synced with `docs/BACKLOG.md`. Wrote `docs/OWNER-CHECKLIST.md` (uncommitted): step-by-step guide for the owner-only items. `CRON_SECRET` was set in Vercel Production by Claude (owner to-do item 1, ticked in both backlogs; redeployed); Turnstile keys and all six `R2_*` vars are set (`R2_PUBLIC_URL` is an r2.dev address). Item 2 (Turnstile hostnames) also done and ticked in both backlogs (folio.cam redirects to www.folio.cam; widget lists www.folio.cam; owner confirmed subdomain contact form works). Next: owner item 3 (CSP console check); owner works the checklist; Claude then enforces the CSP, flips `LEGAL_DRAFT`, etc. when told.
 
 **Owner to-do list (Oct 25, 2026):** added as the "Owner to-do (Claude can't do these)" section in `docs/BACKLOG.md` and the Claude Doc (items 1-11, unticked). The owner starts a new session per item; when one is done, tick it in BOTH places, and update `docs/OWNER-CHECKLIST.md` if its steps change.
 

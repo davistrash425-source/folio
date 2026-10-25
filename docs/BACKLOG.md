@@ -26,7 +26,7 @@ Every suggestion from the code review, the landing-page critique and the dashboa
 The working list for picking up Folio one task per session. Step-by-step instructions for each item are in `docs/OWNER-CHECKLIST.md` (same numbers). Tick an item here, in the same edit as the Claude Doc, when the owner says it's done.
 
 - [x] 1. Add `CRON_SECRET` in Vercel (done Oct 25, 2026, by Claude via the Vercel connector: Production, Sensitive, redeployed). The daily cleanup job doesn't run without it.
-- [ ] 2. Confirm Turnstile covers folio.cam and *.folio.cam.
+- [x] 2. Confirm Turnstile covers folio.cam and *.folio.cam. (done Oct 25, 2026: sign-up on www.folio.cam passed in Chrome; owner confirmed the contact form on a photographer's subdomain works.)
 - [ ] 3. Check the browser console for CSP report-only messages, then enforce the policy.
 - [ ] 4. Test a photo upload on folio.cam. R2 CORS is unverified.
 - [ ] 5. Get a lawyer to review the Terms, Privacy and Copyright pages, then set `LEGAL_DRAFT=false`.

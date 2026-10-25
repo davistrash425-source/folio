@@ -30,7 +30,7 @@ Why: `vercel.json` schedules `/api/cron/daily` at 04:00 UTC. The route answers 4
 3. Redeploy production.
 4. Verify: Vercel → project → Settings → Cron Jobs (or the Cron tab) → Run on `/api/cron/daily`. Look for a 200. Without the secret it shows 404.
 
-### 2. Turnstile hostnames (5 min)
+### 2. Turnstile hostnames (DONE Oct 25, 2026; verified by the owner)
 Why: the widget only works on hostnames listed for it. If `folio.cam` is missing, sign-up and the contact form fail for real people.
 1. Cloudflare dashboard → Turnstile → open the widget whose site key starts with `0x4AAAAAAFlI…` (the key in `NEXT_PUBLIC_TURNSTILE_SITE_KEY`).
 2. Hostname Management: make sure `folio.cam` is listed. Adding the parent domain covers `*.folio.cam`, which the contact forms on photographers' sites need.
