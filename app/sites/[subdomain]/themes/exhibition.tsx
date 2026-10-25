@@ -22,6 +22,20 @@ const WALLS = {
   forest: { bg: "#1d2c25", fg: "#e6ebdf", muted: "#98a894", spot: "rgba(235,255,225,0.09)" },
 } as const;
 
+// The Pro settings: the mat around a print and how tall the prints hang
+// (phone height, then desktop).
+const MATS = {
+  cream: "bg-[#f6f2e8] p-3 md:p-4",
+  white: "bg-white p-3 md:p-4",
+  black: "bg-[#121212] p-3 md:p-4",
+  none: "",
+} as const;
+const PRINT_HEIGHTS = {
+  compact: ["min(44svh,28rem)", "min(48svh,34rem)"],
+  standard: ["min(56svh,36rem)", "min(62svh,44rem)"],
+  large: ["min(66svh,44rem)", "min(74svh,54rem)"],
+} as const;
+
 // Every panel is the full height of the wall; on phones it is also full width.
 const PANEL = "relative flex h-full w-full shrink-0 snap-center flex-col justify-center px-6 md:w-auto md:px-14";
 const SMALL_CAPS = "font-exh-sans text-[0.68rem] uppercase tracking-[0.3em]";
@@ -211,21 +225,25 @@ function WallText({ title, children }: { title: string; children: ReactNode }) {
 // wall label below or beside it.
 function Hanging({ photo, index, number, site }: { photo: PhotoSource; index: number; number: number; site: SiteData }) {
   const { design } = site;
-  const beside = design.themeSettings.exhibition.labels === "beside";
+  const { labels, pro } = design.themeSettings.exhibition;
+  const beside = labels === "beside";
+  const [phoneHeight, deskHeight] = PRINT_HEIGHTS[pro.printSize];
+  const sizes = { "--ph-s": phoneHeight, "--ph-m": deskHeight } as CSSProperties;
+  const sansLabel = pro.labelFont === "sans";
   const caption = showsCaption(design, photo.id);
   const title = caption ? photo.description : "";
   const where = caption && design.captions.includeLocation ? photo.location : "";
 
   return (
-    <section className={`${PANEL} items-center md:items-center`} style={{ backgroundImage: "radial-gradient(ellipse 70% 85% at 50% 0%, var(--spot), transparent 72%)" }}>
+    <section className={`${PANEL} items-center md:items-center`} style={{ ...sizes, backgroundImage: "radial-gradient(ellipse 70% 85% at 50% 0%, var(--spot), transparent 72%)" }}>
       <div className={`flex max-w-full flex-col gap-5 ${beside ? "md:flex-row md:items-end md:gap-8" : ""}`}>
         {/* Every print hangs from the same line, so the labels line up too. */}
-        <div className="flex h-[min(56svh,36rem)] items-center justify-center md:h-[min(62svh,44rem)]">
+        <div className="flex h-[var(--ph-s)] items-center justify-center md:h-[var(--ph-m)]">
         <button
           type="button"
           data-photo-index={index}
           aria-label={photo.alt ? `View photo: ${photo.alt}` : `View photo ${number}`}
-          className="block max-w-full cursor-zoom-in bg-[#f6f2e8] p-3 shadow-[0_28px_60px_-24px_rgba(0,0,0,0.65)] md:p-4"
+          className={`block max-w-full cursor-zoom-in ${MATS[pro.frame]} shadow-[0_28px_60px_-24px_rgba(0,0,0,0.65)]`}
         >
           <img
             src={photo.src}
@@ -235,13 +253,13 @@ function Hanging({ photo, index, number, site }: { photo: PhotoSource; index: nu
             height={photo.height}
             alt={photo.alt}
             loading={index < 2 ? "eager" : "lazy"}
-            className="h-auto max-h-[calc(min(56svh,36rem)-1.5rem)] w-auto max-w-full object-contain md:max-h-[calc(min(62svh,44rem)-2rem)]"
+            className="h-auto max-h-[calc(var(--ph-s)-1.5rem)] w-auto max-w-full object-contain md:max-h-[calc(var(--ph-m)-2rem)]"
           />
         </button>
         </div>
         <div className={`${beside ? "md:w-44 md:shrink-0" : ""} font-exh-sans text-xs`}>
           <p className="tracking-[0.3em] text-[var(--muted)]">{pad(number)}</p>
-          {title && <p className="mt-2 font-exh-serif text-xl italic leading-snug">{title}</p>}
+          {title && <p className={sansLabel ? "mt-2 text-sm leading-snug" : "mt-2 font-exh-serif text-xl italic leading-snug"}>{title}</p>}
           {where && <p className="mt-1 uppercase tracking-[0.2em] text-[var(--muted)]">{where}</p>}
         </div>
       </div>

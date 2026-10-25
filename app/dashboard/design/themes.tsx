@@ -1,7 +1,10 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element -- user uploads are served by our own route */
-import { FILM_STOCKS, INDEX_SORTS, CLASSIC_LOOKS, THEMES, WALLS, type SiteDesign, type LookId, type ThemeId } from "@/lib/design";
+import {
+  CLASSIC_LOOKS, EXHIBITION_FRAMES, FILM_BORDERS, FILM_FRAME_SIZES, FILM_STOCKS, INDEX_SORTS, LABEL_FONTS, PRINT_SIZES,
+  ROW_SIZES, THEMES, TITLE_CASES, WALLS, type SiteDesign, type LookId, type ThemeId,
+} from "@/lib/design";
 import { TEMPLATES } from "@/lib/templates";
 import { THEME_INFO } from "@/lib/themes";
 import { Choice } from "./ui";
@@ -26,7 +29,7 @@ export function ThemePicker({ theme, photos, onPick }: { theme: ThemeId; photos:
           <span className="mt-1.5 block text-xs text-ink-soft">
             {id === "classic"
               ? "You choose the layout, colors and fonts."
-              : "Sets its own layout and colors. Full editing comes with Pro."}
+              : "Sets its own layout and colors. More settings come with Pro."}
           </span>
         </button>
       ))}
@@ -95,11 +98,22 @@ export function ThemeArt({ theme, photos }: { theme: ThemeId; photos: EditorPhot
   }
 }
 
-// The few settings each creative theme offers.
-export function ThemeSettings({ design, onChange }: { design: SiteDesign; onChange: (patch: Partial<SiteDesign>) => void }) {
+const cap = (v: string) => v[0].toUpperCase() + v.slice(1);
+
+// Two settings per creative theme for everyone, then the Pro ones, which Free
+// accounts see locked (the server resets them anyway).
+export function ThemeSettings({ design, onChange, isPro }: { design: SiteDesign; onChange: (patch: Partial<SiteDesign>) => void; isPro: boolean }) {
   const settings = design.themeSettings;
   const set = <K extends keyof typeof settings>(key: K, patch: Partial<(typeof settings)[K]>) =>
     onChange({ themeSettings: { ...settings, [key]: { ...settings[key], ...patch } } });
+  const locked = !isPro;
+  const setPro = <K extends keyof typeof settings>(key: K, patch: Partial<(typeof settings)[K]["pro"]>) =>
+    set(key, { pro: { ...settings[key].pro, ...patch } } as Partial<(typeof settings)[K]>);
+  const proNote = (
+    <p className="label text-ink-faint">
+      {isPro ? "Folio Pro" : "Folio Pro: upgrade to change these"}
+    </p>
+  );
 
   switch (design.theme) {
     case "exhibition":
@@ -119,6 +133,28 @@ export function ThemeSettings({ design, onChange }: { design: SiteDesign; onChan
               ["beside", "Beside the photo"],
             ]}
             onChange={(labels) => set("exhibition", { labels })}
+          />
+          {proNote}
+          <Choice
+            label="Mat around each print"
+            locked={locked}
+            value={settings.exhibition.pro.frame}
+            options={EXHIBITION_FRAMES.map((v) => [v, v === "none" ? "No mat" : cap(v)] as [typeof v, string])}
+            onChange={(frame) => setPro("exhibition", { frame })}
+          />
+          <Choice
+            label="Print size"
+            locked={locked}
+            value={settings.exhibition.pro.printSize}
+            options={PRINT_SIZES.map((v) => [v, cap(v)] as [typeof v, string])}
+            onChange={(printSize) => setPro("exhibition", { printSize })}
+          />
+          <Choice
+            label="Label typeface"
+            locked={locked}
+            value={settings.exhibition.pro.labelFont}
+            options={LABEL_FONTS.map((v) => [v, v === "serif" ? "Serif italic" : "Sans"] as [typeof v, string])}
+            onChange={(labelFont) => setPro("exhibition", { labelFont })}
           />
         </>
       );
@@ -142,6 +178,25 @@ export function ThemeSettings({ design, onChange }: { design: SiteDesign; onChan
             )}
             onChange={(sort) => set("index", { sort })}
           />
+          {proNote}
+          <Choice
+            label="Row size"
+            locked={locked}
+            value={settings.index.pro.rowSize}
+            options={ROW_SIZES.map((v) => [v, cap(v)] as [typeof v, string])}
+            onChange={(rowSize) => setPro("index", { rowSize })}
+          />
+          <Choice
+            label="Titles"
+            locked={locked}
+            value={settings.index.pro.titleCase}
+            options={TITLE_CASES.map((v) => [v, v === "upper" ? "UPPERCASE" : "As typed"] as [typeof v, string])}
+            onChange={(titleCase) => setPro("index", { titleCase })}
+          />
+          <label className={`flex items-center gap-2 text-sm ${locked ? "opacity-50" : ""}`}>
+            <input type="checkbox" disabled={locked} checked={settings.index.pro.showYear} onChange={(e) => setPro("index", { showYear: e.target.checked })} />
+            Show the year column
+          </label>
         </>
       );
     case "filmstrip":
@@ -158,6 +213,25 @@ export function ThemeSettings({ design, onChange }: { design: SiteDesign; onChan
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={settings.filmstrip.frameNumbers} onChange={(e) => set("filmstrip", { frameNumbers: e.target.checked })} />
             Print frame numbers under each frame
+          </label>
+          {proNote}
+          <Choice
+            label="Frame size"
+            locked={locked}
+            value={settings.filmstrip.pro.frameSize}
+            options={FILM_FRAME_SIZES.map((v) => [v, cap(v)] as [typeof v, string])}
+            onChange={(frameSize) => setPro("filmstrip", { frameSize })}
+          />
+          <Choice
+            label="Frame border"
+            locked={locked}
+            value={settings.filmstrip.pro.border}
+            options={FILM_BORDERS.map((v) => [v, { black: "Black", edge: "Film color", none: "None" }[v]] as [typeof v, string])}
+            onChange={(border) => setPro("filmstrip", { border })}
+          />
+          <label className={`flex items-center gap-2 text-sm ${locked ? "opacity-50" : ""}`}>
+            <input type="checkbox" disabled={locked} checked={settings.filmstrip.pro.sprockets} onChange={(e) => setPro("filmstrip", { sprockets: e.target.checked })} />
+            Sprocket holes
           </label>
         </>
       );

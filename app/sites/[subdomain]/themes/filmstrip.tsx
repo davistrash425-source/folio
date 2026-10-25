@@ -20,6 +20,18 @@ const STOCKS = {
 } as const;
 
 const FRAMES_PER_STRIP = 4;
+
+// The Pro settings: frame height (phone, desktop) and the line around a frame.
+const FRAME_HEIGHTS = {
+  small: "h-32 md:h-44",
+  medium: "h-44 md:h-60",
+  large: "h-56 md:h-80",
+} as const;
+const FRAME_BORDERS = {
+  black: "bg-black p-1",
+  edge: "bg-[var(--edge)] p-1",
+  none: "",
+} as const;
 const EDGE = "font-film-edge text-[0.65rem] uppercase tracking-[0.25em] md:text-[0.7rem]";
 
 // The paper note's own colors; the contact form inside reads these too.
@@ -263,9 +275,10 @@ function Strip({ frames, firstNumber, offset, roll, stock, site, frameNumbers }:
   frameNumbers: boolean;
 }) {
   const { design } = site;
+  const { frameSize, border, sprockets } = design.themeSettings.filmstrip.pro;
   return (
     <div className="relative my-9 bg-[var(--base)] shadow-[0_22px_44px_-22px_rgba(0,0,0,0.95)]">
-      <Sprockets />
+      {sprockets ? <Sprockets /> : <div className="h-2" />}
       <p className={`${EDGE} flex justify-between px-4 pb-1 pt-0.5 text-[var(--edge)]`}>
         <span>{stock} · roll {pad(roll)}</span>
         <span className="hidden sm:inline">Safety film ▶</span>
@@ -280,7 +293,7 @@ function Strip({ frames, firstNumber, offset, roll, stock, site, frameNumbers }:
                 type="button"
                 data-photo-index={offset + i}
                 aria-label={photo.alt ? `View photo: ${photo.alt}` : `View frame ${n}`}
-                className="block cursor-zoom-in bg-black p-1 outline-offset-2 transition hover:outline hover:outline-1 hover:outline-[var(--edge)]"
+                className={`block cursor-zoom-in ${FRAME_BORDERS[border]} outline-offset-2 transition hover:outline hover:outline-1 hover:outline-[var(--edge)]`}
               >
                 <img
                   src={photo.src}
@@ -290,7 +303,7 @@ function Strip({ frames, firstNumber, offset, roll, stock, site, frameNumbers }:
                   height={photo.height ?? 2}
                   alt={photo.alt}
                   loading={offset + i < 4 ? "eager" : "lazy"}
-                  className="h-44 w-auto max-w-[78vw] object-cover md:h-60 md:max-w-none"
+                  className={`${FRAME_HEIGHTS[frameSize]} w-auto max-w-[78vw] object-cover md:max-w-none`}
                 />
               </button>
               {frameNumbers && (
@@ -304,7 +317,7 @@ function Strip({ frames, firstNumber, offset, roll, stock, site, frameNumbers }:
           );
         })}
       </div>
-      <Sprockets />
+      {sprockets ? <Sprockets /> : <div className="h-2" />}
     </div>
   );
 }
