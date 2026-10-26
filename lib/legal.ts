@@ -10,7 +10,7 @@ export const OPERATOR_ADDRESS = "1250 95th Street, Bay Harbor Islands, FL 33154,
 export const GOVERNING_LAW = "the State of Florida, USA";
 
 // The agent registered with the US Copyright Office (dmca.copyright.gov), shown on /copyright.
-// Leave null until registered; fill in the fields to show it. See docs/DMCA-AGENT-GUIDE.md.
+// Registered Oct 26, 2026 (DMCA-1084175); renew by Oct 2029. Set to null to fall back to the support address. See docs/DMCA-AGENT-GUIDE.md.
 export type DmcaAgent = { name: string; organization?: string; address: string; phone?: string; email: string; registration?: string };
 export const DMCA_AGENT: DmcaAgent | null = {
   name: "David Leonardo Freeman",
