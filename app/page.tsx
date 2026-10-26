@@ -4,7 +4,14 @@ import { buttonClass, secondaryButtonClass } from "@/app/ui/form";
 import { AddressClaim } from "@/app/ui/address-claim";
 import { ContactSheet, homePhoto, Photo } from "@/app/ui/frames";
 import { archivo, bebas, cormorant, shareTech, specialElite } from "@/app/sites/[subdomain]/themes/fonts";
-import { ROOT_DOMAIN, SUPPORT_EMAIL } from "@/lib/site";
+import { ROOT_DOMAIN, SUPPORT_EMAIL, siteUrl } from "@/lib/site";
+
+// The example accounts made by scripts/seed-examples.ts.
+const EXAMPLE_SITES = [
+  { subdomain: "highsierra", name: "Anya Lindqvist", theme: "Exhibition" },
+  { subdomain: "streetlight", name: "Mateo Ruiz", theme: "Film strip" },
+  { subdomain: "bronco", name: "Dale Whitfield", theme: "Contact sheet" },
+];
 
 // Printed along the edge of a roll of film, one frame per step.
 const steps = [
@@ -56,7 +63,7 @@ export default function Home() {
               <Link href="/signup" className={`${buttonClass} h-12 px-6`}>
                 Create your site →
               </Link>
-              <Link href="#themes" className={`${secondaryButtonClass} h-12 px-6`}>
+              <Link href="#examples" className={`${secondaryButtonClass} h-12 px-6`}>
                 See an example
               </Link>
             </div>
@@ -164,6 +171,32 @@ export default function Home() {
             ))}
           </ol>
           <div className="sprockets h-4" />
+        </section>
+
+        <section id="examples" className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
+          <p className="label text-accent">Made with Folio</p>
+          <h2 className="mt-3 font-display text-4xl tracking-tight sm:text-5xl">
+            Three example <em>sites.</em>
+          </h2>
+          <p className="mt-3 max-w-xl text-ink-soft">
+            Real Folio sites, each in a different theme. The photographers are made up; the photos are real.
+          </p>
+          <ul className="mt-8 grid gap-4 sm:grid-cols-3">
+            {EXAMPLE_SITES.map(({ subdomain, name, theme }) => (
+              <li key={subdomain}>
+                <a
+                  href={siteUrl(subdomain)}
+                  className="block border border-ink p-5 transition-colors hover:bg-ink hover:text-paper"
+                >
+                  <span className="label">{theme}</span>
+                  <span className="mt-2 block font-display text-2xl">{name}</span>
+                  <span className="mt-1 block text-sm opacity-70">
+                    {subdomain}.{ROOT_DOMAIN} →
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
         </section>
 
         <section className="mx-auto max-w-6xl px-6 py-20 text-center sm:py-28">

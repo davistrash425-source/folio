@@ -252,8 +252,11 @@ const r2 = r2ConfigFrom(process.env);
 // Where photos live: R2 when its settings are present, otherwise the disk.
 export const storage: Storage = r2 ? r2Storage(r2) : diskStorage;
 
+// With R2, photos are fetched from the site's own host (/_photos/…), which
+// next.config.ts rewrites to the public bucket. Visitors never contact the
+// bucket's domain, so a network that blocks or intercepts it can't break photos.
 export function photoUrl(userId: string, file: string) {
-  return r2 ? `${r2.publicUrl}/${userId}/${file}` : `/api/uploads/${userId}/${file}`;
+  return r2 ? `/_photos/${userId}/${file}` : `/api/uploads/${userId}/${file}`;
 }
 
 function baseName(file: string) {
