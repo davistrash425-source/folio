@@ -2,6 +2,14 @@
 // the limits live in one place when it launches (docs/BACKLOG.md, Phase 4).
 import type { User } from "./db";
 
+// Whether this account gets Pro features. PRO_FOR_EVERYONE=true (a server
+// environment variable) turns Pro on for every account while payments are
+// closed, without touching any stored plan or billing record. Unset it to go
+// back to real plans.
+export function isPro(user: Pick<User, "plan">) {
+  return process.env.PRO_FOR_EVERYONE === "true" || user.plan === "pro";
+}
+
 export const FREE_PHOTO_LIMIT = 150;
 export const PRO_PHOTO_LIMIT = 1500;
 
@@ -12,7 +20,7 @@ export const PRO_PRICE_YEARLY = 120;
 // Missing means free. An account over its limit (say, from before the limit
 // existed) keeps its photos but can't add more.
 export function photoLimit(user: Pick<User, "plan">) {
-  return user.plan === "pro" ? PRO_PHOTO_LIMIT : FREE_PHOTO_LIMIT;
+  return isPro(user) ? PRO_PHOTO_LIMIT : FREE_PHOTO_LIMIT;
 }
 
 // Storage: the originals plus the web copies, as recorded in Photo.bytes.
@@ -23,7 +31,7 @@ export const FREE_STORAGE_LIMIT = 5 * GB;
 export const PRO_STORAGE_LIMIT = 50 * GB;
 
 export function storageLimit(user: Pick<User, "plan">) {
-  return user.plan === "pro" ? PRO_STORAGE_LIMIT : FREE_STORAGE_LIMIT;
+  return isPro(user) ? PRO_STORAGE_LIMIT : FREE_STORAGE_LIMIT;
 }
 
 // Photos uploaded before sizes were recorded count as 0 until a backfill.
@@ -46,7 +54,7 @@ export function uploadBlock(user: Pick<User, "plan" | "photos">, extraBytes = 0)
 // Client galleries are a Pro feature.
 export const PRO_GALLERY_LIMIT = 20;
 export function galleryLimit(user: Pick<User, "plan">) {
-  return user.plan === "pro" ? PRO_GALLERY_LIMIT : 0;
+  return isPro(user) ? PRO_GALLERY_LIMIT : 0;
 }
 
 // Whether visitors can open this account's galleries. After a downgrade the
@@ -70,5 +78,5 @@ export function showFolioBadge(
 ) {
   if (mode === "always") return true;
   if (mode === "never") return false;
-  return user.plan !== "pro";
+  return !isPro(user);
 }

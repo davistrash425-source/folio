@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
 import { updateUser } from "@/lib/db";
 import { designSchema, withoutProSettings, type SiteDesign } from "@/lib/design";
+import { isPro } from "@/lib/plans";
 import { draftDesign, publishedDesign } from "@/lib/public-site";
 
 const HISTORY_LIMIT = 20;
@@ -39,7 +40,7 @@ export async function saveDraftDesign(input: unknown, opts?: { autosave?: boolea
   const parsed = designSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "That design isn't valid." };
   // The extra theme settings are part of Folio Pro.
-  const design = account.plan === "pro" ? parsed.data : withoutProSettings(parsed.data);
+  const design = isPro(account) ? parsed.data : withoutProSettings(parsed.data);
   const autosave = opts?.autosave === true;
 
   const user = await updateUser(
@@ -66,7 +67,7 @@ export async function publishDesign(input: unknown): Promise<DesignResult> {
   const draft = saved.draft;
   const user = await updateUser(await currentUserId(), (u) => {
     // The plan may have changed since the draft was saved.
-    u.design = u.plan === "pro" ? draft : withoutProSettings(draft);
+    u.design = isPro(u) ? draft : withoutProSettings(draft);
   });
   revalidatePath(`/sites/${user.subdomain}`, "layout");
   return done(draftDesign(user), publishedDesign(user), user.designHistory?.length ?? 0);

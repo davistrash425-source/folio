@@ -1,6 +1,7 @@
 import { cacheLife, cacheTag } from "next/cache";
 import { findUserBySubdomain, type User } from "./db";
 import { readDesign, withoutProSettings, type SiteDesign } from "./design";
+import { isPro } from "./plans";
 import { couldBeSubdomain, isLive } from "./site";
 import { resolvePath, type SiteData } from "./site-data";
 import { photoSource } from "./uploads";
@@ -11,7 +12,7 @@ export type { SiteAlbum, SiteData } from "./site-data";
 // and its settings). They stay saved, but a Free account's site shows the
 // basic version until it is Pro again.
 function forPlan(user: User, design: SiteDesign) {
-  return user.plan === "pro" ? design : withoutProSettings(design);
+  return isPro(user) ? design : withoutProSettings(design);
 }
 
 export function publishedDesign(user: User) {
