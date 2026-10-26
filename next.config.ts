@@ -18,6 +18,12 @@ const nextConfig: NextConfig = {
     },
     proxyClientMaxBodySize: uploadsViaServer ? "25mb" : "2mb",
   },
+  // Photos are requested from the page's own host and fetched from the public
+  // bucket by the server (see photoUrl in lib/uploads.ts).
+  async rewrites() {
+    const bucket = process.env.R2_PUBLIC_URL?.replace(/\/+$/, "");
+    return bucket ? [{ source: "/_photos/:path*", destination: `${bucket}/:path*` }] : [];
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders() }];
   },
