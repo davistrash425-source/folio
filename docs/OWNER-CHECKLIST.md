@@ -63,12 +63,7 @@ Why: the pages in `app/(legal)` show a "Draft" banner. They need your real busin
 4. Also create the `support@folio.cam` address (a forward is fine). Suspended photographers are told to write there.
 
 ### 6. Register a DMCA agent (30 min, $6) (DONE Oct 26, 2026: DMCA-1084175, renew by Oct 2029)
-Status: account exists (logged in once), designation not started. The "Welcome…" account menu on dmca.copyright.gov did not open for Claude's browser; try it in your own browser. Full steps, the $6 fee, the PO-box rule and the 3-year renewal are in `docs/DMCA-AGENT-GUIDE.md` (branch `worktree-dmca-agent`).
-Why: US safe harbour for hosting users' content depends on a registered agent.
-1. Go to the US Copyright Office DMCA Designated Agent Directory (dmca.copyright.gov) and create an account. This costs money, so it's your decision.
-2. Register the service name (Folio, `folio.cam`), the agent contact, and the address.
-3. Renew every three years.
-4. Tell Claude the agent's name and address. Claude adds them to the `/copyright` page (`app/(legal)`).
+Done: registered Oct 26, 2026 as DMCA-1084175 (status Active in the directory). Agent: David Leonardo Freeman, 1250 95th Street, Bay Harbor Islands, FL 33154, support@folio.cam; alternate names Folio, folio.cam, www.folio.cam. The agent block is live on `/copyright` (`DMCA_AGENT` in `lib/legal.ts`). **Renew by Oct 2029** ($6; the Copyright Office emails reminders). If the address, phone or email changes, amend the directory entry and update `DMCA_AGENT`. Background and the PO-box rule: `docs/DMCA-AGENT-GUIDE.md`.
 
 ### 7. Photo domain on Cloudflare (DONE Oct 26, 2026)
 Done: `foliocdn.com` (bought on Cloudflare) serves the public bucket at `img.foliocdn.com`, with a cache rule (edge TTL 1 day, browser TTL 1 year). `R2_PUBLIC_URL` in Vercel is `https://img.foliocdn.com` (Production and Preview), and photos load from it on folio.cam. `folio.cam` itself stays on Vercel's DNS.

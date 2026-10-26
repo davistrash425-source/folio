@@ -108,7 +108,7 @@ Chosen setup: Vercel for hosting (with a wildcard `*.domain`), Postgres on Neon,
 The order of work:
 1. Move off local disk: database, photo storage with direct uploads, email and rate limits. Done and merged into `main`; production runs on folio.cam.
 2. Deploy a staging copy on the real domain and run the smoke test against it.
-3. Add terms and privacy pages (which need the owner's business details and a lawyer's review), Sentry and backups. The photo limit, reporting, sign-out-everywhere, robots/sitemaps, the DMCA notice form, admin takedown tools, email confirmation before going live, rights metadata and AI-crawler blocking are done. The owner still has to register a DMCA agent with the Copyright Office.
+3. Add terms and privacy pages (which need the owner's business details and a lawyer's review), Sentry and backups. The photo limit, reporting, sign-out-everywhere, robots/sitemaps, the DMCA notice form, admin takedown tools, email confirmation before going live, rights metadata and AI-crawler blocking are done. The DMCA agent is registered (DMCA-1084175, Oct 26, 2026; shown on `/copyright` from `DMCA_AGENT` in `lib/legal.ts`); renew by Oct 2029.
 4. Run a private beta.
 5. Add billing and custom domains, if wanted.
 
