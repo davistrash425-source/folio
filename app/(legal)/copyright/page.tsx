@@ -47,6 +47,12 @@ export default function CopyrightPolicyPage() {
           ) : null}
           <br />
           <a href={`mailto:${agent.email}`}>{agent.email}</a>
+          {agent.registration ? (
+            <>
+              <br />
+              US Copyright Office registration {agent.registration}
+            </>
+          ) : null}
         </p>
       ) : (
         <p>
