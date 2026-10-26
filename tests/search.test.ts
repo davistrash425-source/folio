@@ -61,6 +61,6 @@ test("the app's sitemap lists its public pages", async () => {
   visit("localhost:3000");
   assert.deepEqual(
     (await sitemap()).map((e) => e.url),
-    ["http://localhost:3000/", "http://localhost:3000/signup", "http://localhost:3000/login"],
+    ["http://localhost:3000/", "http://localhost:3000/pricing", "http://localhost:3000/signup", "http://localhost:3000/login"],
   );
 });

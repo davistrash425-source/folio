@@ -5,6 +5,10 @@ import type { User } from "./db";
 export const FREE_PHOTO_LIMIT = 150;
 export const PRO_PHOTO_LIMIT = 1500;
 
+// What Pro costs, in US dollars (the Polar products are set up to match).
+export const PRO_PRICE_MONTHLY = 12;
+export const PRO_PRICE_YEARLY = 120;
+
 // Missing means free. An account over its limit (say, from before the limit
 // existed) keeps its photos but can't add more.
 export function photoLimit(user: Pick<User, "plan">) {

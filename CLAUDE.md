@@ -97,6 +97,7 @@ So server actions (`app/actions/*`) and route handlers are called directly as fu
 | `ADMIN_VIEWER_EMAILS` | Comma-separated login emails of read-only staff: they see every admin page but can't change anything | No viewers |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile on sign-up and the contact form (`lib/turnstile.ts`, `app/ui/turnstile.tsx`) | No check; fails open if Cloudflare is down |
 | `CRON_SECRET` | Lets Vercel Cron call `/api/cron/daily` (`vercel.json`, 04:00 UTC): retries deleted accounts' file cleanup, removes unfinished uploads older than a day, sends one draft-site reminder | The route answers 404 |
+| `POLAR_ACCESS_TOKEN`, `POLAR_WEBHOOK_SECRET`, `POLAR_PRODUCT_MONTHLY`, `POLAR_PRODUCT_YEARLY`, `POLAR_SERVER` | Folio Pro subscriptions through Polar (`lib/billing.ts`, webhook at `/api/webhooks/billing`); `POLAR_SERVER` is `sandbox` (default) or `production` | Checkout is closed |
 | `NEXT_PUBLIC_SENTRY_DSN` | Error reports to Sentry (`lib/sentry.ts`, `instrumentation.ts`, `instrumentation-client.ts`, `app/global-error.tsx`) | Nothing is sent |
 
 `NEW_SITES_START_PUBLISHED` in `lib/site.ts` decides whether new sites start live or as drafts.

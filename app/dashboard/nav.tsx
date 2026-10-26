@@ -156,6 +156,7 @@ const STEPS = [
 const SECONDARY = [
   { href: "/dashboard/manage/galleries", label: "Client galleries" },
   { href: "/dashboard/manage/messages", label: "Messages" },
+  { href: "/dashboard/manage/billing", label: "Plan" },
   { href: "/dashboard/manage/account", label: "Account" },
 ];
 

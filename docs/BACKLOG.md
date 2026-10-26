@@ -33,7 +33,7 @@ The working list for picking up Folio one task per session. Step-by-step instruc
 - [x] 6. Register a DMCA agent with the Copyright Office. (done Oct 26, 2026: registration DMCA-1084175 paid by the owner; agent David Leonardo Freeman, support@folio.cam; alternate names Folio, folio.cam, www.folio.cam; shown on /copyright via `DMCA_AGENT` in `lib/legal.ts`. Renew by Oct 2029.)
 - [x] 7. Set up the photo domain on Cloudflare and update `R2_PUBLIC_URL`. (done Oct 26, 2026: owner bought `foliocdn.com` on Cloudflare; `img.foliocdn.com` is connected to `folio-photos`; cache rule edge TTL 1 day, browser TTL 1 year; `R2_PUBLIC_URL` is now `https://img.foliocdn.com` in Vercel (Production and Preview) and redeployed. Checked on folio.cam: editor photo list, design editor and a published site load every photo from the new host with status 200, and the CSP allows it. Client galleries share the same photo address code; not opened in the browser because they are Pro-only. The old `r2.dev` address is still enabled; turn it off in the bucket settings when ready.)
 - [x] 8. Supply photos for the example sites. (done Oct 26, 2026: owner gave 36 photos in three folders; `npm run seed-examples` built three Pro example sites on folio.cam: `highsierra` (Exhibition), `streetlight` (Film Strip), `bronco` (Contact sheet), made-up photographers marked as examples, 4 captions shown per site; linked from the landing page "See an example" and a "Made with Folio" section.)
-- [ ] 9. Choose a payment provider. Stripe may not accept Israeli businesses, so Paddle or Lemon Squeezy may fit better. Vercel's free tier also forbids commercial use.
+- [x] 9. Choose a payment provider. DECIDED Oct 26, 2026: Polar (merchant of record, pays out to Israel). Sandbox build is done on branch `polar-billing` (see HANDOFF.md); still to do: the owner's Polar sandbox account and products, sandbox test, Vercel Pro, production switch. Original note: Stripe may not accept Israeli businesses, so Paddle or Lemon Squeezy may fit better. Vercel's free tier also forbids commercial use.
 - [x] 10. Decide the "Made with Folio" footer on client galleries. (decided Oct 25, 2026: Free only, removed on Pro; `showFolioBadge` in `lib/plans.ts`. Free cannot make galleries today, so it rarely shows.)
 - [ ] 11. Launch the Free plan, then Pro.
 
@@ -186,7 +186,7 @@ Every item in this doc, in the order you chose: design → security → legal �
 - [x] Staff can move an account to Pro or Free by hand (admin site page, logged) until payments exist
 - [x] Client gallery follow-ups: download-all zip (web copies, rate limited), expiry date, client favourites (hearts, shown to the photographer), email the link to the client (never the password)
 - [x] A "Made with Folio" footer on client galleries (Free only; Pro removes it)
-- [ ] Payments + full pricing page
+- [ ] Payments + full pricing page (Polar sandbox billing built on `polar-billing`: checkout, webhook, portal, Plan page; left: sandbox test, downgrade hides galleries/themes on the live site, `/pricing`, production switch)
 - [ ] Lawyer review of Terms, Privacy and Copyright before charging
 - [ ] **Launch Pro**
 
