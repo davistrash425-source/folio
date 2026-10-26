@@ -8,3 +8,19 @@ export const OPERATOR_NAME = "David Leonardo Freeman";
 export const OPERATOR_STATUS = "an individual";
 export const OPERATOR_ADDRESS = "1250 95th Street, Bay Harbor Islands, FL 33154, USA";
 export const GOVERNING_LAW = "the State of Florida, USA";
+
+// The agent registered with the US Copyright Office (dmca.copyright.gov), shown on /copyright.
+// Registered Oct 26, 2026 (DMCA-1084175); renew by Oct 2029. Set to null to fall back to the support address. See docs/DMCA-AGENT-GUIDE.md.
+export type DmcaAgent = { name: string; organization?: string; address: string; phone?: string; email: string; registration?: string };
+export const DMCA_AGENT: DmcaAgent | null = {
+  name: "David Leonardo Freeman",
+  organization: "Folio",
+  address: "1250 95th Street, Bay Harbor Islands, FL 33154, USA",
+  phone: "+1 657 684 9754",
+  email: "support@folio.cam",
+  registration: "DMCA-1084175",
+};
+
+export function dmcaAgentToShow(agent: DmcaAgent | null = DMCA_AGENT): DmcaAgent | null {
+  return agent && agent.name.trim() && agent.address.trim() && agent.email.trim() ? agent : null;
+}

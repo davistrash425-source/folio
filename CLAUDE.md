@@ -109,7 +109,7 @@ Chosen setup: Vercel for hosting (with a wildcard `*.domain`), Postgres on Neon,
 The order of work:
 1. Move off local disk: database, photo storage with direct uploads, email and rate limits. Done and merged into `main`; production runs on folio.cam.
 2. Deploy a staging copy on the real domain and run the smoke test against it.
-3. Add terms and privacy pages (which need the owner's business details and a lawyer's review), Sentry and backups. The photo limit, reporting, sign-out-everywhere, robots/sitemaps, the DMCA notice form, admin takedown tools, email confirmation before going live, rights metadata and AI-crawler blocking are done. The owner still has to register a DMCA agent with the Copyright Office.
+3. Add terms and privacy pages (which need the owner's business details and a lawyer's review), Sentry and backups. The photo limit, reporting, sign-out-everywhere, robots/sitemaps, the DMCA notice form, admin takedown tools, email confirmation before going live, rights metadata and AI-crawler blocking are done. The DMCA agent is registered (DMCA-1084175, Oct 26, 2026; shown on `/copyright` from `DMCA_AGENT` in `lib/legal.ts`); renew by Oct 2029.
 4. Run a private beta.
 5. Add billing and custom domains, if wanted.
 
@@ -129,4 +129,5 @@ Each storage piece swaps one module whose interface the rest of the app already 
 - Server actions return `{ error?, ok? }` for the form to show, and use `redirect()` for navigation.
 - Tests are named as plain-English statements of behavior. Many check that one user can't reach another user's data (`tests/ownership.test.ts`, `tests/signed-out.test.ts`); add to those when adding an action.
 - `npm run backfill-photos` and `npm run import-json` (copies an old `data/db.json` into Postgres) are one-time migration scripts in `scripts/`.
-- The landing page's sample photos come from the owner's git-ignored `folio-homepage-photos/` folder: `npm run homepage-photos` writes the web copies to `public/home/` and the order to `app/ui/home-photos.json` (commit both).
+- The landing page's sample photos come from the owner's git-ignored `folio-homepage-photos/Street/` folder: `npm run homepage-photos` writes the web copies to `public/home/` and the order to `app/ui/home-photos.json` (commit both).
+- The three example sites (`bronco`, `highsierra`, `streetlight`, linked from the landing page's "Made with Folio" section) are ordinary Pro accounts made by `npm run seed-examples` (`scripts/seed-examples.ts`) from the other folders in `folio-homepage-photos/`. It writes to whatever database and storage the environment points at, skips sites that exist, and is run with `FOLIO_KEEP_DATA_DIR=1`. Vercel's Sensitive variables can't be read back, so the owner runs it against production themselves.

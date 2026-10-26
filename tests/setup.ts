@@ -7,9 +7,13 @@ import { pathToFileURL } from "url";
 
 // Each test process gets its own empty data folder so tests never read or
 // change data/.
-const dir = mkdtempSync(path.join(tmpdir(), "folio-test-"));
-process.env.FOLIO_DATA_DIR = dir;
-process.on("exit", () => rmSync(dir, { recursive: true, force: true }));
+// (scripts/seed-examples.ts borrows this file for the stubs below and sets
+// FOLIO_KEEP_DATA_DIR so it writes to the real folder instead.)
+if (!process.env.FOLIO_KEEP_DATA_DIR) {
+  const dir = mkdtempSync(path.join(tmpdir(), "folio-test-"));
+  process.env.FOLIO_DATA_DIR = dir;
+  process.on("exit", () => rmSync(dir, { recursive: true, force: true }));
+}
 
 // Lets plain Node load lib/ the way Next does: Next's own modules (which only
 // work inside Next) become the stubs in tests/stubs/, "@/lib/db" means

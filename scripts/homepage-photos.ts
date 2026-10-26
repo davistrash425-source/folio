@@ -1,4 +1,4 @@
-// Turns the photos in folio-homepage-photos/ (git-ignored originals) into the
+// Turns the photos in folio-homepage-photos/Street/ (git-ignored originals) into the
 // small web copies the landing page shows: 600x400 WebP in public/home/, with
 // EXIF and GPS removed, listed in order in app/ui/home-photos.json.
 // Photos already on the list keep their name and place; new ones go at the end,
@@ -10,7 +10,8 @@ import sharp from "sharp";
 
 type Entry = { name: string; source: string };
 
-const sourceDir = path.resolve("folio-homepage-photos");
+// The other folders (Bronco, mountain) are for the example sites: scripts/seed-examples.ts.
+const sourceDir = path.resolve("folio-homepage-photos/Street");
 const outDir = path.resolve("public/home");
 const listFile = path.resolve("app/ui/home-photos.json");
 

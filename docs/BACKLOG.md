@@ -19,7 +19,7 @@ Every suggestion from the code review, the landing-page critique and the dashboa
 | 4 Folio Pro | Code done through "more special themes". Started: 1,500-photo limit, 20-gallery limit, password-protected client galleries, staff can switch an account to Pro; editable special themes, client gallery follow-ups, the 50 GB limit and the Contact sheet + Monograph themes are all done. Left: payments, lawyer review, launch |
 | 5 Speed & scale | Four items done (image decode, private changes keep the cache, streaming export, per-page photos). Left: split tables, schema at deploy, fonts, staging and stress tests |
 
-**Waiting on the owner:** Turnstile hostnames; browser-console CSP check; test photo upload on folio.cam; legal text and review; DMCA agent registration with the Copyright Office; example site photos; payment provider choice.
+**Waiting on the owner:** Turnstile hostnames; browser-console CSP check; test photo upload on folio.cam; legal text and review; payment provider choice.
 
 ## Owner to-do (Claude can't do these)
 
@@ -30,9 +30,9 @@ The working list for picking up Folio one task per session. Step-by-step instruc
 - [x] 3. Check the browser console for CSP report-only messages, then enforce the policy. (done Oct 25, 2026: the full policy is enforced on folio.cam. The first attempt froze the editor tab and was reverted; the second went through a Vercel preview first, then production, and the editor, upload, galleries and a published site all work. The one violation seen is zod's harmless eval probe. The first freeze was never explained.)
 - [x] 4. Test a photo upload on folio.cam. (done Oct 25, 2026: upload through the dashboard worked, the PUT to R2 returned 200; test photo deleted again.)
 - [ ] 5. Get a lawyer to review the Terms, Privacy and Copyright pages, then set `LEGAL_DRAFT=false`. (Oct 26, 2026: owner details added to the pages in `lib/legal.ts`; `docs/LAWYER-BRIEF.md` written; support@folio.cam forwards via ImprovMX (MX records set, alias not yet test-sent). Left: lawyer sign-off.)
-- [ ] 6. Register a DMCA agent with the Copyright Office.
+- [x] 6. Register a DMCA agent with the Copyright Office. (done Oct 26, 2026: registration DMCA-1084175 paid by the owner; agent David Leonardo Freeman, support@folio.cam; alternate names Folio, folio.cam, www.folio.cam; shown on /copyright via `DMCA_AGENT` in `lib/legal.ts`. Renew by Oct 2029.)
 - [x] 7. Set up the photo domain on Cloudflare and update `R2_PUBLIC_URL`. (done Oct 26, 2026: owner bought `foliocdn.com` on Cloudflare; `img.foliocdn.com` is connected to `folio-photos`; cache rule edge TTL 1 day, browser TTL 1 year; `R2_PUBLIC_URL` is now `https://img.foliocdn.com` in Vercel (Production and Preview) and redeployed. Checked on folio.cam: editor photo list, design editor and a published site load every photo from the new host with status 200, and the CSP allows it. Client galleries share the same photo address code; not opened in the browser because they are Pro-only. The old `r2.dev` address is still enabled; turn it off in the bucket settings when ready.)
-- [ ] 8. Supply photos for the example sites.
+- [x] 8. Supply photos for the example sites. (done Oct 26, 2026: owner gave 36 photos in three folders; `npm run seed-examples` built three Pro example sites on folio.cam: `highsierra` (Exhibition), `streetlight` (Film Strip), `bronco` (Contact sheet), made-up photographers marked as examples, 4 captions shown per site; linked from the landing page "See an example" and a "Made with Folio" section.)
 - [x] 9. Choose a payment provider. DECIDED Oct 26, 2026: Polar (merchant of record, pays out to Israel). Sandbox build is done on branch `polar-billing` (see HANDOFF.md); still to do: the owner's Polar sandbox account and products, sandbox test, Vercel Pro, production switch. Original note: Stripe may not accept Israeli businesses, so Paddle or Lemon Squeezy may fit better. Vercel's free tier also forbids commercial use.
 - [x] 10. Decide the "Made with Folio" footer on client galleries. (decided Oct 25, 2026: Free only, removed on Pro; `showFolioBadge` in `lib/plans.ts`. Free cannot make galleries today, so it rarely shows.)
 - [ ] 11. Launch the Free plan, then Pro.
@@ -170,7 +170,7 @@ Every item in this doc, in the order you chose: design → security → legal �
 - [x] Copyright / DMCA page from the existing takedown flow (/copyright)
 - [x] Terms & Privacy consent at sign-up (checkbox, User.termsAcceptedAt)
 - [x] Photo domain: second domain on Cloudflare connected to R2; update `R2_PUBLIC_URL` (done Oct 26, 2026: `img.foliocdn.com`)
-- [ ] Build 3 polished example sites + "Made with Folio" section
+- [x] Build 3 polished example sites + "Made with Folio" section
 - [x] Free plan limit: 150 photos (lib/plans.ts); one site (extra sites are admin-only) and the four themes with uneditable special themes already match Free
 - [x] Browser tests for sign-up → upload → design → publish (Playwright, `npm run test:e2e`, tests/e2e)
 - [x] Split `design-editor.tsx` (done) and `editor.tsx` (done: photo-uploader.tsx, photo-drawer.tsx) into smaller components
@@ -273,7 +273,7 @@ Every item in this doc, in the order you chose: design → security → legal �
 - [x] Make the "yourname.folio.cam" box at the bottom a real input that checks availability as you type and carries the name into sign-up. Right now it looks typeable but isn't.
 - [x] Stop theme previews showing empty boxes while scrolling (blank Exhibition print, empty Film Strip, a blank screen on phones). Use placeholders and load them before they scroll into view.
 - [ ] Make each theme preview clickable, opening a full demo site in that theme.
-- [ ] Add real example sites ("Made with Folio").
+- [x] Add real example sites ("Made with Folio").
 - [x] Replace the duplicate hero "Log in" button with "See an example".
 - [x] Add pricing / FAQ, even just "Free. Pro coming soon."
 - [ ] Fill the footer: Terms, Privacy, contact (done), Instagram (needs owner).
