@@ -15,11 +15,11 @@ Every suggestion from the code review, the landing-page critique and the dashboa
 | 0 Setup | Done |
 | 1 Design polish | Done and live on `main`, except two small items (demo sites per theme, Instagram link in footer) |
 | 2 Security | Merged into `main`; waiting on the owner checks below |
-| 3 Legal & launch (Free) | Code done and merged. Left: lawyer-reviewed Terms/Privacy, photo domain, example sites, launch |
+| 3 Legal & launch (Free) | Code done and merged. Left: lawyer-reviewed Terms/Privacy, example sites, launch |
 | 4 Folio Pro | Code done through "more special themes". Started: 1,500-photo limit, 20-gallery limit, password-protected client galleries, staff can switch an account to Pro; editable special themes, client gallery follow-ups, the 50 GB limit and the Contact sheet + Monograph themes are all done. Left: payments, lawyer review, launch |
 | 5 Speed & scale | Four items done (image decode, private changes keep the cache, streaming export, per-page photos). Left: split tables, schema at deploy, fonts, staging and stress tests |
 
-**Waiting on the owner:** Turnstile hostnames; browser-console CSP check; test photo upload on folio.cam; legal text and review; photo domain; example site photos; payment provider choice.
+**Waiting on the owner:** Turnstile hostnames; browser-console CSP check; test photo upload on folio.cam; legal text and review; example site photos; payment provider choice.
 
 ## Owner to-do (Claude can't do these)
 
@@ -31,7 +31,7 @@ The working list for picking up Folio one task per session. Step-by-step instruc
 - [x] 4. Test a photo upload on folio.cam. (done Oct 25, 2026: upload through the dashboard worked, the PUT to R2 returned 200; test photo deleted again.)
 - [ ] 5. Get a lawyer to review the Terms, Privacy and Copyright pages, then set `LEGAL_DRAFT=false`. (Oct 26, 2026: owner details added to the pages in `lib/legal.ts`; `docs/LAWYER-BRIEF.md` written; support@folio.cam forwards via ImprovMX (MX records set, alias not yet test-sent). Left: lawyer sign-off.)
 - [x] 6. Register a DMCA agent with the Copyright Office. (done Oct 26, 2026: registration DMCA-1084175 paid by the owner; agent David Leonardo Freeman, support@folio.cam; alternate names Folio, folio.cam, www.folio.cam; shown on /copyright via `DMCA_AGENT` in `lib/legal.ts`. Renew by Oct 2029.)
-- [ ] 7. Set up the photo domain on Cloudflare and update `R2_PUBLIC_URL`.
+- [x] 7. Set up the photo domain on Cloudflare and update `R2_PUBLIC_URL`. (done Oct 26, 2026: owner bought `foliocdn.com` on Cloudflare; `img.foliocdn.com` is connected to `folio-photos`; cache rule edge TTL 1 day, browser TTL 1 year; `R2_PUBLIC_URL` is now `https://img.foliocdn.com` in Vercel (Production and Preview) and redeployed. Checked on folio.cam: editor photo list, design editor and a published site load every photo from the new host with status 200, and the CSP allows it. Client galleries share the same photo address code; not opened in the browser because they are Pro-only. The old `r2.dev` address is still enabled; turn it off in the bucket settings when ready.)
 - [ ] 8. Supply photos for the example sites.
 - [ ] 9. Choose a payment provider. Stripe may not accept Israeli businesses, so Paddle or Lemon Squeezy may fit better. Vercel's free tier also forbids commercial use.
 - [x] 10. Decide the "Made with Folio" footer on client galleries. (decided Oct 25, 2026: Free only, removed on Pro; `showFolioBadge` in `lib/plans.ts`. Free cannot make galleries today, so it rarely shows.)
@@ -169,7 +169,7 @@ Every item in this doc, in the order you chose: design → security → legal �
 - [x] Terms and Privacy pages (DRAFT text in app/(legal); owner still wants a generator/lawyer pass, then set LEGAL_DRAFT=false in lib/legal.ts)
 - [x] Copyright / DMCA page from the existing takedown flow (/copyright)
 - [x] Terms & Privacy consent at sign-up (checkbox, User.termsAcceptedAt)
-- [ ] Photo domain: second domain on Cloudflare connected to R2; update `R2_PUBLIC_URL`
+- [x] Photo domain: second domain on Cloudflare connected to R2; update `R2_PUBLIC_URL` (done Oct 26, 2026: `img.foliocdn.com`)
 - [ ] Build 3 polished example sites + "Made with Folio" section
 - [x] Free plan limit: 150 photos (lib/plans.ts); one site (extra sites are admin-only) and the four themes with uneditable special themes already match Free
 - [x] Browser tests for sign-up → upload → design → publish (Playwright, `npm run test:e2e`, tests/e2e)
@@ -491,7 +491,7 @@ For US-first with Israel: start from a reputable policy generator for Terms and 
 
 Run them on a separate staging copy: a Vercel preview deployment with its own Neon database branch and its own R2 buckets. Production stays untouched, and test data never mixes with real accounts.
 
-**Still open:** an R2 photo domain (a second domain on Cloudflare, e.g. img.foliocdn.com). Neon pooling, Frankfurt region, Upstash, Sentry, Turnstile keys and Google sign-in keys are all set in Vercel.
+**Photo domain done (Oct 26, 2026):** `img.foliocdn.com` serves the public bucket. Neon pooling, Frankfurt region, Upstash, Sentry, Turnstile keys and Google sign-in keys are all set in Vercel.
 
 ---
 
@@ -509,7 +509,7 @@ Everything a coding agent needs to implement this backlog without re-deriving it
 | Stack | Next.js 16.4.2 (App Router, Turbopack, `cacheComponents`, partial prerendering), React 19.3, TypeScript, Tailwind 4, zod 4, sharp, `pg` + PGlite, `@sentry/nextjs` 11.8.0 |
 | Hosting | Vercel project `folio`, functions in Frankfurt `fra1`, wildcard `*.folio.cam` |
 | Database | Neon Postgres, Frankfurt (`eu-central-1`), pooled URL. Local dev/tests use PGlite |
-| Photos | Cloudflare R2: `folio-originals` (private), `folio-photos` (public, served from r2.dev for now) |
+| Photos | Cloudflare R2: `folio-originals` (private), `folio-photos` (public, served from `img.foliocdn.com` through Cloudflare) |
 | Email | Resend (`EMAIL_FROM`, `RESEND_API_KEY`) |
 | Errors | Sentry org `davi-k7`, project `folio`, DSN in `NEXT_PUBLIC_SENTRY_DSN` |
 | CI | `.github/workflows/ci.yml`: lint → typegen → tsc → `npm test` → build → smoke test → Playwright browser test (`npm run test:e2e`) |
@@ -523,7 +523,7 @@ Everything a coding agent needs to implement this backlog without re-deriving it
 | `DATABASE_URL` | Set, pooled (`-pooler` host) | Yes |
 | `SESSION_SECRET` | Set | Yes |
 | `NEXT_PUBLIC_ROOT_DOMAIN` | `folio.cam` | Yes |
-| `R2_*` (6 vars) | Set; `R2_PUBLIC_URL` is an r2.dev address (rate-limited, dev-only) | Yes |
+| `R2_*` (6 vars) | Set; `R2_PUBLIC_URL` is `https://img.foliocdn.com` | Yes |
 | `RESEND_API_KEY`, `EMAIL_FROM` | Set | Yes |
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Set | Yes (`lib/rate-limit.ts`) |
 | `REPORTS_EMAIL`, `ADMIN_EMAILS` | Set | Yes |
@@ -532,7 +532,7 @@ Everything a coding agent needs to implement this backlog without re-deriving it
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Set. Google app in Testing mode; redirect URIs `https://folio.cam/api/auth/google/callback` and `http://localhost:3000/api/auth/google/callback` | Yes (Continue with Google) |
 | `CRON_SECRET` | Set in Production (Oct 25, 2026) | Yes: daily cleanup job |
 
-Open infra item: photo domain. folio.cam DNS must stay on Vercel (wildcard certs), so R2 needs a second domain on Cloudflare (e.g. `img.foliocdn.com`), then update `R2_PUBLIC_URL`.
+Photo domain (done Oct 26, 2026): folio.cam DNS stays on Vercel (wildcard certs), so photos use a second domain, `foliocdn.com`, whose DNS is on Cloudflare. `img.foliocdn.com` is connected to the `folio-photos` bucket and `R2_PUBLIC_URL` points at it. Optional left: disable the bucket's Public Development URL (`r2.dev`).
 
 ## 3. Owner decisions (binding)
 
