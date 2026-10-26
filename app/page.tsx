@@ -174,6 +174,9 @@ export default function Home() {
             <a href={`mailto:${SUPPORT_EMAIL}`} className="underline-offset-4 hover:text-ink hover:underline">
               Contact
             </a>
+            <Link href="/pricing" className="underline-offset-4 hover:text-ink hover:underline">
+              Pricing
+            </Link>
             <Link href="/terms" className="underline-offset-4 hover:text-ink hover:underline">
               Terms
             </Link>

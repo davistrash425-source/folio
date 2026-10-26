@@ -5,6 +5,11 @@ import type { User } from "./db";
 export const FREE_PHOTO_LIMIT = 150;
 export const PRO_PHOTO_LIMIT = 1500;
 
+// Folio Pro prices in US dollars. The real amounts are the two products in
+// Polar (POLAR_PRODUCT_MONTHLY / _YEARLY); keep these in step with them.
+export const PRO_PRICE_MONTH = 12;
+export const PRO_PRICE_YEAR = 120;
+
 // Missing means free. An account over its limit (say, from before the limit
 // existed) keeps its photos but can't add more.
 export function photoLimit(user: Pick<User, "plan">) {
@@ -43,6 +48,12 @@ export function uploadBlock(user: Pick<User, "plan" | "photos">, extraBytes = 0)
 export const PRO_GALLERY_LIMIT = 20;
 export function galleryLimit(user: Pick<User, "plan">) {
   return user.plan === "pro" ? PRO_GALLERY_LIMIT : 0;
+}
+
+// Whether visitors can open this account's galleries. After a downgrade the
+// galleries are kept but hidden until the account is Pro again.
+export function galleriesOpen(user: Pick<User, "plan">) {
+  return galleryLimit(user) > 0;
 }
 
 export function photoLimitMessage(user: Pick<User, "plan">) {

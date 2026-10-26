@@ -61,6 +61,8 @@ So server actions (`app/actions/*`) and route handlers are called directly as fu
 - **Live sites.** `isLive` in `lib/site.ts` (published, email confirmed, not suspended) decides what visitors see; use it rather than `isPublished` for anything public. A closed account's subdomain is held for `ADDRESS_HOLD_MONTHS` (`released_subdomains` table).
 - **Rights.** Web copies carry the photographer's name and copyright notice (EXIF + XMP, `PhotoRights` in `lib/images.ts`, built by `photoRights` in `lib/uploads.ts`); `Photo.copyright` records what was written. Sites ask `AI_TRAINING_CRAWLERS` to stay away unless `User.allowAiTraining`.
 
+**Billing (Folio Pro, Polar).** `lib/billing.ts` is the only file that calls Polar (checkout, customer portal, ending a subscription, webhook signature check, `grantsPro`). `startCheckout` and `openBillingPortal` (`app/actions/billing.ts`) send the photographer to Polar, with the account id as `external_id`. Polar then calls `app/api/webhooks/billing/route.ts`, which verifies the signature and hands the event to `applyBillingEvent` (`lib/billing-webhook.ts`): it finds the account by `customer.external_id` (never the email), skips duplicate (`webhook-id`) and stale (`modified_at`) events, records `User.billing`, and sets `User.plan` and `planSource: "billing"`. An admin's manual `setPlan` sets `planSource: "manual"` and webhooks never override it. Account deletion ends the subscription first (`cancelSubscriptionFor`). The Plan page is `app/dashboard/manage/billing`; the public `/pricing` page reads its prices from `lib/plans.ts`, which must match the Polar products. Billing stays closed until the `POLAR_*` variables are set. On a downgrade nothing is deleted: `galleriesOpen` (`lib/plans.ts`) hides client galleries from visitors, and `publishedDesign`/`draftDesign` (`lib/public-site.ts`) show Classic instead of a saved Pro theme. Field names were confirmed against real sandbox events (Oct 26, 2026).
+
 **Public site caching.** `lib/public-site.ts` loads a site with `"use cache"` and tags it `site:<subdomain>`. `updateUser`, `createUser` and `deleteUser` in `lib/db.ts` invalidate that tag (`siteChanged`), so any account change refreshes the public site. Dashboard pages refresh with `revalidatePath("/dashboard", "layout")`. `next.config.ts` turns on `cacheComponents` and partial prerendering.
 
 **Site design.** A `SiteDesign` (`lib/design.ts`, a zod schema) describes the whole site: theme, colors, fonts, pages, and each page's sections. The editor saves to `draftDesign` (keeping 20 earlier drafts for undo in `designHistory`), and publishing copies it to `design`. `app/sites/[subdomain]/renderer.tsx` picks a theme component from `themes/`. All themes read the same content, so switching themes loses nothing. README.md lists the steps for adding a theme.
@@ -104,14 +106,14 @@ So server actions (`app/actions/*`) and route handlers are called directly as fu
 
 ## Launch plan and current state
 
-Chosen setup: Vercel for hosting (with a wildcard `*.domain`), Postgres on Neon, Cloudflare R2 for photos (originals in a private bucket, web copies in a public one), Resend for email, and Upstash Redis for rate limits. The domain is `folio.cam` (owned), so sites live at `name.folio.cam`. Whether Folio will be paid is undecided.
+Chosen setup: Vercel for hosting (with a wildcard `*.domain`), Postgres on Neon, Cloudflare R2 for photos (originals in a private bucket, web copies in a public one), Resend for email, and Upstash Redis for rate limits. The domain is `folio.cam` (owned), so sites live at `name.folio.cam`. Paid plans (Folio Pro, $12 a month or $120 a year) go through Polar; it works end to end in the sandbox, and the production switch is still to do.
 
 The order of work:
 1. Move off local disk: database, photo storage with direct uploads, email and rate limits. Done and merged into `main`; production runs on folio.cam.
 2. Deploy a staging copy on the real domain and run the smoke test against it.
 3. Add terms and privacy pages (which need the owner's business details and a lawyer's review), Sentry and backups. The photo limit, reporting, sign-out-everywhere, robots/sitemaps, the DMCA notice form, admin takedown tools, email confirmation before going live, rights metadata and AI-crawler blocking are done. The owner still has to register a DMCA agent with the Copyright Office.
 4. Run a private beta.
-5. Add billing and custom domains, if wanted.
+5. Billing is built and sandbox-tested (Polar). Left: Vercel Pro, a production Polar account and products, `POLAR_SERVER=production`, one real purchase and refund. Custom domains, if wanted.
 
 Each storage piece swaps one module whose interface the rest of the app already uses: the functions in `lib/db.ts`, the `storage` object and `photoUrl` in `lib/uploads.ts`, `sendEmail` in `lib/email.ts`, and `rateLimit` in `lib/rate-limit.ts`. Keep those signatures stable.
 
