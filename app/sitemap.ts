@@ -9,7 +9,7 @@ import { appUrl, siteSubdomain, siteUrl } from "@/lib/site";
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const subdomain = siteSubdomain((await headers()).get("host") ?? "");
   if (!subdomain) {
-    return ["/", "/signup", "/login"].map((path) => ({ url: appUrl(path) }));
+    return ["/", "/pricing", "/signup", "/login"].map((path) => ({ url: appUrl(path) }));
   }
   const site = await loadSite(subdomain);
   if (!site) return [];
