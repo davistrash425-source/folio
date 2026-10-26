@@ -3,6 +3,7 @@
 // action without deciding who may call it fails the tests.
 import { beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
+import * as billingActions from "../app/actions/billing.ts";
 import * as authActions from "../app/actions/auth.ts";
 import * as designActions from "../app/actions/design.ts";
 import * as siteActions from "../app/actions/site.ts";
@@ -44,6 +45,8 @@ const needSignIn: Record<string, () => Promise<unknown>> = {
   deleteAccount: () => authActions.deleteAccount({}, formOf({ password: "anything" })),
   createSite: () => sitesActions.createSite({}, formOf({ name: "Hacked", subdomain: "hacked-site" })),
   switchSite: () => sitesActions.switchSite("some-id"),
+  startCheckout: () => billingActions.startCheckout("month"),
+  openBillingPortal: () => billingActions.openBillingPortal(),
 };
 
 // Actions anyone may call: visitors leaving a message, and the sign-in forms.
@@ -55,6 +58,7 @@ test("every server action is listed here as needing a login or as open to everyo
     ...Object.keys(sitesActions),
     ...Object.keys(designActions),
     ...Object.keys(authActions),
+    ...Object.keys(billingActions),
   ];
   assert.deepEqual(exported.sort(), [...Object.keys(needSignIn), ...open].sort());
 });
