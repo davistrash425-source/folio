@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { findUserBySubdomain } from "@/lib/db";
 import { findGallery, galleryExpired, galleryPhotos } from "@/lib/galleries";
+import { galleriesOpen } from "@/lib/plans";
 import { hasGalleryAccess } from "@/lib/session";
 import { photoSource } from "@/lib/uploads";
 import { FolioBadge } from "./folio-badge";
@@ -28,7 +29,7 @@ async function Gallery({ params }: { params: PageProps<"/sites/[subdomain]/g/[ga
   const { subdomain, gallery: slug } = await params;
   const owner = await findUserBySubdomain(subdomain);
   // Same page for a wrong link and for a site that is closed or unconfirmed.
-  const gallery = owner && !owner.suspended && owner.emailVerified ? findGallery(owner, slug) : undefined;
+  const gallery = owner && !owner.suspended && owner.emailVerified && galleriesOpen(owner) ? findGallery(owner, slug) : undefined;
   if (!owner || !gallery) notFound();
 
   if (galleryExpired(gallery)) {

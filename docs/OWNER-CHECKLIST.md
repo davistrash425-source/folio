@@ -73,11 +73,14 @@ A takedown can stay in Cloudflare's cache for up to a day. For an urgent one, pu
 ### 8. Photos for the example sites
 Put your chosen photos in `folio-homepage-photos/` (git-ignored). Then Claude can run `npm run homepage-photos`, which writes `public/home/` and `app/ui/home-photos.json`, and commits both. Building three polished example sites also needs you to pick which photographers or styles to show.
 
-### 9. Pick a payment provider (decision, no cost yet)
-- Stripe has historically not onboarded Israeli businesses, so verify for your case.
-- Paddle or Lemon Squeezy act as the seller (merchant of record) and handle US sales tax. This is easier to start with.
-- Vercel's free (Hobby) plan forbids commercial use. Upgrade to Vercel Pro (about $20/mo) before charging.
-- Tell Claude which one. Claude can then build checkout, webhooks and the pricing page ($12/mo, $120/yr launch prices are in the backlog).
+### 9. Payment provider (DECIDED Oct 26, 2026: Polar; sandbox tested, production switch left)
+- Polar is the seller (merchant of record) and handles sales tax; Stripe is unavailable to Israeli businesses. Checkout, webhook, the Plan page and `/pricing` are built and tested in Polar's sandbox (buy, cancel, uncancel, end).
+- Before real money, you do these (Claude can help in the browser, but you log in and approve):
+  1. Upgrade Vercel to Pro (about $20/mo); the free Hobby plan forbids commercial use.
+  2. Have the lawyer review the Terms and Privacy pages, then flip `LEGAL_DRAFT`.
+  3. Create a production Polar account (polar.sh, separate from the sandbox) with the two products ($12 a month, $120 a year), an organization token and a webhook to `https://www.folio.cam/api/webhooks/billing`.
+  4. Add the four `POLAR_*` secrets in Vercel Production and set `POLAR_SERVER=production`.
+  5. Make one real $12 purchase on your own account, check that the account becomes Pro, then refund it in Polar.
 
 ### 10. "Made with Folio" footer on client galleries (DONE Oct 25, 2026: Free shows it, Pro removes it)
 Options: always shown, shown on Free only, or never. Tell Claude. It's a small code change.

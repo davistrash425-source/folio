@@ -49,6 +49,12 @@ export function galleryLimit(user: Pick<User, "plan">) {
   return user.plan === "pro" ? PRO_GALLERY_LIMIT : 0;
 }
 
+// Whether visitors can open this account's galleries. After a downgrade the
+// galleries are kept but hidden until the account is Pro again.
+export function galleriesOpen(user: Pick<User, "plan">) {
+  return galleryLimit(user) > 0;
+}
+
 export function photoLimitMessage(user: Pick<User, "plan">) {
   return `You've reached the limit of ${photoLimit(user).toLocaleString("en-US")} photos. Delete some to make room.`;
 }

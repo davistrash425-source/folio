@@ -8,7 +8,7 @@ import { requireUser } from "@/lib/auth";
 import { findUserBySubdomain, updateUser } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
 import { MIN_GALLERY_PASSWORD, findGallery, galleryExpired, galleryPhotos, newGallerySlug, validExpiryDate } from "@/lib/galleries";
-import { galleryLimit } from "@/lib/plans";
+import { galleriesOpen, galleryLimit } from "@/lib/plans";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { siteUrl } from "@/lib/site";
 import { grantGalleryAccess, hasGalleryAccess, hashPassword, verifyPassword } from "@/lib/session";
@@ -166,7 +166,7 @@ export async function unlockGallery(
     return { error: "Too many tries. Wait a few minutes and try again." };
   }
   const owner = await findUserBySubdomain(subdomain);
-  const found = owner && !owner.suspended && owner.emailVerified ? findGallery(owner, slug) : undefined;
+  const found = owner && !owner.suspended && owner.emailVerified && galleriesOpen(owner) ? findGallery(owner, slug) : undefined;
   const gallery = found && !galleryExpired(found) ? found : undefined;
   // Takes the same time whether or not there is such a gallery.
   const ok = await verifyPassword(password, gallery?.passwordHash ?? "");
@@ -183,7 +183,7 @@ export async function toggleFavourite(subdomain: string, slug: string, photoId: 
     return { error: "Too many changes. Wait a few minutes." };
   }
   const owner = await findUserBySubdomain(subdomain);
-  const gallery = owner && !owner.suspended && owner.emailVerified ? findGallery(owner, slug) : undefined;
+  const gallery = owner && !owner.suspended && owner.emailVerified && galleriesOpen(owner) ? findGallery(owner, slug) : undefined;
   if (!owner || !gallery || galleryExpired(gallery) || !(await hasGalleryAccess(gallery.id, gallery.passwordHash))) {
     return { error: "This gallery isn't available." };
   }

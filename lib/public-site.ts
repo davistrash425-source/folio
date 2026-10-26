@@ -1,18 +1,25 @@
 import { cacheLife, cacheTag } from "next/cache";
 import { findUserBySubdomain, type User } from "./db";
-import { readDesign, type SiteDesign } from "./design";
+import { readDesign, withoutProSettings, type SiteDesign } from "./design";
 import { couldBeSubdomain, isLive } from "./site";
 import { resolvePath, type SiteData } from "./site-data";
 import { photoSource } from "./uploads";
 
 export type { SiteAlbum, SiteData } from "./site-data";
 
+// A saved design may still hold Pro choices after a downgrade (the Pro theme
+// and its settings). They stay saved, but a Free account's site shows the
+// basic version until it is Pro again.
+function forPlan(user: User, design: SiteDesign) {
+  return user.plan === "pro" ? design : withoutProSettings(design);
+}
+
 export function publishedDesign(user: User) {
-  return readDesign(user.design, user.template);
+  return forPlan(user, readDesign(user.design, user.template));
 }
 
 export function draftDesign(user: User) {
-  return user.draftDesign ? readDesign(user.draftDesign, user.template) : publishedDesign(user);
+  return user.draftDesign ? forPlan(user, readDesign(user.draftDesign, user.template)) : publishedDesign(user);
 }
 
 // Builds what the renderer draws. Returns null when the page shouldn't be
