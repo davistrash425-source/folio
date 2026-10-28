@@ -286,13 +286,17 @@ export async function updateUser(id: string, fn: (user: User) => void, opts: { p
   return user;
 }
 
+// Throws "LEGAL_HOLD" if the account is on hold. The hold is checked in the
+// same statement that deletes, so one placed after the caller's check still
+// stops it.
 export async function deleteUser(id: string) {
   const db = await database();
   const subdomain = await db.transaction(async (query) => {
     const { rows } = await query<{ subdomain: string; manager: string | null }>(
-      "delete from users where id = $1 returning subdomain, data->>'managedBy' as manager",
+      "delete from users where id = $1 and (data->'legalHold') is null returning subdomain, data->>'managedBy' as manager",
       [id],
     );
+    if (!rows[0] && (await query("select 1 from users where id = $1", [id])).rows.length) throw new Error("LEGAL_HOLD");
     await query("delete from tokens where user_id = $1", [id]);
     // Remember the address, so it stays unavailable for a while
     // (subdomainOnHold). An admin's extra site leaves it free for that admin.
