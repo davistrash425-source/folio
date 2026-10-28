@@ -109,6 +109,21 @@ export type User = {
   galleries?: ClientGallery[];
   // Missing means "free" (lib/plans.ts).
   plan?: "free" | "pro";
+  // Who last set `plan`. Missing or "billing" means the payment webhook
+  // (lib/billing-webhook.ts) may change it; "manual" means a Folio admin set it
+  // (a free account for a friend, say), and payments never override that.
+  planSource?: "billing" | "manual";
+  // The Polar subscription behind a paid plan (lib/billing.ts). Only the
+  // webhook writes it; missing means the account never subscribed.
+  billing?: {
+    subscriptionId: string;
+    status: string; // Polar's: active, past_due, canceled, revoked, ...
+    interval: "month" | "year";
+    currentPeriodEnd?: string; // ISO date
+    cancelAtPeriodEnd?: boolean;
+    lastEventId?: string; // a redelivered webhook with this id is ignored
+    updatedAt?: string; // Polar's modified_at; older events are ignored
+  };
   emailVerified?: boolean;
   // Missing means the site asks AI companies' crawlers not to collect it for
   // training (app/robots.ts); the photographer can allow them.

@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { impersonationBlock, requireUser } from "@/lib/auth";
+import { cancelSubscriptionFor } from "@/lib/billing";
 import { createUser, deleteUser, findUserByEmail, findUserBySubdomain, managedSites, subdomainOnHold, updateUser } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
 import { clearGoogleSignup, readGoogleSignup } from "@/lib/google";
@@ -258,6 +259,7 @@ export async function deleteAccount(_prev: FormState, formData: FormData): Promi
   if ([user, ...extraSites].some((u) => u.legalHold)) {
     return { error: `Your account can't be deleted right now. Write to ${SUPPORT_EMAIL} for help.` };
   }
+  await cancelSubscriptionFor(user);
   for (const account of [...extraSites, user]) {
     await deleteUser(account.id);
     await removeAccountFiles(account.id);

@@ -35,6 +35,9 @@ export default function Home() {
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
           <span className="font-display text-2xl italic">Folio</span>
           <nav className="flex items-center gap-6 text-sm">
+            <Link href="/pricing" className="text-ink-soft underline-offset-4 hover:text-ink hover:underline">
+              Pricing
+            </Link>
             <Link href="/login" className="text-ink-soft underline-offset-4 hover:text-ink hover:underline">
               Log in
             </Link>
@@ -64,7 +67,11 @@ export default function Home() {
                 See an example
               </Link>
             </div>
-            <p className="mt-4 text-sm text-ink-soft">Free to start · Pro coming soon.</p>
+            <p className="mt-4 text-sm text-ink-soft">Free to start ·{" "}
+              <Link href="/pricing" className="underline underline-offset-4">
+                See pricing
+              </Link>
+              .</p>
           </div>
           <ContactSheet />
         </section>
@@ -207,6 +214,9 @@ export default function Home() {
             <a href={`mailto:${SUPPORT_EMAIL}`} className="underline-offset-4 hover:text-ink hover:underline">
               Contact
             </a>
+            <Link href="/pricing" className="underline-offset-4 hover:text-ink hover:underline">
+              Pricing
+            </Link>
             <Link href="/terms" className="underline-offset-4 hover:text-ink hover:underline">
               Terms
             </Link>

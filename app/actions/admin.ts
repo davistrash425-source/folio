@@ -5,6 +5,7 @@ import { redirect, notFound } from "next/navigation";
 import { randomUUID } from "crypto";
 import { STRIKE_LIMIT, requireFullAdmin } from "@/lib/admin";
 import { restoredEmail, suspendedEmail, takedownEmail, unsuspendedEmail } from "@/lib/admin-emails";
+import { cancelSubscriptionFor } from "@/lib/billing";
 import { adminRole, currentImpersonation, currentUser, requireUser } from "@/lib/auth";
 import {
   allUserIds,
@@ -220,6 +221,7 @@ export async function setPlan(formData: FormData) {
   const plan = str(formData, "plan", 10) === "pro" ? "pro" : "free";
   await updateUser(user.id, (u) => {
     u.plan = plan;
+    u.planSource = "manual"; // payments no longer change it (lib/billing-webhook.ts)
   }, { publicChange: false });
   await logAdminAction({
     adminEmail: admin.email,
@@ -427,6 +429,7 @@ export async function deleteAccountAsAdmin(formData: FormData) {
     detail: `Deleted the account ${user.email} (${plural(user.photos.length)}${accounts.length > 1 ? `, and ${accounts.length - 1} extra site(s)` : ""}).`,
   });
   for (const account of accounts.reverse()) {
+    await cancelSubscriptionFor(account);
     await deleteUser(account.id);
     await removeAccountFiles(account.id);
   }

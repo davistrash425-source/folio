@@ -84,6 +84,8 @@ GitHub Actions (`.github/workflows/ci.yml`) runs lint, type checks, `npm test`, 
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis, for rate limits shared by every server | in memory |
 | `REPORTS_EMAIL` | Where reports about sites (the "Report" link in every site's footer) are emailed; photographers' replies about takedowns come here too | reports are only saved in the database |
 | `ADMIN_EMAILS` | Login emails (comma-separated) that can open `/admin` to handle reports | nobody can |
+| `POLAR_ACCESS_TOKEN`, `POLAR_WEBHOOK_SECRET`, `POLAR_PRODUCT_MONTHLY`, `POLAR_PRODUCT_YEARLY` | Folio Pro subscriptions through Polar: an organization token (scopes `checkouts:write`, `customer_sessions:write`, `subscriptions:write`), the webhook signing secret, and the two product ids | checkout is closed ("Paid plans aren't open yet") |
+| `POLAR_SERVER` | `sandbox` (fake payments) or `production` | `sandbox` |
 
 Set all six R2 variables or none: a partial setup stops the app at startup.
 
@@ -144,6 +146,7 @@ Accounts and keys:
     ```
 - **Resend:** verify your domain (it gives you DNS records to add), then set `RESEND_API_KEY` and `EMAIL_FROM`.
 - **Upstash:** create a Redis database and set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`.
+- **Polar (Folio Pro billing):** Polar is the merchant of record, so it sells to the customer and handles sales tax. Create an organization at `sandbox.polar.sh` first, with two recurring products ($12 a month, $120 a year), an organization access token, and a webhook to `https://<your host>/api/webhooks/billing` (raw format, all `subscription.*` events). Set the `POLAR_*` variables, then test with Polar's test card `4242 4242 4242 4242`. For real money, repeat on `polar.sh` (a separate account and separate products) and set `POLAR_SERVER=production`. A Vercel preview needs a protection-bypass secret on the webhook URL (`?x-vercel-protection-bypass=...`) or Polar gets a 401.
 - **Reports:** set `REPORTS_EMAIL` to the inbox that should hear about copyright and abuse reports. Every report is also kept in the `reports` table.
 - **Admin:** set `ADMIN_EMAILS` to your own login email, then open `/admin` to handle reports.
 - **Support inbox:** suspended photographers are told to write to `support@<root domain>`, so create that address (a forward is fine).
