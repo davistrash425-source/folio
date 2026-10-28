@@ -79,11 +79,11 @@ const webCopies = (photo: Photo) => (photo.variants ?? []).map((w) => variantNam
 
 test("ADMIN_EMAILS lists admins by login email, in any case", () => {
   process.env.ADMIN_EMAILS = "a@example.com, B@Example.com";
-  assert.ok(isAdmin({ email: "b@example.com" }));
-  assert.ok(isAdmin({ email: "A@EXAMPLE.COM" }));
-  assert.ok(!isAdmin({ email: "c@example.com" }));
+  assert.ok(isAdmin({ email: "b@example.com", emailVerified: true }));
+  assert.ok(isAdmin({ email: "A@EXAMPLE.COM", emailVerified: true }));
+  assert.ok(!isAdmin({ email: "c@example.com", emailVerified: true }));
   delete process.env.ADMIN_EMAILS;
-  assert.ok(!isAdmin({ email: "a@example.com" }), "nobody is an admin when it's unset");
+  assert.ok(!isAdmin({ email: "a@example.com", emailVerified: true }), "nobody is an admin when it's unset");
 });
 
 test("only admins can use the admin actions: others are sent to log in or told it doesn't exist", async () => {
