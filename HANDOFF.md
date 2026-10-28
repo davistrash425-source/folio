@@ -1,6 +1,6 @@
 # Handoff
 
-**Status as of Oct 28, 2026.** Everything built so far is on `main` and live at www.folio.cam. Paid plans are still closed: the `POLAR_*` variables exist in Vercel Preview only, so nobody can check out in production. A code review and a batch of bug fixes are waiting in the open PR (see "Open PR"); they are not live until it is merged and deployed.
+**Status as of Oct 28, 2026.** Everything built so far is on `main` and live at www.folio.cam. PR #24 (code review + bug fixes) is merged and Vercel Production is serving it (`d093b4a`, deployment `dpl_14NtcSNm35qB7mPyLbbRUauRuKHV`, READY). Paid plans are still closed: checked in Vercel on Oct 28, Production has no `POLAR_*` variables (they are in Preview only, pointing at the sandbox), so nobody can check out in production.
 
 ## What is live
 - Free plan (150 photos) and the Pro features in code: 1,500 photos, 20 password-protected client galleries, 50 GB, editable and extra special themes (Contact sheet, Monograph), no gallery footer badge (`lib/plans.ts`).
@@ -17,12 +17,12 @@
 
 ## Code review (Oct 28, 2026)
 `docs/CODE-REVIEW-2026-10-28.md` is the list to work from: what was fixed and what is still open, most important first. It replaces the unverified `docs/FULL-CHECK-NOTES.md` (raw findings, kept for the IDs). The "Folio: Full Project Check" Claude Doc was never filled in and is superseded; ignore it.
-- Fixed in the open PR (not live until merged and deployed): staff roles need a confirmed email; Google sign-in no longer lets a pre-registered password survive on an unconfirmed account; `/apiary`-style paths are rewritten; account deletion stops when Polar can't end the subscription; late events for an older subscription are ignored; admin `setPlan` refreshes the live site; takedown retries after a storage error; deletion refuses legal-hold accounts inside the SQL; finish can't re-publish a taken-down photo; the export no longer includes `legalHold` and lists unreadable photos in `MISSING-FILES.txt`; the orphan sweep skips legal-hold accounts.
+- Fixed in PR #24 (merged and live): staff roles need a confirmed email; Google sign-in no longer lets a pre-registered password survive on an unconfirmed account; `/apiary`-style paths are rewritten; account deletion stops when Polar can't end the subscription; late events for an older subscription are ignored; admin `setPlan` refreshes the live site; takedown retries after a storage error; deletion refuses legal-hold accounts inside the SQL; finish can't re-publish a taken-down photo; the export no longer includes `legalHold` and lists unreadable photos in `MISSING-FILES.txt`; the orphan sweep skips legal-hold accounts.
 - Biggest open items: ZIP export above 4 GiB, taken-down photos staying cached for a year, no pool `error` listener in `lib/pg.ts`, several actions missing `impersonationBlock()`, client galleries ignoring "site offline", low-contrast text and keyboard focus gaps. Details are in the review doc.
-- **Before deploying the open PR, check that the production admin login (`davifree425@gmail.com`) has a confirmed email.** Staff roles now require it; an unconfirmed admin would lose `/admin` until they confirm (the dashboard has a resend button).
+- **Staff roles now require a confirmed email, and that is live.** If `/admin` stops working for `davifree425@gmail.com` (the only `ADMIN_EMAILS` entry), confirm the email with the resend button on the dashboard. Not yet checked whether that account is confirmed.
 
-## Open PR
-One PR carries the code review, the bug fixes (with tests) and the docs update. Merge it and no branches are left. (Old branches were deleted Oct 28; a backup bundle of all of them is in `Davi's Projects/folio-cleanup-backup-2026-10-28`, outside the repo.)
+## Branches
+No open PRs; `main` is the only branch. (Old branches were deleted Oct 28; a backup bundle of all of them is in `Davi's Projects/folio-cleanup-backup-2026-10-28`, outside the repo.)
 
 ## Sandbox facts
 Polar sandbox org `foliocam`; products Monthly `d11e5d3e-b633-4869-8f70-57a5299633de`, Yearly `fe2b76c3-bcd0-4502-99c2-a54a22300054`; token `folio-sandbox` expires Nov 25, 2026. The sandbox webhook (id `c3c351de-bb5e-4d2a-b051-84c163045dbd`) still points at a deleted preview URL with a Vercel protection-bypass secret; delete the secret and repoint or remove the webhook when the sandbox is no longer needed. Vercel Preview also has a branch-scoped `PRO_FOR_EVERYONE` variable for a deleted branch; it does nothing and can be removed in the dashboard.
