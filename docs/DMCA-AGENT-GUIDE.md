@@ -38,7 +38,7 @@ The agent's address is the one shown on `/copyright` and in the public directory
 
 ## What Claude then does
 
-In `lib/legal.ts`, set `DMCA_AGENT` (currently `null`) to the details, for example:
+`DMCA_AGENT` in `lib/legal.ts` is already set (registration DMCA-1084175, shown on `/copyright`). If the registration ever changes, edit it there; its shape is, for example:
 
 ```ts
 export const DMCA_AGENT: DmcaAgent | null = {

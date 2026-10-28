@@ -33,7 +33,6 @@ The working list for picking up Folio one task per session. Step-by-step instruc
 - [x] 6. Register a DMCA agent with the Copyright Office. (done Oct 26, 2026: registration DMCA-1084175 paid by the owner; agent David Leonardo Freeman, support@folio.cam; alternate names Folio, folio.cam, www.folio.cam; shown on /copyright via `DMCA_AGENT` in `lib/legal.ts`. Renew by Oct 2029.)
 - [x] 7. Set up the photo domain on Cloudflare and update `R2_PUBLIC_URL`. (done Oct 26, 2026: owner bought `foliocdn.com` on Cloudflare; `img.foliocdn.com` is connected to `folio-photos`; cache rule edge TTL 1 day, browser TTL 1 year; `R2_PUBLIC_URL` is now `https://img.foliocdn.com` in Vercel (Production and Preview) and redeployed. Checked on folio.cam: editor photo list, design editor and a published site load every photo from the new host with status 200, and the CSP allows it. Client galleries share the same photo address code; not opened in the browser because they are Pro-only. The old `r2.dev` address is still enabled; turn it off in the bucket settings when ready.)
 - [x] 8. Supply photos for the example sites. (done Oct 26, 2026: owner gave 36 photos in three folders; `npm run seed-examples` built three Pro example sites on folio.cam: `highsierra` (Exhibition), `streetlight` (Film Strip), `bronco` (Contact sheet), made-up photographers marked as examples, 4 captions shown per site; linked from the landing page "See an example" and a "Made with Folio" section.)
-- [x] 9. Choose a payment provider. DECIDED Oct 26, 2026: Polar (merchant of record, pays out to Israel). Sandbox build is done on branch `polar-billing` (see HANDOFF.md); still to do: the owner's Polar sandbox account and products, sandbox test, Vercel Pro, production switch. Original note: Stripe may not accept Israeli businesses, so Paddle or Lemon Squeezy may fit better. Vercel's free tier also forbids commercial use.
 - [x] 9. Choose a payment provider. DECIDED Oct 26, 2026: Polar (merchant of record, pays out to Israel). Sandbox billing is merged to `main` (PR #20 and the downgrade follow-up) and was tested end to end (Oct 26, 2026: buy, cancel, uncancel and end all worked on a Vercel preview; see HANDOFF.md); still to do: Vercel Pro, production Polar account and products, production switch. Original note: Stripe may not accept Israeli businesses, so Paddle or Lemon Squeezy may fit better. Vercel's free tier also forbids commercial use.
 - [x] 10. Decide the "Made with Folio" footer on client galleries. (decided Oct 25, 2026: Free only, removed on Pro; `showFolioBadge` in `lib/plans.ts`. Free cannot make galleries today, so it rarely shows.)
 - [ ] 11. Launch the Free plan, then Pro.
@@ -154,15 +153,15 @@ Every item in this doc, in the order you chose: design → security → legal �
 - [x] Cheap "not found" caching for random subdomains (per-IP limit would be a Vercel firewall rule)
 - [x] Turnstile on the contact form and sign-up
 - [x] Keep the login email off public site data
-- [x] Sentry and the crash page are live; still add `error.tsx` and a root `not-found.tsx`
+- [x] Sentry and the crash page are live (`error.tsx`, `global-error.tsx` and a root `not-found.tsx` exist)
 - [x] Log and retry storage cleanup when an account is deleted
 
 **Phase 2 follow-ups (you)**
 
 - [x] Add `CRON_SECRET` in Vercel so the daily cleanup job runs
-- [ ] Make sure the Turnstile widget covers `folio.cam` and `*.folio.cam`; test sign-up and a contact form
+- [x] Make sure the Turnstile widget covers `folio.cam` and `*.folio.cam`; test sign-up and a contact form
 - [x] Check the browser console on folio.cam for report-only CSP messages, then enforce the full policy
-- [ ] Test photo upload on folio.cam (Phase 2 and 3 are merged)
+- [x] Test photo upload on folio.cam (Phase 2 and 3 are merged)
 - [ ] Optional: CAPTCHA after repeated failed logins; Vercel Firewall rule for floods of unknown subdomains
 
 ### Phase 3 — Legal & launch (Free plan)
@@ -187,7 +186,6 @@ Every item in this doc, in the order you chose: design → security → legal �
 - [x] Staff can move an account to Pro or Free by hand (admin site page, logged) until payments exist
 - [x] Client gallery follow-ups: download-all zip (web copies, rate limited), expiry date, client favourites (hearts, shown to the photographer), email the link to the client (never the password)
 - [x] A "Made with Folio" footer on client galleries (Free only; Pro removes it)
-- [ ] Payments + full pricing page (Polar sandbox billing built on `polar-billing`: checkout, webhook, portal, Plan page; left: sandbox test, downgrade hides galleries/themes on the live site, `/pricing`, production switch)
 - [x] Payments + full pricing page (Polar billing built, sandbox-tested and merged to `main`; `/pricing` live on folio.cam: checkout, webhook, portal, Plan page, a downgrade hides client galleries and Pro themes from visitors, public `/pricing`; the production switch is under "Launch Pro")
 - [ ] Lawyer review of Terms, Privacy and Copyright before charging
 - [ ] **Launch Pro**
@@ -597,7 +595,7 @@ Ship as five rounds, one branch and preview link each.
 - Step progress: compute done-ness server-side (photos > 0, any description, albums > 0, design published, live) and pass to `SideNav`.
 - Browser `confirm()` calls to replace: `editor.tsx` L558, `panels.tsx` L17 and L107, `albums.tsx` L153, `design-editor.tsx` L143 and L197.
 - Verify-email banner: `User.emailVerified`; resend via `resendVerification` (`app/actions/auth.ts`).
-- Drafts: set `NEW_SITES_START_PUBLISHED = false` (`lib/site.ts` L82). Existing accounts unaffected (`published` missing = published). Reminder email needs a Vercel Cron route (Phase 2 cron infra).
+- Drafts: set `NEW_SITES_START_PUBLISHED = false` (`lib/site.ts` L86). Existing accounts unaffected (`published` missing = published). Reminder email needs a Vercel Cron route (Phase 2 cron infra).
 
 ### Round 3 — Photos & albums
 

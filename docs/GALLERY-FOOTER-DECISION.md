@@ -1,6 +1,6 @@
 # "Made with Folio" on client galleries: recommendation
 
-Finding: no "Made with Folio" link exists today. Theme footers only carry the Report link, and gallery pages have no footer. Galleries are Pro-only (`galleryLimit` is 0 on Free), so "Free only" would show the badge almost never.
+Decided Oct 25, 2026: Free only (the badge is `folio-badge.tsx` in `app/sites/[subdomain]/g/[gallery]`, gated by `showFolioBadge` in `lib/plans.ts`). Original finding, before the badge existed: no "Made with Folio" link, and gallery pages had no footer. Galleries are Pro-only (`galleryLimit` is 0 on Free), so "Free only" would show the badge almost never.
 
 - **Always:** best for growth, since clients see Folio. But Pro buyers pay and get no way to remove it, and clients may see it as less professional.
 - **Free only:** the usual upsell lever, but here it does nothing, because only Pro can make galleries. Same as "never" in practice.

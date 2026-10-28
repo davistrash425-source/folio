@@ -26,7 +26,7 @@ node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./tests/setup.ts --
 node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./tests/setup.ts --test --test-name-pattern="export" "tests/*.test.ts"
 ```
 
-CI (`.github/workflows/ci.yml`) runs lint → typegen → tsc → `npm test` → build → smoke test against `npm start`.
+CI (`.github/workflows/ci.yml`) runs on every push (any branch) and pull request: lint → typegen → tsc → `npm test` → build → smoke test against `npm start` → Playwright browser test (`npm run test:e2e`).
 
 ## Tests run in plain Node, not Next
 
@@ -74,9 +74,10 @@ So server actions (`app/actions/*`) and route handlers are called directly as fu
   - With the six `R2_*` variables it uses Cloudflare R2: originals in the private bucket, web copies in the public one, served from `R2_PUBLIC_URL`. Setting only some of them throws at startup.
   - Otherwise it writes to local disk under `<DATA_DIR>/uploads/<userId>/`, served by `app/api/uploads/[userId]/[file]`, which returns 404 for originals and non-image extensions.
 - Uploads with R2 skip the app server, because Vercel caps request bodies at about 4.5 MB.
-  - The browser calls `startPhotoUpload` for a presigned PUT address. Its type and exact size are signed, and it lasts 10 minutes.
-  - The browser uploads to that address, then calls `finishPhotoUpload`, which reads the file back, validates it with sharp and makes the variants.
-  - Without R2, `PhotoUploader` (`app/dashboard/editor.tsx`) falls back to the `uploadPhotos` form action.
+  - The browser calls `POST /api/photos/start` (`app/api/photos/start/route.ts`) for a presigned PUT address. Its type and exact size are signed, and it lasts 10 minutes.
+  - The browser uploads to that address, then calls `POST /api/photos/finish` (`app/api/photos/finish/route.ts`), which reads the file back, validates it with sharp and makes the variants.
+  - Without R2, `PhotoUploader` (`app/dashboard/photo-uploader.tsx`) falls back to the `uploadPhotos` form action.
+  - Visitors load web copies from the site's own host (`/_photos/…`, which `next.config.ts` rewrites to `R2_PUBLIC_URL`); `photoUrl` in `lib/uploads.ts` builds those addresses.
 
 **Swappable services.** Each production service is switched on by its env vars and has a local stand-in when they're missing:
 - `sendEmail` in `lib/email.ts` uses Resend, and otherwise logs to the console (and throws in production).
@@ -100,6 +101,7 @@ So server actions (`app/actions/*`) and route handlers are called directly as fu
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile on sign-up and the contact form (`lib/turnstile.ts`, `app/ui/turnstile.tsx`) | No check; fails open if Cloudflare is down |
 | `CRON_SECRET` | Lets Vercel Cron call `/api/cron/daily` (`vercel.json`, 04:00 UTC): retries deleted accounts' file cleanup, removes unfinished uploads older than a day, sends one draft-site reminder | The route answers 404 |
 | `POLAR_ACCESS_TOKEN`, `POLAR_WEBHOOK_SECRET`, `POLAR_PRODUCT_MONTHLY`, `POLAR_PRODUCT_YEARLY`, `POLAR_SERVER` | Folio Pro subscriptions through Polar (`lib/billing.ts`, webhook at `/api/webhooks/billing`); `POLAR_SERVER` is `sandbox` (default) or `production` | Checkout is closed |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | "Continue with Google" sign-in (`lib/google.ts`, `app/api/auth/google/*`, `app/(auth)/signup/google`) | Google sign-in throws "is not set" |
 | `NEXT_PUBLIC_SENTRY_DSN` | Error reports to Sentry (`lib/sentry.ts`, `instrumentation.ts`, `instrumentation-client.ts`, `app/global-error.tsx`) | Nothing is sent |
 
 `NEW_SITES_START_PUBLISHED` in `lib/site.ts` decides whether new sites start live or as drafts.
