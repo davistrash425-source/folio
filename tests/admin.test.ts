@@ -8,7 +8,7 @@ import { POST as startPhotoUpload } from "../app/api/photos/start/route.ts";
 import { deleteAccount } from "../app/actions/auth.ts";
 import { deletePhoto, sendInquiry, uploadPhotos } from "../app/actions/site.ts";
 import { isAdmin } from "../lib/admin.ts";
-import { addReport, adminActionsFor, findReport, findUserById, photosWithoutRights, updateUser, type Photo } from "../lib/db.ts";
+import { addReport, adminActionsFor, deleteUser, findReport, findUserById, photosWithoutRights, updateUser, type Photo } from "../lib/db.ts";
 import { siteData } from "../lib/public-site.ts";
 import type { CopyrightNotice } from "../lib/reports.ts";
 import { variantName } from "../lib/images.ts";
@@ -31,6 +31,7 @@ import {
   signInAs,
   signOut,
 } from "./helpers.ts";
+import { revalidated } from "./stubs/next-cache.ts";
 import { NotFoundError } from "./stubs/next-navigation.ts";
 
 beforeEach(resetRequest);
@@ -209,6 +210,40 @@ test("a notice is one strike however many photos it covers; takedowns without a 
     adminActions.takeDownPhotos(form({ userId: alice.id, photo: five.id, reportId: await copyrightNotice(alice.subdomain) })),
   );
   assert.match(doneMessage(third), /Strike 3 of 3\. That's the limit: suspend the site/);
+});
+
+test("if deleting web copies fails, the photos stay taken down and a retry removes what's left", async (t) => {
+  const { alice, one } = await world();
+  const reportId = await copyrightNotice(alice.subdomain);
+  t.mock.method(console, "error", () => {});
+  const remove = t.mock.method(storage, "remove", async () => {
+    throw new Error("R2 is down");
+  });
+  const failed = await redirectedTo(adminActions.takeDownPhotos(form({ userId: alice.id, photo: one.id, reportId })));
+  assert.match(doneMessage(failed), /Try the takedown again/);
+  assert.ok((await findUserById(alice.id))!.photos.find((p) => p.id === one.id)?.removed, "still taken down");
+  for (const copy of webCopies(one)) assert.ok(filesOf(alice.id).includes(copy), `${copy} not deleted yet`);
+
+  remove.mock.restore();
+  await redirectedTo(adminActions.takeDownPhotos(form({ userId: alice.id, photo: one.id, reportId })));
+  for (const copy of webCopies(one)) assert.ok(!filesOf(alice.id).includes(copy), `${copy} deleted on retry`);
+  assert.ok(filesOf(alice.id).includes(one.file), "the private original is kept");
+});
+
+test("a plan changed by staff shows on the live site straight away", async () => {
+  const { alice } = await world();
+  revalidated.length = 0;
+  await redirectedTo(adminActions.setPlan(form({ userId: alice.id, plan: "pro" })));
+  assert.ok(revalidated.includes(`tag:site:${alice.subdomain}`), "the public site cache is refreshed");
+});
+
+test("the database refuses to delete an account whose legal hold was placed after the admin's check", async () => {
+  const alice = await makeUser("Alice");
+  await updateUser(alice.id, (u) => {
+    u.legalHold = { at: new Date().toISOString(), note: "placed meanwhile" };
+  });
+  await assert.rejects(deleteUser(alice.id), /LEGAL_HOLD/);
+  assert.ok(await findUserById(alice.id), "still there");
 });
 
 test("a report about another site can't be used, and photos already down aren't taken down twice", async () => {

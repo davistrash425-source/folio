@@ -26,7 +26,9 @@ async function polar(path: string, init: { method: string; body?: unknown }) {
     headers: { Authorization: `Bearer ${process.env.POLAR_ACCESS_TOKEN}`, "Content-Type": "application/json" },
     body: init.body === undefined ? undefined : JSON.stringify(init.body),
   });
-  if (!res.ok) throw new Error(`Polar answered ${res.status} for ${init.method} ${path}: ${await res.text()}`);
+  if (!res.ok) {
+    throw Object.assign(new Error(`Polar answered ${res.status} for ${init.method} ${path}: ${await res.text()}`), { status: res.status });
+  }
   return (await res.json()) as Record<string, unknown>;
 }
 
@@ -62,14 +64,18 @@ export async function revokeSubscription(subscriptionId: string) {
   await polar(`/subscriptions/${encodeURIComponent(subscriptionId)}`, { method: "DELETE" });
 }
 
-// Used before an account is deleted, so nobody keeps paying for it. A failure
-// is logged and doesn't block the deletion.
+// Used before an account is deleted, so nobody keeps paying for it. If Polar
+// can't end the subscription this throws, and the caller must not delete the
+// account. Polar saying it's already gone (404, or "already canceled/revoked")
+// counts as ended.
 export async function cancelSubscriptionFor(user: Pick<User, "id" | "billing">) {
   if (!user.billing || !billingConfigured()) return;
   try {
     await revokeSubscription(user.billing.subscriptionId);
   } catch (err) {
-    console.error("Couldn't cancel the subscription of a deleted account", user.id, err);
+    const { status, message } = err as Error & { status?: number };
+    if (status === 404 || /already (canceled|cancelled|revoked)/i.test(message)) return;
+    throw err;
   }
 }
 

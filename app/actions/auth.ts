@@ -259,10 +259,21 @@ export async function deleteAccount(_prev: FormState, formData: FormData): Promi
   if ([user, ...extraSites].some((u) => u.legalHold)) {
     return { error: `Your account can't be deleted right now. Write to ${SUPPORT_EMAIL} for help.` };
   }
-  await cancelSubscriptionFor(user);
-  for (const account of [...extraSites, user]) {
-    await deleteUser(account.id);
-    await removeAccountFiles(account.id);
+  // Ends the subscription before anything is deleted, so a Polar failure leaves the account whole.
+  try {
+    await cancelSubscriptionFor(user);
+  } catch (err) {
+    console.error("Couldn't end the subscription before deleting an account", user.id, err);
+    return { error: `We couldn't end your subscription just now, so your account was not deleted. Try again in a few minutes or write to ${SUPPORT_EMAIL}.` };
+  }
+  try {
+    for (const account of [...extraSites, user]) {
+      await deleteUser(account.id);
+      await removeAccountFiles(account.id);
+    }
+  } catch (err) {
+    if ((err as Error).message !== "LEGAL_HOLD") throw err;
+    return { error: `Your account can't be deleted right now. Write to ${SUPPORT_EMAIL} for help.` };
   }
   if (user.managedBy) {
     await createSession(user.managedBy);
