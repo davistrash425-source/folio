@@ -18,5 +18,6 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_photos|_next/static|_next/image|favicon.ico).*)"],
+  // Each excluded name must be a whole path segment, so /apiary is still a site page.
+  matcher: ["/((?!(?:api|_photos|_next/static|_next/image|favicon\\.ico)(?:/|$)).*)"],
 };

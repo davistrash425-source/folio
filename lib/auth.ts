@@ -14,7 +14,11 @@ const emailList = (value: string | undefined) =>
 
 export type StaffRole = "admin" | "viewer";
 
-export function adminRole(user: { email: string }): StaffRole | null {
+// Only an account whose email is confirmed can be staff. Otherwise anyone could
+// sign up with a staff address that has no account yet (sign-up logs them in
+// straight away). Missing emailVerified counts as unconfirmed, as in isLive.
+export function adminRole(user: { email: string; emailVerified?: boolean }): StaffRole | null {
+  if (user.emailVerified !== true) return null;
   const email = user.email.toLowerCase();
   if (emailList(process.env.ADMIN_EMAILS).includes(email)) return "admin";
   if (emailList(process.env.ADMIN_VIEWER_EMAILS).includes(email)) return "viewer";
@@ -22,7 +26,7 @@ export function adminRole(user: { email: string }): StaffRole | null {
 }
 
 // Full admins only; viewers are not admins in this sense.
-export function isAdmin(user: { email: string }) {
+export function isAdmin(user: { email: string; emailVerified?: boolean }) {
   return adminRole(user) === "admin";
 }
 
