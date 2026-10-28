@@ -70,8 +70,8 @@ Done: `foliocdn.com` (bought on Cloudflare) serves the public bucket at `img.fol
 Optional, when you're ready: R2 → `folio-photos` → Settings → Public Development URL → Disable, to switch off the old rate-limited `r2.dev` address. To roll back instead, put `https://pub-92f7db47b99f413d8e69382fa98401db.r2.dev` back in Vercel and redeploy (only works while that address is enabled).
 A takedown can stay in Cloudflare's cache for up to a day. For an urgent one, purge the photo's address: Cloudflare → `foliocdn.com` → Caching → Configuration → Purge Cache → Custom Purge.
 
-### 8. Photos for the example sites
-Put your chosen photos in `folio-homepage-photos/` (git-ignored). Then Claude can run `npm run homepage-photos`, which writes `public/home/` and `app/ui/home-photos.json`, and commits both. Building three polished example sites also needs you to pick which photographers or styles to show.
+### 8. Photos for the example sites (done Oct 26, 2026)
+Done: the three example sites (`bronco`, `highsierra`, `streetlight`) are live and linked from the landing page. They were built with `npm run seed-examples` from the folders in `folio-homepage-photos/`; the owner ran it against production with their own Neon and R2 values (Vercel hides those from Claude). Edit them from the site switcher. The landing page contact sheet still comes from `folio-homepage-photos/Street/` via `npm run homepage-photos`.
 
 ### 9. Payment provider (DECIDED Oct 26, 2026: Polar; sandbox tested, production switch left)
 - Polar is the seller (merchant of record) and handles sales tax; Stripe is unavailable to Israeli businesses. Checkout, webhook, the Plan page and `/pricing` are built and tested in Polar's sandbox (buy, cancel, uncancel, end).
@@ -98,7 +98,7 @@ Options: always shown, shown on Free only, or never. Tell Claude. It's a small c
 | 4 | Enforce the CSP, fix anything the console reported |
 | 5 | Flip `LEGAL_DRAFT`, insert business details |
 | 6 | Add agent details to `/copyright` |
-| 8 | Run `npm run homepage-photos`, build example sites |
+| 8 | Done: example sites built with `npm run seed-examples` |
 | 9 | Build billing and a pricing page |
 | 10 | Add or remove the footer |
 

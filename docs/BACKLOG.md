@@ -1,6 +1,6 @@
 # Folio — Improvement Backlog
 
-Updated Oct 25, 2026 (Phase 4 themes done) · Davi · Live, editable version (may be newer): https://claude.ai/artifact/2GPiZULFPDtucJhJ5WCXXF
+Updated Oct 26, 2026 (example sites live) · Davi · Live, editable version (may be newer): https://claude.ai/artifact/2GPiZULFPDtucJhJ5WCXXF
 
 **For coding agents:** read the Agent context section at the end of this file first, then `CLAUDE.md` and `AGENTS.md`.
 
@@ -14,12 +14,12 @@ Every suggestion from the code review, the landing-page critique and the dashboa
 | --- | --- |
 | 0 Setup | Done |
 | 1 Design polish | Done and live on `main`, except two small items (demo sites per theme, Instagram link in footer) |
-| 2 Security | Merged into `main`; waiting on the owner checks below |
-| 3 Legal & launch (Free) | Code done and merged. Left: lawyer-reviewed Terms/Privacy, example sites, launch |
-| 4 Folio Pro | Code done through "more special themes". Started: 1,500-photo limit, 20-gallery limit, password-protected client galleries, staff can switch an account to Pro; editable special themes, client gallery follow-ups, the 50 GB limit and the Contact sheet + Monograph themes are all done. Payments are built and sandbox-tested with Polar (branch `polar-billing`); left: production switch, lawyer review, launch |
+| 2 Security | Done and live; every owner check is done |
+| 3 Legal & launch (Free) | Code done and merged. Left: lawyer-reviewed Terms/Privacy, launch. Example sites are live (`highsierra`, `streetlight`, `bronco`) |
+| 4 Folio Pro | Code done through "more special themes". Started: 1,500-photo limit, 20-gallery limit, password-protected client galleries, staff can switch an account to Pro; editable special themes, client gallery follow-ups, the 50 GB limit and the Contact sheet + Monograph themes are all done. Payments are built, sandbox-tested with Polar and merged to `main`; left: production switch, lawyer review, launch |
 | 5 Speed & scale | Four items done (image decode, private changes keep the cache, streaming export, per-page photos). Left: split tables, schema at deploy, fonts, staging and stress tests |
 
-**Waiting on the owner:** Turnstile hostnames; browser-console CSP check; test photo upload on folio.cam; legal text and review; production Polar setup (Vercel Pro, live account and products, switch).
+**Waiting on the owner:** lawyer review of the Terms, Privacy and Copyright pages (then `LEGAL_DRAFT=false`); Vercel Pro and the production Polar setup (live account, products, switch); confirming the mountain example photos' location; launch decisions.
 
 ## Owner to-do (Claude can't do these)
 
