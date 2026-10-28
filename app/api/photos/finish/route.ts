@@ -39,9 +39,16 @@ export async function POST(req: Request) {
 
   const user = await currentUser();
   if (!user) return signedOut();
+  if (user.suspended) return answer({ error: "your site is suspended, so you can't upload right now" });
   lap("auth");
   const body = await req.json().catch(() => null);
   const file = typeof body?.file === "string" ? body.file : "";
+  // Checked before any web copy is written. A photo already in the account
+  // is never made public again by calling this twice, and a photo taken
+  // down by Folio (its record stays, marked removed) stays down.
+  const existing = user.photos.find((p) => p.file === file);
+  if (existing?.removed) return answer({ error: "this photo was taken down by Folio, so it can't be uploaded again" });
+  if (existing) return answer({ ok: "Uploaded 1 photo." });
 
   let photo: Awaited<ReturnType<typeof finishDirectUpload>>;
   try {

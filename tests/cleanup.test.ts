@@ -33,6 +33,15 @@ test("old originals with no photo are deleted; recent ones and real photos stay"
   assert.ok(left.includes(photo.file));
 });
 
+test("an account on legal hold keeps its unfinished uploads too", async () => {
+  const alice = await makeUser("Alice");
+  await updateUser(alice.id, (u) => void (u.legalHold = { at: new Date().toISOString(), note: "test" }));
+  await oldOriginal(alice.id, "33333333-3333-3333-3333-333333333333.orig.jpg", 2 * DAY);
+  const result = await removeOrphanedOriginals();
+  assert.equal(result.removed, 0);
+  assert.ok(filesOf(alice.id).includes("33333333-3333-3333-3333-333333333333.orig.jpg"));
+});
+
 test("deleting an account queues its files, and they're cleared once removed", async () => {
   const alice = await makeUser("Alice");
   await addPhoto(alice.id);

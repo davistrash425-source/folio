@@ -49,10 +49,12 @@ export async function removeOrphanedOriginals(now = Date.now()) {
   for (const { userId, file } of old) {
     if (!photosOf.has(userId)) {
       const user = await findUserById(userId);
-      photosOf.set(userId, user ? new Set(user.photos.map((p) => p.file)) : null);
+      // An account on legal hold keeps everything, uploads that never finished included.
+      photosOf.set(userId, user && !user.legalHold ? new Set(user.photos.map((p) => p.file)) : null);
     }
     const files = photosOf.get(userId);
-    // A missing account is the retry list's job (it deletes the whole folder).
+    // A missing account is the retry list's job (it deletes the whole folder);
+    // null here also means "on legal hold, leave it alone".
     if (files === null || files?.has(file)) continue;
     await storage.remove(userId, file);
     removed++;
