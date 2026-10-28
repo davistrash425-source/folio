@@ -21,14 +21,18 @@ export async function GET(req: Request) {
   const existing = await findUserByEmail(identity.email);
   if (existing) {
     if (!existing.googleId) {
-      // Google has confirmed this address. Whoever created this account with a
-      // password may not be the owner, so that password goes and every other
-      // session is signed out.
+      // Google has confirmed this address. If the account's email was never
+      // confirmed, whoever created it with a password may not be the owner, so
+      // that password goes and every other session is signed out. A confirmed
+      // account's owner already proved the address, so they keep their password.
       await updateUser(existing.id, (u) => {
+        const unconfirmed = u.emailVerified !== true;
         u.googleId = identity.googleId;
         u.emailVerified = true;
-        u.passwordHash = "";
-        u.sessionsValidFrom = Date.now();
+        if (unconfirmed) {
+          u.passwordHash = "";
+          u.sessionsValidFrom = Date.now();
+        }
       });
     }
     await createSession(existing.id);

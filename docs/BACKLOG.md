@@ -37,6 +37,22 @@ The working list for picking up Folio one task per session. Step-by-step instruc
 - [x] 10. Decide the "Made with Folio" footer on client galleries. (decided Oct 25, 2026: Free only, removed on Pro; `showFolioBadge` in `lib/plans.ts`. Free cannot make galleries today, so it rarely shows.)
 - [ ] 11. Launch the Free plan, then Pro.
 
+## Code review follow-ups (Oct 28, 2026)
+
+From `docs/CODE-REVIEW-2026-10-28.md`, which has the full list and the IDs. The confirmed bugs it lists as "Fixed" are in the open PR and not live until it is merged and deployed (check the production admin account has a confirmed email first).
+
+- [ ] Merge and deploy the review-fixes PR, then tick the fixed items in the review doc
+- [ ] ZIP64 for the account export (it breaks above 4 GiB; Pro allows 50 GB)
+- [ ] Purge or version web copies when a photo is taken down (they are cached for a year); delete legacy web copies too
+- [ ] `lib/pg.ts`: add a pool `error` listener
+- [ ] `impersonationBlock()` and the legal-hold check on the remaining photographer actions (`site.ts`, `galleries.ts`)
+- [ ] Client galleries respect "site offline" (`isLive`); `emailGalleryLink` needs a verified, Pro account
+- [ ] Track more than one subscription per account (`User.billing`)
+- [ ] Accessibility: text contrast (`--color-ink-faint`), a `<main>` landmark, visible keyboard focus, focus after reorder buttons, live region for address availability
+- [ ] Design editor stuck on "Saving..." after adding a section (`sameDesign` key order)
+- [ ] Neutral sign-up and reset responses, per-email reset limit, timeouts on Upstash/Turnstile/Resend calls, tighten CSP (`unsafe-inline`, `form-action`)
+- [ ] Owner decision: should photos uploaded only for a client gallery appear on the public "all photos" page? (a per-photo hide flag would fix it)
+
 ## Everything checklist, by phase
 
 Every item in this doc, in the order you chose: design → security → legal → speed. Tick items here; the sections further down keep the longer explanations.

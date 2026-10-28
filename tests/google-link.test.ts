@@ -85,6 +85,26 @@ test("signing in with Google to an existing password account takes it over: the 
   assert.equal((await currentUser())?.id, squatter.id, "the Google sign-in itself works");
 });
 
+test("linking Google to an account whose email was already confirmed keeps its password", async (t) => {
+  process.env.GOOGLE_CLIENT_ID = CLIENT_ID;
+  process.env.GOOGLE_CLIENT_SECRET = "test-secret";
+  await createUser({
+    name: "Owner",
+    email: "owner@gmail.com",
+    subdomain: "owner-link",
+    passwordHash: await hashPassword("owner password"),
+    published: false,
+    emailVerified: true,
+  });
+  fakeGoogle(t, "owner@gmail.com", "google-owner");
+
+  assert.equal(await redirectedTo(GET(await googleCallback())), "/dashboard");
+  const linked = (await findUserByEmail("owner@gmail.com"))!;
+  assert.equal(linked.googleId, "google-owner");
+  assert.equal(await verifyPassword("owner password", linked.passwordHash), true, "the owner can still use their password");
+  assert.equal(linked.sessionsValidFrom, undefined, "no sign-out of other sessions");
+});
+
 test("an account already linked to Google is left alone when signing in again", async (t) => {
   process.env.GOOGLE_CLIENT_ID = CLIENT_ID;
   process.env.GOOGLE_CLIENT_SECRET = "test-secret";

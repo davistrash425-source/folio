@@ -1,6 +1,6 @@
 # Folio full project check — all agent findings (raw, pre-verification)
 
-Paste this into a new session to continue. Companion: HANDOFF.md ("where I left off").
+**Superseded Oct 28, 2026 by `docs/CODE-REVIEW-2026-10-28.md`** (verified list, with what was fixed and what is open). This file is kept only for the finding IDs. Companion: HANDOFF.md.
 Report doc (being filled): https://claude.ai/artifact/LTmpe1539z4gJjQAUcwKJ5 (Claude Doc id 9d9a983d-e569-416b-89a2-ddfda710b7a6, body node ed926ab5-d4d7; pending block ids mqxg34c7971.32 .. .37 = sections 1-6)
 
 IMPORTANT: local branch `polar-billing` is 15 commits BEHIND origin/main (production, 1fd2baa). Most findings still apply on main (checked); fixed on main: A4-2, A5-5 (galleries + Pro themes after downgrade), A6-11. A2-9 became LIVE on main.
