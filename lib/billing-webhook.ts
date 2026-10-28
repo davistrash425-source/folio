@@ -40,7 +40,8 @@ export async function applyBillingEvent(eventId: string, event: PolarEvent) {
         return;
       }
       // Webhooks can arrive out of order: don't let an old one undo a newer state.
-      if (last && last.subscriptionId === sub.id && last.updatedAt && modifiedAt && modifiedAt < last.updatedAt) {
+      // That includes an older subscription's event after a newer one changed.
+      if (last && last.updatedAt && modifiedAt && modifiedAt < last.updatedAt) {
         outcome = "stale";
         return;
       }

@@ -6,7 +6,7 @@ Written Oct 25, 2026. Production is `folio.cam`, hosted on Vercel (team `davi-43
 
 | Variable | In Vercel? |
 | --- | --- |
-| `CRON_SECRET` | **Missing** |
+| `CRON_SECRET` | **Missing** (added Oct 25, see item 1) |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Set (production and preview) |
 | All six `R2_*` variables | Set. `R2_PUBLIC_URL` is `https://img.foliocdn.com` (custom domain, since Oct 26, 2026) |
 | `DATABASE_URL`, `SESSION_SECRET`, `NEXT_PUBLIC_ROOT_DOMAIN` (`folio.cam`) | Set |

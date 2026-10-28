@@ -9,7 +9,7 @@
   - Moving all of `folio.cam` to Cloudflare DNS: possible, but it moves the wildcard, the email records and the certificate setup for every photographer site. Risky for little gain.
   - Keeping `folio.cam` on Vercel and pointing only `photos` at Cloudflare (a "partial/CNAME setup"): that is a Cloudflare Business-plan feature, so it costs far more than a domain.
 - The code needs nothing changed:
-  - `photoUrl` in `lib/uploads.ts` builds every address as `${R2_PUBLIC_URL}/<userId>/<file>` when the app runs, and strips a trailing slash. Nothing is stored in the database with the old host, so existing photos move over on their own.
+  - `photoUrl` in `lib/uploads.ts` now returns `/_photos/<userId>/<file>` (the site's own host), which `next.config.ts` rewrites to `R2_PUBLIC_URL`; the variable is also the CSP origin. Nothing is stored in the database with the old host, so existing photos move over on their own.
   - `lib/security-headers.ts` takes the origin of `R2_PUBLIC_URL` for `img-src` and `connect-src`, so the policy follows the variable. `tests/r2.test.ts` already uses `https://photos.example.com`.
   - `next.config.ts` has no `images`/`remotePatterns` setting, and photos are plain `<img>` with a `srcset`, so no image-host list needs updating. `next/image` is used only in `app/ui/frames.tsx`, for local files.
 - One thing to know: the current value may include a path (the test uses `https://pub-abc.r2.dev/folio-photos`). A custom domain serves the bucket at its root, so the new value is just `https://<domain>` with no path.

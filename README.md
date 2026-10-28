@@ -35,10 +35,13 @@ Locally there's nothing to set up. Each production service has a local stand-in,
 | --- | --- |
 | `npm test` | Every `tests/*.test.ts` file: unit tests, plus server actions and routes run in plain Node with Next's cookies, redirects and cache stubbed (`tests/stubs/`, `tests/helpers.ts`). Each run uses its own empty data folder, never `data/` (see `tests/setup.ts`) |
 | `npm run test:smoke` | Checks a running server; set `BASE_URL` to test a deployment |
+| `npm run test:e2e` | Playwright browser test: sign up, upload a photo, design the site and reach Go live, against the dev server with throwaway data |
+| `npm run homepage-photos` | Writes the landing page's sample photos from the git-ignored `folio-homepage-photos/` folder to `public/home/` and `app/ui/home-photos.json` |
+| `npm run seed-examples` | Creates the three example sites (ordinary Pro accounts) in whatever database and storage the environment points at; skips ones that exist. Set `EXAMPLES_PHOTOS_DIR` and `EXAMPLES_OWNER_EMAIL` as the script's header explains |
 | `npm run import-json` | Copies accounts from the old JSON database (`data/db.json`) into Postgres. Safe to re-run. Set `DATABASE_URL` to import into a real server. |
 | `npm run backfill-photos` | Makes web-sized copies of photos uploaded before resizing existed. Works on `data/db.json`, so run it before `import-json`. Stop the dev server first. |
 
-GitHub Actions (`.github/workflows/ci.yml`) runs lint, type checks, `npm test`, a production build and `npm run test:smoke` on every push to `main` and every pull request.
+GitHub Actions (`.github/workflows/ci.yml`) runs lint, type checks, `npm test`, a production build, `npm run test:smoke` against that build and the Playwright browser test (`npm run test:e2e`) on every push (to any branch) and every pull request.
 
 ## How it fits together
 
@@ -68,6 +71,15 @@ GitHub Actions (`.github/workflows/ci.yml`) runs lint, type checks, `npm test`, 
 | Signing out other devices | `sessionsValidFrom` on the account, checked in `lib/auth.ts` |
 | Data export (.zip) | `app/api/export`, `lib/zip.ts` |
 | Email | `lib/email.ts` |
+| Folio Pro billing (Polar) | `lib/billing.ts`, `lib/billing-webhook.ts`, `app/api/webhooks/billing`, `app/actions/billing.ts`, Plan page `app/dashboard/manage/billing` |
+| Plan limits (photos, storage, galleries) | `lib/plans.ts` |
+| Public pricing page | `app/pricing/page.tsx` |
+| Client galleries (Pro) | `lib/galleries.ts`, `app/actions/galleries.ts`, `app/sites/[subdomain]/g/[gallery]`, dashboard `app/dashboard/manage/galleries` |
+| Sign in with Google | `lib/google.ts`, `app/api/auth/google/start` and `callback`, `app/(auth)/signup/google` |
+| Email confirmation | `lib/verify-email.ts`, `app/verify-email/route.ts` |
+| Daily cleanup and reminders (cron) | `app/api/cron/daily/route.ts`, `lib/cleanup.ts`, schedule in `vercel.json` |
+| Security headers and CSP | `lib/security-headers.ts` |
+| Address availability check (sign-up) | `app/api/address` |
 
 ## Environment variables
 
@@ -84,6 +96,11 @@ GitHub Actions (`.github/workflows/ci.yml`) runs lint, type checks, `npm test`, 
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis, for rate limits shared by every server | in memory |
 | `REPORTS_EMAIL` | Where reports about sites (the "Report" link in every site's footer) are emailed; photographers' replies about takedowns come here too | reports are only saved in the database |
 | `ADMIN_EMAILS` | Login emails (comma-separated) that can open `/admin` to handle reports | nobody can |
+| `ADMIN_VIEWER_EMAILS` | Login emails of read-only staff: they see every admin page but can't change anything | no viewers |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile on sign-up and the contact form | no check (it also fails open if Cloudflare is down) |
+| `CRON_SECRET` | Lets Vercel Cron call `/api/cron/daily` (04:00 UTC, see `vercel.json`) | the route answers 404 |
+| `NEXT_PUBLIC_SENTRY_DSN` | Error reports to Sentry | nothing is sent |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | "Continue with Google" sign-in (OAuth client from Google Cloud; redirect URI is `<your host>/api/auth/google/callback`) | Google sign-in errors out |
 | `POLAR_ACCESS_TOKEN`, `POLAR_WEBHOOK_SECRET`, `POLAR_PRODUCT_MONTHLY`, `POLAR_PRODUCT_YEARLY` | Folio Pro subscriptions through Polar: an organization token (scopes `checkouts:write`, `customer_sessions:write`, `subscriptions:write`), the webhook signing secret, and the two product ids | checkout is closed ("Paid plans aren't open yet") |
 | `POLAR_SERVER` | `sandbox` (fake payments) or `production` | `sandbox` |
 
@@ -121,15 +138,15 @@ A site is drawn by one of six themes, each with its own layout code in `app/site
 
 ## How photos are stored
 
-Photos over 20 MB are compressed in the browser before upload (`lib/compress-image.ts`): shrunk to at most 8000px or 40 megapixels and re-encoded at the highest quality that fits, so the stored original is the compressed version. Animated GIFs over 20 MB and HEIC files are refused with a clear message.
+Photos over 20 MB are compressed in the browser before upload (`lib/compress-image.ts`): shrunk to at most 8000px or 40 megapixels and re-encoded at the highest quality that fits, so the stored original is the compressed version. HEIC files are converted to JPEG in the browser (the server can't read HEIC); animated GIFs over 20 MB are refused with a clear message, as is any file the browser can't open.
 
 Each upload is kept as the original (`<id>.orig.<ext>`, never served, included in the account export) plus WebP copies at 640, 1280 and 2048px wide with EXIF and GPS data removed. The public site picks a size with `srcset`.
 
-With R2, originals go to the private bucket and web copies to the public one, which visitors load directly from `R2_PUBLIC_URL`. Hosts like Vercel cap a request to the app at about 4.5 MB, so photos don't pass through the app:
+With R2, originals go to the private bucket and web copies to the public one. Visitors load photos from the site's own host (`/_photos/…`), which `next.config.ts` rewrites to `R2_PUBLIC_URL`, so a blocked or intercepted photo domain can't break images. Hosts like Vercel cap a request to the app at about 4.5 MB, so photos don't pass through the app:
 
-1. The browser asks for an upload address (`startPhotoUpload`). It's a signed R2 address that works for 10 minutes and accepts only the declared type and exact size, at most 20 MB.
+1. The browser asks for an upload address (`POST /api/photos/start`). It's a signed R2 address that works for 10 minutes and accepts only the declared type and exact size, at most 20 MB.
 2. The browser sends the photo straight to the private bucket.
-3. `finishPhotoUpload` reads it back, checks that it's a real image within the limit, makes the web copies, and adds it to the account. A bad file is deleted.
+3. `POST /api/photos/finish` reads it back, checks that it's a real image within the limit, makes the web copies, and adds it to the account. A bad file is deleted.
 
 Without R2 (local development), photos go through the app with `uploadPhotos`.
 
@@ -159,4 +176,4 @@ Domain:
 Decisions:
 - Whether new sites start as drafts (`NEW_SITES_START_PUBLISHED` in `lib/site.ts`).
 
-Known gap: a photo uploaded directly to R2 but never finished (say the tab closed in between) stays in the private bucket. It's at most 20 MB and visible to no one. A cleanup job can come later.
+A photo uploaded directly to R2 but never finished (say the tab closed in between) stays in the private bucket, visible to no one, until the daily cron (`removeOrphanedOriginals` in `lib/cleanup.ts`) deletes unfinished uploads older than a day.

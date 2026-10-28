@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { createHmac } from "crypto";
 import * as billingActions from "../app/actions/billing.ts";
 import { deleteAccount } from "../app/actions/auth.ts";
-import { setPlan } from "../app/actions/admin.ts";
+import { deleteAccountAsAdmin, setPlan } from "../app/actions/admin.ts";
 import { POST as webhook } from "../app/api/webhooks/billing/route.ts";
 import { findUserById } from "../lib/db.ts";
 import { photoLimit } from "../lib/plans.ts";
@@ -56,11 +56,11 @@ function event(userId: string, status: string, extra: Record<string, unknown> = 
   });
 }
 
-function fakePolar(t: TestContext, reply: () => unknown = () => ({})) {
+function fakePolar(t: TestContext, reply: () => unknown = () => ({}), status = 201) {
   const sent: { url: string; method: string; body: Record<string, unknown> | null }[] = [];
   t.mock.method(globalThis, "fetch", async (input: string, init: RequestInit = {}) => {
     sent.push({ url: String(input), method: init.method ?? "GET", body: init.body ? JSON.parse(String(init.body)) : null });
-    return Response.json(reply(), { status: 201 });
+    return Response.json(reply(), { status });
   });
   return sent;
 }
@@ -106,6 +106,17 @@ test("an older event arriving late does not undo a newer one", async () => {
   const after = (await findUserById(u.id))!;
   assert.equal(after.plan, "free");
   assert.equal(after.billing?.status, "revoked");
+});
+
+test("a late event from an older subscription can't restore Pro after a newer one ended", async () => {
+  const u = await makeUser("Switcher");
+  await webhook(signed(event(u.id, "active", { id: "sub-new", modified_at: "2026-11-03T00:00:00Z" }), "e1"));
+  await webhook(signed(event(u.id, "revoked", { id: "sub-new", modified_at: "2026-11-05T00:00:00Z" }), "e2"));
+  const late = await webhook(signed(event(u.id, "active", { id: "sub-old", modified_at: "2026-11-01T00:00:00Z" }), "e3"));
+  assert.deepEqual(await late.json(), { outcome: "stale" });
+  const after = (await findUserById(u.id))!;
+  assert.equal(after.plan, "free");
+  assert.equal(after.billing?.subscriptionId, "sub-new");
 });
 
 test("a cancelled but paid-up subscription keeps Pro, and ending it goes back to Free with an email", async (t) => {
@@ -217,4 +228,40 @@ test("deleting an account ends its subscription first", async (t) => {
   assert.equal(sent[0].method, "DELETE");
   assert.match(sent[0].url, /\/subscriptions\/sub-1$/);
   assert.equal(await findUserById(u.id), null);
+});
+
+test("if Polar can't end the subscription, deleting the account is refused and nothing is deleted", async (t) => {
+  const u = await makeUser("Stuck", { password: "correct horse battery" });
+  await webhook(signed(event(u.id, "active"), "e1"));
+  await signInAs(u);
+  t.mock.method(console, "error", () => {});
+  const sent = fakePolar(t, () => ({ detail: "try later" }), 500);
+  const res = await deleteAccount({}, formOf({ password: "correct horse battery" }));
+  assert.equal(sent[0].method, "DELETE");
+  assert.match(res.error ?? "", /not deleted/);
+  const after = await findUserById(u.id);
+  assert.ok(after, "the account still exists");
+  assert.equal(after.plan, "pro", "and is still on Pro");
+});
+
+test("if Polar says the subscription is already gone, deleting the account goes ahead", async (t) => {
+  const u = await makeUser("Ended", { password: "correct horse battery" });
+  await webhook(signed(event(u.id, "active"), "e1"));
+  await signInAs(u);
+  fakePolar(t, () => ({ detail: "Not Found" }), 404);
+  await redirectedTo(deleteAccount({}, formOf({ password: "correct horse battery" })));
+  assert.equal(await findUserById(u.id), null);
+});
+
+test("an admin's delete is refused the same way when Polar can't end the subscription", async (t) => {
+  const admin = await makeUser("Boss");
+  const u = await makeUser("Stuck2");
+  await webhook(signed(event(u.id, "active"), "e1"));
+  process.env.ADMIN_EMAILS = admin.email;
+  await signInAs(admin);
+  t.mock.method(console, "error", () => {});
+  fakePolar(t, () => ({ detail: "try later" }), 500);
+  const to = await redirectedTo(deleteAccountAsAdmin(formOf({ userId: u.id, confirm: u.subdomain })));
+  assert.match(decodeURIComponent(to!.split("?done=")[1]), /nothing was deleted/);
+  assert.ok(await findUserById(u.id));
 });

@@ -75,17 +75,34 @@ export async function takeDownPhotos(formData: FormData) {
   const at = new Date().toISOString();
 
   let taken: Photo[] = [];
+  let chosen: Photo[] = []; // taken down now, or already down by an earlier try that failed
   let strike = 0; // the strike this added, if it added one
   await updateUser(user.id, (u) => {
-    taken = u.photos.filter((p) => ids.has(p.id) && !p.removed);
+    chosen = u.photos.filter((p) => ids.has(p.id));
+    taken = chosen.filter((p) => !p.removed);
     for (const photo of taken) photo.removed = { at, ...(report ? { reportId: report.id } : {}), ...(note ? { note } : {}) };
     if (taken.length && report?.reason === "copyright" && !u.strikes?.some((s) => s.reportId === report.id)) {
       (u.strikes ??= []).push({ at, reportId: report.id });
       strike = u.strikes.length;
     }
   });
+  if (!chosen.length) backTo(user, "Nothing changed: choose photos that are on the site.");
+  // Also for photos already down, so a retry after a storage error removes their leftover copies.
+  try {
+    await Promise.all(chosen.map((photo) => deleteWebCopies(user.id, photo)));
+  } catch (err) {
+    console.error("Couldn't delete the web copies of taken-down photos", user.id, err);
+    await logAdminAction({
+      adminEmail: admin.email,
+      userId: user.id,
+      subdomain: user.subdomain,
+      reportId: report?.id,
+      action: "take-down-photos",
+      detail: `Took down ${plural(taken.length)}, but deleting their web copies failed. Staff must try again.`,
+    });
+    backTo(user, "The photos are off the site, but their web copies couldn't all be deleted. Try the takedown again in a moment.");
+  }
   if (!taken.length) backTo(user, "Nothing changed: choose photos that are on the site.");
-  await Promise.all(taken.map((photo) => deleteWebCopies(user.id, photo)));
   if (report) await setReportStatus(report.id, "closed", `Took down ${plural(taken.length)}.`);
 
   await logAdminAction({
@@ -222,7 +239,7 @@ export async function setPlan(formData: FormData) {
   await updateUser(user.id, (u) => {
     u.plan = plan;
     u.planSource = "manual"; // payments no longer change it (lib/billing-webhook.ts)
-  }, { publicChange: false });
+  });
   await logAdminAction({
     adminEmail: admin.email,
     userId: user.id,
@@ -420,6 +437,14 @@ export async function deleteAccountAsAdmin(formData: FormData) {
   const accounts = [user, ...(await managedSites(user.id))];
   if (accounts.some((a) => a.legalHold)) backTo(user, "This account is on legal hold, so it can't be deleted. Release the hold first.");
 
+  // Ends every subscription before anything is deleted, so a Polar failure leaves the accounts whole.
+  try {
+    for (const account of accounts) await cancelSubscriptionFor(account);
+  } catch (err) {
+    console.error("Couldn't end a subscription before deleting an account", user.id, err);
+    backTo(user, "Couldn't end the subscription in Polar just now, so nothing was deleted. Try again in a few minutes.");
+  }
+
   // Logged first, so the record exists even if clearing out the files fails.
   await logAdminAction({
     adminEmail: admin.email,
@@ -428,10 +453,14 @@ export async function deleteAccountAsAdmin(formData: FormData) {
     action: "delete-account",
     detail: `Deleted the account ${user.email} (${plural(user.photos.length)}${accounts.length > 1 ? `, and ${accounts.length - 1} extra site(s)` : ""}).`,
   });
-  for (const account of accounts.reverse()) {
-    await cancelSubscriptionFor(account);
-    await deleteUser(account.id);
-    await removeAccountFiles(account.id);
+  try {
+    for (const account of accounts.reverse()) {
+      await deleteUser(account.id);
+      await removeAccountFiles(account.id);
+    }
+  } catch (err) {
+    if ((err as Error).message !== "LEGAL_HOLD") throw err;
+    backTo(user, "This account is on legal hold, so it can't be deleted. Release the hold first.");
   }
   redirect(`/admin/accounts?done=${encodeURIComponent(`Deleted ${user.subdomain}.`)}`);
 }

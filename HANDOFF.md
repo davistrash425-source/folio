@@ -1,6 +1,6 @@
 # Handoff
 
-**Status as of Oct 28, 2026.** Everything built so far is on `main` and live at www.folio.cam. Paid plans are still closed: the `POLAR_*` variables exist in Vercel Preview only, so nobody can check out in production. There are no feature branches; the only open PRs are docs (see "Open PRs").
+**Status as of Oct 28, 2026.** Everything built so far is on `main` and live at www.folio.cam. Paid plans are still closed: the `POLAR_*` variables exist in Vercel Preview only, so nobody can check out in production. A code review and a batch of bug fixes are waiting in the open PR (see "Open PR"); they are not live until it is merged and deployed.
 
 ## What is live
 - Free plan (150 photos) and the Pro features in code: 1,500 photos, 20 password-protected client galleries, 50 GB, editable and extra special themes (Contact sheet, Monograph), no gallery footer badge (`lib/plans.ts`).
@@ -10,23 +10,19 @@
 - Legal pages are still drafts (`LEGAL_DRAFT = true` in `lib/legal.ts`).
 
 ## Before Pro can launch (all need the owner)
-1. Lawyer review of Terms, Privacy and Copyright (brief: `docs/LAWYER-BRIEF.md`, in open PR #17), then set `LEGAL_DRAFT=false`.
+1. Lawyer review of Terms, Privacy and Copyright (brief: `docs/LAWYER-BRIEF.md`), then set `LEGAL_DRAFT=false`.
 2. Vercel Pro plan (Hobby forbids commercial use).
 3. A separate production Polar account: the two products ($12/month, $120/year), an access token, and a webhook to `https://www.folio.cam/api/webhooks/billing`.
 4. `POLAR_*` in Vercel Production with `POLAR_SERVER=production`, then one real $12 purchase and a refund.
 
-## Known problems (from the paused full check, not yet verified)
-Read `docs/FULL-CHECK-NOTES.md` (about 150 raw findings, many duplicates, written before the check was verified). Confirmed in code on Oct 28:
-- Admin `setPlan` (`app/actions/admin.ts`) passes `publicChange: false`, but the public site reads `plan`, so a staff plan change doesn't show on the live site until the cache refreshes.
-- `cancelSubscriptionFor` (`lib/billing.ts`) logs a Polar failure and deletes the account anyway, so a subscription can keep billing.
-- The stale-webhook check in `applyBillingEvent` only compares events for the same subscription id, so a late "active" event for an older subscription can restore Pro.
-The check itself is unfinished: quality gates on `origin/main`, adversarial verification of the high findings, and the merged report doc ("Folio: Full Project Check", https://claude.ai/artifact/LTmpe1539z4gJjQAUcwKJ5, only the skeleton exists).
+## Code review (Oct 28, 2026)
+`docs/CODE-REVIEW-2026-10-28.md` is the list to work from: what was fixed and what is still open, most important first. It replaces the unverified `docs/FULL-CHECK-NOTES.md` (raw findings, kept for the IDs). The "Folio: Full Project Check" Claude Doc was never filled in and is superseded; ignore it.
+- Fixed in the open PR (not live until merged and deployed): staff roles need a confirmed email; Google sign-in no longer lets a pre-registered password survive on an unconfirmed account; `/apiary`-style paths are rewritten; account deletion stops when Polar can't end the subscription; late events for an older subscription are ignored; admin `setPlan` refreshes the live site; takedown retries after a storage error; deletion refuses legal-hold accounts inside the SQL; finish can't re-publish a taken-down photo; the export no longer includes `legalHold` and lists unreadable photos in `MISSING-FILES.txt`; the orphan sweep skips legal-hold accounts.
+- Biggest open items: ZIP export above 4 GiB, taken-down photos staying cached for a year, no pool `error` listener in `lib/pg.ts`, several actions missing `impersonationBlock()`, client galleries ignoring "site offline", low-contrast text and keyboard focus gaps. Details are in the review doc.
+- **Before deploying the open PR, check that the production admin login (`davifree425@gmail.com`) has a confirmed email.** Staff roles now require it; an unconfirmed admin would lose `/admin` until they confirm (the dashboard has a resend button).
 
-## Open PRs
-- #23 Keeps `docs/FULL-CHECK-NOTES.md` and four finished planning docs in `docs/archive/`, plus one backlog fact.
-- #19 Backlog and owner checklist refresh.
-- #17 `docs/LAWYER-BRIEF.md`.
-Merge these and no branches are left. (Old branches were deleted Oct 28; a backup bundle of all of them is in `Davi's Projects/folio-cleanup-backup-2026-10-28`, outside the repo.)
+## Open PR
+One PR carries the code review, the bug fixes (with tests) and the docs update. Merge it and no branches are left. (Old branches were deleted Oct 28; a backup bundle of all of them is in `Davi's Projects/folio-cleanup-backup-2026-10-28`, outside the repo.)
 
 ## Sandbox facts
 Polar sandbox org `foliocam`; products Monthly `d11e5d3e-b633-4869-8f70-57a5299633de`, Yearly `fe2b76c3-bcd0-4502-99c2-a54a22300054`; token `folio-sandbox` expires Nov 25, 2026. The sandbox webhook (id `c3c351de-bb5e-4d2a-b051-84c163045dbd`) still points at a deleted preview URL with a Vercel protection-bypass secret; delete the secret and repoint or remove the webhook when the sandbox is no longer needed. Vercel Preview also has a branch-scoped `PRO_FOR_EVERYONE` variable for a deleted branch; it does nothing and can be removed in the dashboard.
