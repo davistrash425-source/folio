@@ -7,6 +7,7 @@ import path from "path";
 import { GET as exportAccount } from "../app/api/export/route.ts";
 import { GET as serveUpload } from "../app/api/uploads/[userId]/[file]/route.ts";
 import { DATA_DIR, deleteUser, updateUser } from "../lib/db.ts";
+import { setManager } from "../lib/session.ts";
 import { UPLOAD_DIR, photoSource, storage } from "../lib/uploads.ts";
 import { addAlbum, addInquiry, addPhoto, makeUser, readZip, resetRequest, signInAs, signOut } from "./helpers.ts";
 import { cookieJar } from "./stubs/next-headers.ts";
@@ -91,6 +92,28 @@ test("the export leaves out the password", async () => {
   assert.ok(!text.includes(alice.passwordHash));
 });
 
+test("the export leaves out Folio's staff-only fields: legal hold, admin notes and the admin an extra site belongs to", async (t) => {
+  const alice = await makeUser("Alice");
+  const admin = await makeUser("Boss");
+  process.env.ADMIN_EMAILS = admin.email;
+  t.after(() => void delete process.env.ADMIN_EMAILS);
+  await updateUser(alice.id, (u) => {
+    u.legalHold = { at: new Date().toISOString(), note: "LEGAL-HOLD-NOTE" };
+    u.adminNotes = [{ id: "n1", at: new Date().toISOString(), by: admin.email, text: "STAFF-NOTE" }];
+    u.managedBy = admin.id;
+  });
+  await signInAs(alice);
+  await setManager(admin.id); // the admin switched to this extra site
+
+  const res = await exportAccount();
+  assert.equal(res.status, 200);
+  const account = readZip(Buffer.from(await res.arrayBuffer())).get("account.json")!.toString("utf8");
+  for (const hidden of ["legalHold", "LEGAL-HOLD-NOTE", "adminNotes", "STAFF-NOTE", "managedBy", admin.id]) {
+    assert.ok(!account.includes(hidden), `the export includes ${hidden}`);
+  }
+  assert.ok(account.includes(alice.email), "the rest of the account is still there");
+});
+
 test("one person's export never contains another person's data", async () => {
   const alice = await makeUser("Alice");
   const bob = await makeUser("Bob");
@@ -127,8 +150,18 @@ test("the export still works when a photo's file is missing from the disk", asyn
   const res = await exportAccount();
   assert.equal(res.status, 200);
   const files = readZip(Buffer.from(await res.arrayBuffer()));
-  assert.deepEqual([...files.keys()], ["account.json", `photos/002-${kept.photo.id}.jpg`]);
+  // The download says what's missing, so the owner knows it's incomplete.
+  assert.deepEqual([...files.keys()], ["account.json", `photos/002-${kept.photo.id}.jpg`, "MISSING-FILES.txt"]);
+  assert.match(files.get("MISSING-FILES.txt")!.toString(), new RegExp(`photos/001-${lost.photo.id}\\.jpg`));
   assert.equal(JSON.parse(files.get("account.json")!.toString()).photos.length, 2, "the record is still listed");
+});
+
+test("the export has no MISSING-FILES.txt when every photo was read", async () => {
+  const alice = await makeUser("Alice");
+  await addPhoto(alice.id);
+  await signInAs(alice);
+  const files = readZip(Buffer.from(await (await exportAccount()).arrayBuffer()));
+  assert.ok(!files.has("MISSING-FILES.txt"));
 });
 
 // ── /api/uploads/<user>/<file> ──────────────────────────────────────────
