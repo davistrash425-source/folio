@@ -3,16 +3,34 @@ import { beforeEach, test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync } from "fs";
 import path from "path";
-import { deleteAccount, resetPassword, signOutEverywhereElse } from "../app/actions/auth.ts";
+import { deleteAccount, requestPasswordReset, resetPassword, signOutEverywhereElse } from "../app/actions/auth.ts";
 import { GET as exportAccount } from "../app/api/export/route.ts";
 import { requireUser } from "../lib/auth.ts";
 import { findUserById } from "../lib/db.ts";
 import { UPLOAD_DIR } from "../lib/uploads.ts";
 import { createToken, redeemToken } from "../lib/tokens.ts";
-import { addAlbum, addInquiry, addPhoto, filesOf, formOf, fromIp, makeUser, redirectedTo, resetRequest, signInAs, signOut } from "./helpers.ts";
+import { addAlbum, addInquiry, addPhoto, captureEmails, filesOf, formOf, fromIp, makeUser, redirectedTo, resetRequest, signInAs, signOut } from "./helpers.ts";
 import { cookieJar } from "./stubs/next-headers.ts";
 
 beforeEach(resetRequest);
+
+test("a reset request answers the same for any email and keeps a pending link", async (t) => {
+  const alice = await makeUser("Alice");
+  const sent = captureEmails(t);
+
+  const known = await requestPasswordReset({}, formOf({ email: alice.email }));
+  const unknown = await requestPasswordReset({}, formOf({ email: "nobody@example.com" }));
+  assert.equal(known.ok, unknown.ok);
+  assert.equal(sent.length, 1, "only the real account gets an email");
+
+  const again = await requestPasswordReset({}, formOf({ email: alice.email }));
+  assert.equal(again.ok, known.ok);
+  assert.equal(sent.length, 1, "a second request doesn't send another");
+
+  const token = sent[0].match(/reset-password\?token=([\w-]+)/)?.[1];
+  assert.ok(token, "the email carried a link");
+  assert.equal(await redeemToken(token!, "reset"), alice.id, "the first link still works");
+});
 
 // ── requireUser ─────────────────────────────────────────────────────────
 
@@ -160,4 +178,17 @@ test("accounts that never signed out everywhere keep their logins", async (t) =>
   const { laptop, phone } = await twoDevices(t, alice);
   assert.equal(await signedInWith(laptop), true);
   assert.equal(await signedInWith(phone), true);
+});
+
+test("a reset request gives the same answer when the email can't be sent", async (t) => {
+  const alice = await makeUser("Alice");
+  t.mock.method(console, "error", () => {});
+  t.mock.method(console, "log", () => {
+    throw new Error("the mail service is down");
+  });
+  fromIp("198.51.100.77");
+  const known = await requestPasswordReset({}, formOf({ email: alice.email }));
+  const unknown = await requestPasswordReset({}, formOf({ email: "nobody-else@example.com" }));
+  assert.equal(known.ok, unknown.ok);
+  assert.equal(known.error, undefined);
 });

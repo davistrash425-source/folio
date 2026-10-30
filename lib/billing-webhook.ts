@@ -11,6 +11,7 @@ type Subscription = {
   recurring_interval?: string;
   current_period_end?: string | null;
   cancel_at_period_end?: boolean;
+  created_at?: string | null;
   modified_at?: string | null;
   metadata?: Record<string, unknown>;
   customer?: { external_id?: string | null };
@@ -29,7 +30,9 @@ export async function applyBillingEvent(eventId: string, event: PolarEvent) {
   const userId = String(sub.customer?.external_id ?? sub.metadata?.userId ?? "");
   if (!userId || !(await findUserById(userId))) return "unknown account";
 
-  const modifiedAt = sub.modified_at ?? undefined;
+  // Polar leaves modified_at empty until a subscription first changes, so its
+  // creation time stands in. Without either, the event can't be ordered.
+  const modifiedAt = sub.modified_at ?? sub.created_at ?? undefined;
   let outcome = "recorded";
   let downgraded = false;
   try {
@@ -41,10 +44,19 @@ export async function applyBillingEvent(eventId: string, event: PolarEvent) {
       }
       // Webhooks can arrive out of order: don't let an old one undo a newer state.
       // That includes an older subscription's event after a newer one changed.
-      if (last && last.updatedAt && modifiedAt && modifiedAt < last.updatedAt) {
+      if (last?.updatedAt && modifiedAt && Date.parse(modifiedAt) < Date.parse(last.updatedAt)) {
         outcome = "stale";
         return;
       }
+
+      // The subscriptions that still grant Pro. Starts from the previous list
+      // (or the single subscription on older accounts), then follows this event.
+      const activeIds = new Set<string>(
+        last?.activeSubscriptionIds ?? (last && grantsPro(last.status) ? [last.subscriptionId] : []),
+      );
+      if (grantsPro(status)) activeIds.add(sub.id!);
+      else activeIds.delete(sub.id!);
+
       u.billing = {
         subscriptionId: sub.id!,
         status,
@@ -52,17 +64,13 @@ export async function applyBillingEvent(eventId: string, event: PolarEvent) {
         currentPeriodEnd: sub.current_period_end ?? undefined,
         cancelAtPeriodEnd: sub.cancel_at_period_end ?? undefined,
         lastEventId: eventId,
-        updatedAt: modifiedAt,
+        updatedAt: modifiedAt ?? last?.updatedAt, // never forget the newest time seen
+        activeSubscriptionIds: [...activeIds],
       };
-      // An admin's manual choice stands. Otherwise the subscription decides.
+      // An admin's manual choice stands. Otherwise the subscriptions decide:
+      // the account is Pro while any one of them grants it.
       if (u.planSource === "manual") return;
-      // A second, older subscription ending must not cancel a newer one.
-      if (last && last.subscriptionId !== sub.id && grantsPro(last.status) && !grantsPro(status)) {
-        u.billing = last;
-        outcome = "other subscription";
-        return;
-      }
-      const pro = grantsPro(status);
+      const pro = activeIds.size > 0;
       downgraded = u.plan === "pro" && !pro;
       u.plan = pro ? "pro" : "free";
       u.planSource = "billing";

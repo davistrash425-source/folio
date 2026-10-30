@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { randomUUID } from "crypto";
 import { z } from "zod";
-import { changeSubdomain, findUserBySubdomain, subdomainOnHold, updateUser, type Photo } from "@/lib/db";
+import { changeSubdomain, findUserBySubdomain, subdomainOnHold, updateUser, type Inquiry, type Photo, type User } from "@/lib/db";
 import { impersonationBlock, requireUser } from "@/lib/auth";
 import { uploadBlock } from "@/lib/plans";
 import { draftDesign, publishedDesign } from "@/lib/public-site";
@@ -98,8 +98,20 @@ export async function uploadPhotos(_prev: ActionState, formData: FormData): Prom
 // Direct uploads to R2 go through app/api/photos/start and /finish instead,
 // so several photos can upload at once (the browser runs actions one at a time).
 
+// Takes deleted photos out of albums and client galleries, so their counts
+// match what's shown.
+function forgetPhotos(u: User, ids: Set<string>) {
+  for (const album of u.albums ?? []) album.photoIds = album.photoIds.filter((id) => !ids.has(id));
+  for (const gallery of u.galleries ?? []) {
+    gallery.photoIds = gallery.photoIds.filter((id) => !ids.has(id));
+    if (gallery.favouriteIds) gallery.favouriteIds = gallery.favouriteIds.filter((id) => !ids.has(id));
+  }
+}
+
 export async function deletePhoto(photoId: string): Promise<ActionState> {
   const userId = await currentUserId();
+  const blocked = await impersonationBlock();
+  if (blocked) return { error: blocked };
   let removed: Photo | undefined;
   let held = false;
   await updateUser(userId, (u) => {
@@ -109,7 +121,7 @@ export async function deletePhoto(photoId: string): Promise<ActionState> {
     }
     removed = u.photos.find((p) => p.id === photoId);
     u.photos = u.photos.filter((p) => p.id !== photoId);
-    for (const album of u.albums ?? []) album.photoIds = album.photoIds.filter((id) => id !== photoId);
+    forgetPhotos(u, new Set([photoId]));
   });
   if (held) return { error: "Your account is on a legal hold, so this photo can't be deleted right now." };
   if (!removed) return { error: "That photo wasn't found." };
@@ -246,7 +258,7 @@ export async function deletePhotos(rawIds: string[]): Promise<ActionState> {
     }
     removed = u.photos.filter((p) => wanted.has(p.id));
     u.photos = u.photos.filter((p) => !wanted.has(p.id));
-    for (const album of u.albums ?? []) album.photoIds = album.photoIds.filter((id) => !wanted.has(id));
+    forgetPhotos(u, wanted);
   });
   if (held) return { error: "Your account is on a legal hold, so photos can't be deleted right now." };
   if (removed.length === 0) return { error: "Those photos weren't found." };
@@ -254,16 +266,21 @@ export async function deletePhotos(rawIds: string[]): Promise<ActionState> {
   return done(`Deleted ${removed.length} photo${removed.length === 1 ? "" : "s"}.`);
 }
 
-export async function setPublished(published: boolean) {
+export async function setPublished(published: boolean): Promise<ActionState> {
   const userId = await currentUserId();
+  const blocked = await impersonationBlock();
+  if (blocked) return { error: blocked };
   await updateUser(userId, (u) => {
     u.published = published;
   });
   revalidatePath("/dashboard", "layout");
+  return {};
 }
 
 export async function saveProfile(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const userId = await currentUserId();
+  const blocked = await impersonationBlock();
+  if (blocked) return { error: blocked };
   const str = (key: string, max: number) => String(formData.get(key) ?? "").trim().slice(0, max);
   const name = str("name", 80);
   if (!name) return { error: "Name can't be empty." };
@@ -405,8 +422,11 @@ export async function updateAlbum(
 }
 
 // Sets the album's photos and their order (also used to remove photos).
-export async function setAlbumPhotos(albumId: string, photoIds: string[]) {
+export async function setAlbumPhotos(albumId: string, rawIds: string[]) {
   const userId = await currentUserId();
+  const parsed = z.array(z.string()).max(MAX_PHOTOS).safeParse(rawIds);
+  if (!parsed.success) return;
+  const photoIds = parsed.data;
   await updateUser(userId, (u) => {
     const album = u.albums?.find((a) => a.id === albumId);
     if (!album) return;
@@ -426,12 +446,15 @@ export async function setAlbumCover(albumId: string, photoId: string) {
   revalidatePath("/dashboard", "layout");
 }
 
-export async function deleteAlbum(albumId: string) {
+export async function deleteAlbum(albumId: string): Promise<ActionState> {
   const userId = await currentUserId();
+  const blocked = await impersonationBlock();
+  if (blocked) return { error: blocked };
   await updateUser(userId, (u) => {
     u.albums = (u.albums ?? []).filter((a) => a.id !== albumId);
   });
   revalidatePath("/dashboard", "layout");
+  return {};
 }
 
 // ── Inquiries ───────────────────────────────────────────────────────────
@@ -480,7 +503,7 @@ export async function sendInquiry(
       read: false,
       ...(photo ? { photoId: photo.id } : {}),
     });
-    u.inquiries = u.inquiries.slice(0, 500);
+    u.inquiries = keepNewestInquiries(u.inquiries);
   }, { publicChange: false });
 
   try {
@@ -497,6 +520,20 @@ export async function sendInquiry(
   return { ok: "Thanks — your message was sent." };
 }
 
+// The inbox holds MAX_INQUIRIES (newest first). Past that, the oldest read
+// message goes first, so a flood of spam can't push out unread ones; only an
+// inbox that is all unread loses its oldest.
+const MAX_INQUIRIES = 500;
+
+function keepNewestInquiries(inquiries: Inquiry[]) {
+  const kept = [...inquiries];
+  while (kept.length > MAX_INQUIRIES) {
+    const oldestRead = kept.findLastIndex((i) => i.read);
+    kept.splice(oldestRead === -1 ? kept.length - 1 : oldestRead, 1);
+  }
+  return kept;
+}
+
 export async function setInquiryRead(inquiryId: string, read: boolean) {
   const userId = await currentUserId();
   await updateUser(userId, (u) => {
@@ -506,10 +543,13 @@ export async function setInquiryRead(inquiryId: string, read: boolean) {
   revalidatePath("/dashboard", "layout");
 }
 
-export async function deleteInquiry(inquiryId: string) {
+export async function deleteInquiry(inquiryId: string): Promise<ActionState> {
   const userId = await currentUserId();
+  const blocked = await impersonationBlock();
+  if (blocked) return { error: blocked };
   await updateUser(userId, (u) => {
     u.inquiries = (u.inquiries ?? []).filter((i) => i.id !== inquiryId);
   }, { publicChange: false });
   revalidatePath("/dashboard", "layout");
+  return {};
 }

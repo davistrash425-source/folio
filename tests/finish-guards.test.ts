@@ -47,3 +47,19 @@ test("a suspended site can't finish an upload, and nothing is written", async (t
   assert.equal((await findUserById(alice.id))!.photos.length, 0);
   assert.deepEqual(filesOf(alice.id), [file]);
 });
+
+test("two simultaneous finish calls for one upload make the web copies once", async (t) => {
+  const alice = await makeUser("Alice");
+  await signInAs(alice);
+  const file = `${randomUUID()}.orig.jpg`;
+  await storage.put(alice.id, file, Buffer.from(await (await jpegFile()).arrayBuffer()));
+  const put = t.mock.method(storage, "put", async () => {});
+
+  const [a, b] = await Promise.all([finishUpload(file), finishUpload(file)]);
+  assert.equal(a.ok, "Uploaded 1 photo.");
+  assert.equal(b.ok, "Uploaded 1 photo.");
+  const variants = (await findUserById(alice.id))!.photos[0].variants!.length;
+  assert.ok(variants > 0);
+  assert.equal(put.mock.callCount(), variants, "the web copies were written exactly once");
+  assert.equal((await findUserById(alice.id))!.photos.length, 1, "one photo record");
+});

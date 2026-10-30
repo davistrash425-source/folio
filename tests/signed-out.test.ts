@@ -50,7 +50,7 @@ const needSignIn: Record<string, () => Promise<unknown>> = {
 };
 
 // Actions anyone may call: visitors leaving a message, and the sign-in forms.
-const open = ["sendInquiry", "signup", "login", "logout", "requestPasswordReset", "resetPassword", "completeGoogleSignup"];
+const open = ["sendInquiry", "signup", "login", "logout", "requestPasswordReset", "resetPassword", "completeGoogleSignup", "confirmEmail"];
 
 test("every server action is listed here as needing a login or as open to everyone", () => {
   const exported = [

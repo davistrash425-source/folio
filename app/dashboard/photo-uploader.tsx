@@ -45,9 +45,15 @@ export function PhotoUploader() {
   const accept = useSyncExternalStore(neverChanges, acceptForDevice, () => ACCEPT);
   const busy = items.some((i) => i.status !== "done" && i.status !== "failed");
   const running = useRef(false); // set at once, before the state above updates
+  const queued = useRef<File[]>([]); // chosen or dropped while a batch runs
 
   async function upload(files: File[]) {
-    if (files.length === 0 || running.current) return;
+    if (files.length === 0) return;
+    if (running.current) {
+      // Uploaded as the next batch, rather than ignored.
+      queued.current.push(...files);
+      return;
+    }
     running.current = true;
     setItems(files.map((file) => ({ file, status: "waiting", size: file.size, sent: 0 })));
     const update = (i: number, item: Partial<UploadItem>) =>
@@ -105,8 +111,9 @@ export function PhotoUploader() {
           const fd = new FormData();
           fd.append("photos", new File([toSend], toSend.name, { type: sendType }));
           const result = await uploadPhotos({}, fd);
-          // Its errors are written for a whole batch; only the limit one fits a single photo.
-          if (result.error) throw new UploadError(/limit/.test(result.error) ? result.error : "couldn't be read as an image");
+          // "Those files couldn't be uploaded" is written for a batch; the
+          // others (limits, a suspended site) fit one photo as they are.
+          if (result.error) throw new UploadError(/couldn't be uploaded/.test(result.error) ? "couldn't be read as an image" : result.error);
           return succeeded();
         }
       } catch (err) {
@@ -140,6 +147,8 @@ export function PhotoUploader() {
     }
     // Once for the whole batch: shows the new photos under "Recently uploaded".
     if (uploaded) router.refresh();
+    const more = queued.current.splice(0);
+    if (more.length) await upload(more);
   }
 
   // For the drop listener below, which is added once.
@@ -194,7 +203,7 @@ export function PhotoUploader() {
           upload(Array.from(e.dataTransfer.files));
         }}
         className={`flex cursor-pointer flex-col items-center justify-center gap-1 border-2 border-dashed px-6 py-8 text-center transition ${
-          dragging ? "border-black bg-paper" : "border-rule hover:border-ink-faint"
+          dragging ? "border-black bg-paper" : "border-rule hover:border-ink-faint focus-within:border-ink"
         } ${busy ? "pointer-events-none opacity-60" : ""}`}
       >
         <span className="font-medium">{busy ? `Uploading… ${percent}%` : "Drop photos here or click to choose"}</span>

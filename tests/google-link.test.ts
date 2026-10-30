@@ -123,3 +123,23 @@ test("an account already linked to Google is left alone when signing in again", 
   const after = (await findUserByEmail("linked@gmail.com"))!;
   assert.equal(after.sessionsValidFrom, undefined, "no sign-out of other sessions on a plain sign-in");
 });
+
+test("an address that now belongs to a different Google account can't sign in to the account linked to the old one", async (t) => {
+  process.env.GOOGLE_CLIENT_ID = CLIENT_ID;
+  process.env.GOOGLE_CLIENT_SECRET = "test-secret";
+  await createUser({
+    name: "Former",
+    email: "work@company.example",
+    subdomain: "former-g",
+    passwordHash: "",
+    published: false,
+    googleId: "google-former-employee",
+    emailVerified: true,
+  });
+  // The company gave the address to someone new, with a new Google account.
+  fakeGoogle(t, "work@company.example", "google-new-employee");
+
+  assert.equal(await redirectedTo(GET(await googleCallback())), "/login?error=google");
+  assert.equal(await currentUser(), null);
+  assert.equal((await findUserByEmail("work@company.example"))!.googleId, "google-former-employee", "the link is unchanged");
+});

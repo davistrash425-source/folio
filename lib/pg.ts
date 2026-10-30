@@ -78,6 +78,9 @@ const SCHEMA = `
 async function connectPostgres(url: string): Promise<Database> {
   const { Pool } = await import("pg");
   const pool = new Pool({ connectionString: url, max: 5 });
+  // An idle connection that errors (say, Neon restarts) would otherwise crash
+  // the process: an unhandled "error" on an EventEmitter is fatal.
+  pool.on("error", (err) => console.error("Postgres pool error", err));
   // pg types rows loosely; the caller says what shape it selected.
   const query = ((text: string, params?: unknown[]) => pool.query(text, params)) as Query;
   return {

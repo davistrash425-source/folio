@@ -62,6 +62,17 @@ test("an expired gallery can't be unlocked or downloaded", async () => {
   assert.equal((await unlock()).error, "That password isn't right.", "and the password is no longer accepted");
 });
 
+test("an offline site closes the gallery: no download or hearts", async () => {
+  const { owner, gallery, photos, visit, unlock } = await openGallery("198.51.100.11");
+  visit();
+  await redirectedTo(unlock());
+  assert.equal((await downloadAll(new Request("http://x"), ctx(owner.subdomain, gallery.slug))).status, 200);
+
+  await updateUser(owner.id, (u) => void (u.published = false));
+  assert.equal((await downloadAll(new Request("http://x"), ctx(owner.subdomain, gallery.slug))).status, 404);
+  assert.match((await toggleFavourite(owner.subdomain, gallery.slug, photos[0].id)).error!, /isn't available/);
+});
+
 test("download all gives a zip of every photo, only to someone with the password", async () => {
   const { owner, gallery, photos, visit, unlock } = await openGallery("198.51.100.3");
   visit();
@@ -137,6 +148,22 @@ test("emailing the link needs a valid address, your own gallery, and is limited"
   await signInAs((await findUserById((await makeUser("Rae")).id))!);
   signOut();
   await assert.rejects(emailGalleryLink(gallery.id, {}, formOf({ email: "maya@example.com" })), "signed-out visitors are sent to log in");
+});
+
+test("emailing the link needs the site live and on Pro", async (t) => {
+  const { owner, gallery } = await openGallery("198.51.100.12");
+  captureEmails(t);
+
+  await updateUser(owner.id, (u) => void (u.plan = "free"));
+  assert.equal((await emailGalleryLink(gallery.id, {}, formOf({ email: "maya@example.com" }))).error, "Client galleries are part of Folio Pro.");
+  await updateUser(owner.id, (u) => void (u.plan = "pro"));
+
+  await updateUser(owner.id, (u) => void (u.published = false));
+  assert.match((await emailGalleryLink(gallery.id, {}, formOf({ email: "maya@example.com" }))).error!, /offline/);
+  await updateUser(owner.id, (u) => void (u.published = true));
+
+  await updateUser(owner.id, (u) => void (u.emailVerified = false));
+  assert.match((await emailGalleryLink(gallery.id, {}, formOf({ email: "maya@example.com" }))).error!, /offline/);
 });
 
 test("emails to clients stop after 20 an hour", async (t) => {

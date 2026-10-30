@@ -35,6 +35,11 @@ export function storageLimitMessage(user: Pick<User, "plan">) {
   return `You've used all ${storageLimit(user) / GB} GB of storage. Delete some photos to make room.`;
 }
 
+// Bytes of direct uploads that were started and can still arrive.
+export function pendingUploadBytes(user: Pick<User, "pendingUploads">, now = Date.now()) {
+  return (user.pendingUploads ?? []).reduce((total, p) => total + (p.expires > now ? p.bytes : 0), 0);
+}
+
 // Why one more photo of `extraBytes` can't be added right now, or null if it
 // can. Checked before an upload starts and again when it is saved.
 export function uploadBlock(user: Pick<User, "plan" | "photos">, extraBytes = 0): string | null {

@@ -1,7 +1,8 @@
 import { currentUser } from "@/lib/auth";
 import { rateLimit } from "@/lib/rate-limit";
-import { uploadBlock } from "@/lib/plans";
-import { directUpload } from "@/lib/uploads";
+import { updateUser } from "@/lib/db";
+import { pendingUploadBytes, uploadBlock } from "@/lib/plans";
+import { UPLOAD_URL_SECONDS, directUpload } from "@/lib/uploads";
 
 export const UPLOAD_STARTS_PER_HOUR = 500;
 
@@ -29,7 +30,23 @@ export async function POST(req: Request) {
   }
   try {
     const direct = await directUpload(user.id, type, size);
-    return Response.json(direct ? { direct } : {});
+    if (!direct) return Response.json({});
+    // Uploads already under way count too, or many started at once could
+    // fill storage past the limit before any of them is saved.
+    let full: string | null = null;
+    const now = Date.now();
+    await updateUser(
+      user.id,
+      (u) => {
+        const pending = (u.pendingUploads ?? []).filter((p) => p.expires > now);
+        full = uploadBlock(u, pendingUploadBytes({ pendingUploads: pending }, now) + size);
+        if (!full) pending.push({ file: direct.file, bytes: size, expires: now + UPLOAD_URL_SECONDS * 1000 });
+        u.pendingUploads = pending;
+      },
+      { publicChange: false },
+    );
+    if (full) return Response.json({ error: full });
+    return Response.json({ direct });
   } catch (err) {
     const message = (err as Error).message;
     if (message === "UNSUPPORTED_TYPE") return Response.json({ error: "not a JPG, PNG, WebP, GIF or AVIF" });

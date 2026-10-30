@@ -1,6 +1,8 @@
 import { beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
+import { randomBytes, scryptSync } from "crypto";
 import { login } from "../app/actions/auth.ts";
+import { findUserById, updateUser } from "../lib/db.ts";
 import { formOf, fromIp, makeUser, redirectedTo, resetRequest } from "./helpers.ts";
 
 beforeEach(() => resetRequest());
@@ -36,4 +38,15 @@ test("one address trying many accounts is stopped", async () => {
   for (let i = 0; i < 30; i++) await login({}, formOf({ email: `nobody-${i}@example.com`, password: "x" }));
   const stopped = await login({}, formOf({ email: "another@example.com", password: "x" }));
   assert.match(stopped.error!, /Too many attempts/);
+});
+
+test("logging in with an old-cost password upgrades the hash", async () => {
+  const alice = await makeUser("Alice");
+  const salt = randomBytes(16).toString("hex");
+  const legacy = `${salt}:${scryptSync("correct horse", salt, 64).toString("hex")}`;
+  await updateUser(alice.id, (u) => void (u.passwordHash = legacy));
+
+  fromIp("203.0.113.40");
+  await redirectedTo(login({}, formOf({ email: alice.email, password: "correct horse" })));
+  assert.match((await findUserById(alice.id))!.passwordHash, /^v2:/, "re-hashed at the current cost");
 });

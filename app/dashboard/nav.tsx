@@ -32,10 +32,9 @@ export function StickyBar({ className, children }: { className: string; children
 
 export type SiteChoice = { id: string; subdomain: string; name: string };
 
-// For admins, who can have several sites: which one the dashboard is showing,
-// and a menu to switch to another or start a new one. Closes on outside click
-// (the browser already closes it on Escape).
-export function SiteSwitcher({ current, sites }: { current: string; sites: SiteChoice[] }) {
+// A <details> drop-down menu: closes on an outside click, Escape closes it and
+// returns to its button, and Up and Down move through its items.
+function useMenu() {
   const ref = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
     const details = ref.current!;
@@ -45,8 +44,6 @@ export function SiteSwitcher({ current, sites }: { current: string; sites: SiteC
     document.addEventListener("click", onClick);
     return () => document.removeEventListener("click", onClick);
   }, []);
-  const close = (e: MouseEvent<HTMLElement>) => e.currentTarget.closest("details")?.removeAttribute("open");
-  // Up and Down move through the sites; Escape closes the menu and returns to its button.
   const onKeyDown = (e: KeyboardEvent<HTMLDetailsElement>) => {
     const details = ref.current!;
     if (e.key === "Escape" && details.open) {
@@ -64,6 +61,24 @@ export function SiteSwitcher({ current, sites }: { current: string; sites: SiteC
     const next = e.key === "ArrowDown" ? (at + 1) % items.length : (at <= 0 ? items.length : at) - 1;
     items[next].focus();
   };
+  return { ref, onKeyDown };
+}
+
+// The Account menu in the dashboard header (app/dashboard/layout.tsx).
+export function Menu({ className, children }: { className?: string; children: ReactNode }) {
+  const { ref, onKeyDown } = useMenu();
+  return (
+    <details ref={ref} onKeyDown={onKeyDown} className={className}>
+      {children}
+    </details>
+  );
+}
+
+// For admins, who can have several sites: which one the dashboard is showing,
+// and a menu to switch to another or start a new one.
+export function SiteSwitcher({ current, sites }: { current: string; sites: SiteChoice[] }) {
+  const { ref, onKeyDown } = useMenu();
+  const close = (e: MouseEvent<HTMLElement>) => e.currentTarget.closest("details")?.removeAttribute("open");
   return (
     <details ref={ref} onKeyDown={onKeyDown} className="relative">
       <summary className="flex h-8 cursor-pointer list-none items-center gap-2 border border-rule px-2.5 text-sm hover:border-ink">

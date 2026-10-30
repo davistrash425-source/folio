@@ -7,10 +7,11 @@ import {
   findUserById,
   pendingStorageCleanups,
   updateUser,
+  type User,
 } from "./db";
 import { sendEmail } from "./email";
 import { appUrl } from "./site";
-import { storage } from "./uploads";
+import { isPrivateFile, storage, webCopyFiles } from "./uploads";
 
 const DAY = 24 * 60 * 60 * 1000;
 // An upload has 10 minutes to finish, and a big batch can take a while, so
@@ -56,10 +57,41 @@ export async function removeOrphanedOriginals(now = Date.now()) {
     // A missing account is the retry list's job (it deletes the whole folder);
     // null here also means "on legal hold, leave it alone".
     if (files === null || files?.has(file)) continue;
-    await storage.remove(userId, file);
-    removed++;
+    if (await storage.remove(userId, file)) removed++;
   }
   return { checked: old.length, removed };
+}
+
+// Web copies that belong to no photo's variants, left behind by an upload that
+// never became a photo (or a photo removed another way), are deleted. Like
+// removeOrphanedOriginals, it skips accounts on legal hold.
+export async function removeOrphanedWebCopies(now = Date.now()) {
+  const old = (await storage.listPublic()).filter((f) => f.modified < now - ORPHAN_AFTER_MS);
+  const referencedOf = new Map<string, Set<string> | null>();
+  let removed = 0;
+  for (const { userId, file } of old) {
+    let referenced = referencedOf.get(userId);
+    if (referenced === undefined) {
+      const user = await findUserById(userId);
+      referenced = user && !user.legalHold ? referencedPublicFiles(user) : null;
+      referencedOf.set(userId, referenced);
+    }
+    // A missing account is the retry list's job; null also means "on legal hold".
+    if (referenced === null || referenced.has(file)) continue;
+    if (await storage.remove(userId, file)) removed++;
+  }
+  return { checked: old.length, removed };
+}
+
+// The public files an account's photos still need: each photo's web copies,
+// plus a photo's own file when it predates web copies (and so is public).
+function referencedPublicFiles(user: User) {
+  const files = new Set<string>();
+  for (const photo of user.photos) {
+    if (!isPrivateFile(photo.file)) files.add(photo.file);
+    for (const file of webCopyFiles(photo)) files.add(file);
+  }
+  return files;
 }
 
 // One email, ever, to verified people whose site is still a draft.
@@ -68,8 +100,19 @@ export async function sendDraftReminders() {
   for (const id of await accountsToRemindAboutDraft(DRAFT_REMINDER_AFTER_DAYS, REMINDERS_PER_RUN)) {
     const user = await findUserById(id);
     if (!user) continue;
-    // Marked first, so a failure sends nothing twice.
-    await updateUser(id, (u) => void (u.draftReminderAt = new Date().toISOString()), { publicChange: false });
+    // Marked first, so a failure sends nothing twice. Checked inside the lock,
+    // so two runs at once (a retry and the schedule) send only one.
+    let first = false;
+    await updateUser(
+      id,
+      (u) => {
+        if (u.draftReminderAt) return;
+        u.draftReminderAt = new Date().toISOString();
+        first = true;
+      },
+      { publicChange: false },
+    );
+    if (!first) continue;
     try {
       await sendEmail({
         to: user.email,

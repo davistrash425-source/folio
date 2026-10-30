@@ -70,12 +70,20 @@ export async function revokeSubscription(subscriptionId: string) {
 // counts as ended.
 export async function cancelSubscriptionFor(user: Pick<User, "id" | "billing">) {
   if (!user.billing || !billingConfigured()) return;
-  try {
-    await revokeSubscription(user.billing.subscriptionId);
-  } catch (err) {
-    const { status, message } = err as Error & { status?: number };
-    if (status === 404 || /already (canceled|cancelled|revoked)/i.test(message)) return;
-    throw err;
+  // An account can hold more than one active subscription (say, monthly and
+  // yearly), so end every one, not just the latest. Older records without the
+  // list still have their single subscriptionId.
+  // An ended one is left alone: Polar may refuse to end it twice.
+  const { subscriptionId, status } = user.billing;
+  const ids = user.billing.activeSubscriptionIds ?? (grantsPro(status) || status === "incomplete" ? [subscriptionId] : []);
+  for (const id of ids) {
+    try {
+      await revokeSubscription(id);
+    } catch (err) {
+      const { status, message } = err as Error & { status?: number };
+      if (status === 404 || /already (canceled|cancelled|revoked)/i.test(message)) continue;
+      throw err;
+    }
   }
 }
 
@@ -110,4 +118,10 @@ export function verifyWebhook(body: string, headers: Pick<Headers, "get">, now =
 // "active" until the period ends, then arrive as revoked.
 export function grantsPro(status: string) {
   return status === "active" || status === "trialing" || status === "past_due";
+}
+
+// Whether the saved subscriptions give the account Pro: any one of them
+// (activeSubscriptionIds), or on older records the single last one.
+export function billingGrantsPro(billing: NonNullable<User["billing"]>) {
+  return billing.activeSubscriptionIds ? billing.activeSubscriptionIds.length > 0 : grantsPro(billing.status);
 }

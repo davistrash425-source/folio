@@ -216,6 +216,7 @@ test("a notice is one strike however many photos it covers; takedowns without a 
 test("if deleting web copies fails, the photos stay taken down and a retry removes what's left", async (t) => {
   const { alice, one } = await world();
   const reportId = await copyrightNotice(alice.subdomain);
+  const emails = captureEmails(t);
   t.mock.method(console, "error", () => {});
   const remove = t.mock.method(storage, "remove", async () => {
     throw new Error("R2 is down");
@@ -224,11 +225,16 @@ test("if deleting web copies fails, the photos stay taken down and a retry remov
   assert.match(doneMessage(failed), /Try the takedown again/);
   assert.ok((await findUserById(alice.id))!.photos.find((p) => p.id === one.id)?.removed, "still taken down");
   for (const copy of webCopies(one)) assert.ok(filesOf(alice.id).includes(copy), `${copy} not deleted yet`);
+  assert.equal((await findReport(reportId))!.status, "open", "the failed attempt leaves the report open");
+  assert.equal(emails.length, 0, "the failed attempt doesn't email yet");
 
   remove.mock.restore();
-  await redirectedTo(adminActions.takeDownPhotos(form({ userId: alice.id, photo: one.id, reportId })));
+  const retried = await redirectedTo(adminActions.takeDownPhotos(form({ userId: alice.id, photo: one.id, reportId, notify: "yes" })));
+  assert.match(doneMessage(retried), /Cleaned up \d+ leftover copies/);
   for (const copy of webCopies(one)) assert.ok(!filesOf(alice.id).includes(copy), `${copy} deleted on retry`);
   assert.ok(filesOf(alice.id).includes(one.file), "the private original is kept");
+  assert.equal((await findReport(reportId))!.status, "closed", "the retry closes the report");
+  assert.ok(emails.some((e) => e.includes("took down")), "the retry emails the photographer");
 });
 
 test("a plan changed by staff shows on the live site straight away", async () => {
@@ -236,6 +242,19 @@ test("a plan changed by staff shows on the live site straight away", async () =>
   revalidated.length = 0;
   await redirectedTo(adminActions.setPlan(form({ userId: alice.id, plan: "pro" })));
   assert.ok(revalidated.includes(`tag:site:${alice.subdomain}`), "the public site cache is refreshed");
+});
+
+test("adding copyright details to older photos is logged", async () => {
+  const admin = await makeUser("Admin");
+  process.env.ADMIN_EMAILS = admin.email;
+  const alice = await makeUser("Alice");
+  const { photo } = await addPhoto(alice.id);
+  await signInAs(admin);
+
+  await redirectedTo(adminActions.addRightsToOlderPhotos());
+  assert.ok((await findUserById(alice.id))!.photos.find((p) => p.id === photo.id)!.copyright, "the photo got copyright details");
+  const logged = (await adminActionsFor(admin.id)).filter((e) => e.action === "add-rights-to-older-photos");
+  assert.equal(logged.length, 1, "the run is logged");
 });
 
 test("the database refuses to delete an account whose legal hold was placed after the admin's check", async () => {

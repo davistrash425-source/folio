@@ -6,6 +6,7 @@ import {
   addToken,
   createUser,
   deleteUser,
+  deleteUsers,
   findUserByEmail,
   findUserById,
   findUserBySubdomain,
@@ -13,7 +14,7 @@ import {
   updateUser,
 } from "../lib/db.ts";
 import { createToken, redeemToken } from "../lib/tokens.ts";
-import { databaseText } from "./helpers.ts";
+import { databaseText, makeUser } from "./helpers.ts";
 
 let n = 0;
 const newUser = (overrides: { email?: string; subdomain?: string } = {}) => {
@@ -155,4 +156,13 @@ test("two sign-ups racing for the same email or address: exactly one wins", asyn
     results.map((r) => (r.status === "fulfilled" ? "ok" : (r.reason as Error).message)).sort(),
     ["EMAIL_TAKEN", "SUBDOMAIN_TAKEN", "ok", "ok"],
   );
+});
+
+test("accounts deleted together are all kept if any one is on legal hold", async () => {
+  const site = await makeUser("Extra");
+  const owner = await makeUser("Owner");
+  await updateUser(owner.id, (u) => void (u.legalHold = { at: new Date().toISOString(), note: "court order" }));
+  await assert.rejects(deleteUsers([site.id, owner.id]), /LEGAL_HOLD/);
+  assert.ok(await findUserById(site.id), "the first one wasn't deleted either");
+  assert.ok(await findUserById(owner.id));
 });

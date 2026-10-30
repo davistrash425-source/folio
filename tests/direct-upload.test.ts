@@ -1,7 +1,7 @@
 // Direct uploads: the browser sends a photo straight to storage (R2 in
 // production), then app/api/photos/finish checks it and adds it to the account.
 import { beforeEach, test } from "node:test";
-import { FREE_PHOTO_LIMIT } from "../lib/plans.ts";
+import { FREE_PHOTO_LIMIT, FREE_STORAGE_LIMIT } from "../lib/plans.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "crypto";
 import sharp from "sharp";
@@ -242,4 +242,30 @@ test("finishing says how long each step took, for diagnosing slow uploads", asyn
   const steps = res.headers.get("server-timing")!.split(", ").map((s) => s.split(";")[0]);
   assert.deepEqual(steps, ["auth", "read", "resize", "store", "save"]);
   assert.match(res.headers.get("server-timing")!, /^auth;dur=\d+, read;dur=\d+/);
+});
+
+test("uploads already started count toward storage, so many at once can't pass the limit", async () => {
+  const alice = await makeUser("Alice");
+  await signInAs(alice);
+  const twentyMb = 20 * 1024 * 1024;
+  // Nearly full: room for one more 20 MB photo, not two.
+  await updateUser(alice.id, (u) => {
+    u.photos.push({ id: randomUUID(), file: original(), description: "", location: "", createdAt: "", bytes: FREE_STORAGE_LIMIT - twentyMb - 1000 });
+  });
+  storage.uploadUrl = async () => "https://upload.example/signed";
+  try {
+    const first = await startUpload("image/jpeg", twentyMb);
+    assert.ok(first.direct, "the first fits");
+    const second = await startUpload("image/jpeg", twentyMb);
+    assert.match(String(second.error), /storage/, "the second would overfill it");
+  } finally {
+    delete storage.uploadUrl;
+  }
+});
+
+test("an upload can't claim a type that's really a JavaScript built-in", async () => {
+  await signInAs(await makeUser("Alice"));
+  for (const type of ["constructor", "toString", "__proto__"]) {
+    assert.deepEqual(await startUpload(type, 1000), { error: "not a JPG, PNG, WebP, GIF or AVIF" }, type);
+  }
 });

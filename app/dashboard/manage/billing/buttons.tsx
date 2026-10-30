@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { openBillingPortal, startCheckout } from "@/app/actions/billing";
 import { Button, Message, secondaryButtonClass } from "@/app/ui/form";
+import { PRO_PRICE_MONTHLY, PRO_PRICE_YEARLY } from "@/lib/plans";
 
 // Subscribed accounts manage things on Polar's page; the others pick a plan.
 export function BillingButtons({ subscribed, pro }: { subscribed: boolean; pro: boolean }) {
@@ -16,12 +17,12 @@ export function BillingButtons({ subscribed, pro }: { subscribed: boolean; pro: 
         <>
           <form action={monthlyAction}>
             <Button type="submit" disabled={monthlyPending || yearlyPending}>
-              {monthlyPending ? "Opening…" : "Go Pro — $12 a month"}
+              {monthlyPending ? "Opening…" : `Go Pro — $${PRO_PRICE_MONTHLY} a month`}
             </Button>
           </form>
           <form action={yearlyAction}>
             <button type="submit" disabled={monthlyPending || yearlyPending} className={secondaryButtonClass}>
-              {yearlyPending ? "Opening…" : "$120 a year"}
+              {yearlyPending ? "Opening…" : `$${PRO_PRICE_YEARLY} a year`}
             </button>
           </form>
         </>
