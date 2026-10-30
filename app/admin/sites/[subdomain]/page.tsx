@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import {
   addAdminNote,
   deleteAccountAsAdmin,
+  letPaymentsDecide,
   placeLegalHold,
   setPlan,
   releaseLegalHold,
@@ -234,13 +235,30 @@ async function SiteView({ params, searchParams }: PageProps<"/admin/sites/[subdo
             )}
           </Card>
 
-          <Card title="Plan" subtitle="Folio Pro isn't on sale yet, so staff can switch it on for an account by hand.">
-            <form action={setPlan} className="flex flex-wrap items-center gap-3">
-              <UserId id={user.id} />
-              <input type="hidden" name="plan" value={user.plan === "pro" ? "free" : "pro"} />
-              <span className="text-sm text-ink-soft">Now on {user.plan === "pro" ? "Pro" : "Free"}.</span>
-              <SecondaryButton type="submit">{user.plan === "pro" ? "Move to Free" : "Move to Pro"}</SecondaryButton>
-            </form>
+          <Card
+            title="Plan"
+            subtitle="A plan set here by hand stays until you let payments decide again; Polar can't change it."
+          >
+            <p className="text-sm">
+              Now on {user.plan === "pro" ? "Pro" : "Free"},{" "}
+              {user.planSource === "manual" ? "set by hand" : "decided by payments"}.
+              {user.billing
+                ? ` Subscription: ${user.billing.status}${user.billing.cancelAtPeriodEnd ? ", ends at the period end" : ""}.`
+                : " No subscription."}
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <form action={setPlan}>
+                <UserId id={user.id} />
+                <input type="hidden" name="plan" value={user.plan === "pro" ? "free" : "pro"} />
+                <SecondaryButton type="submit">{user.plan === "pro" ? "Move to Free" : "Move to Pro"}</SecondaryButton>
+              </form>
+              {user.planSource === "manual" && (
+                <form action={letPaymentsDecide}>
+                  <UserId id={user.id} />
+                  <SecondaryButton type="submit">Let payments decide</SecondaryButton>
+                </form>
+              )}
+            </div>
           </Card>
 
           <Card title="Help with the account">

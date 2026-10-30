@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { createHmac } from "crypto";
 import * as billingActions from "../app/actions/billing.ts";
 import { deleteAccount } from "../app/actions/auth.ts";
-import { deleteAccountAsAdmin, setPlan } from "../app/actions/admin.ts";
+import { deleteAccountAsAdmin, letPaymentsDecide, setPlan } from "../app/actions/admin.ts";
 import { POST as webhook } from "../app/api/webhooks/billing/route.ts";
 import { findUserById } from "../lib/db.ts";
 import { photoLimit } from "../lib/plans.ts";
@@ -159,6 +159,37 @@ test("a plan an admin set by hand is never changed by payments", async () => {
   const after = (await findUserById(friend.id))!;
   assert.equal(after.plan, "pro");
   assert.equal(after.planSource, "manual");
+});
+
+test("after an admin lets payments decide, the last subscription state sets the plan and later events change it", async () => {
+  const admin = await makeUser("Boss");
+  const buyer = await makeUser("Buyer");
+  process.env.ADMIN_EMAILS = admin.email;
+  await signInAs(admin);
+  await redirectedTo(setPlan(formOf({ userId: buyer.id, plan: "free" })));
+  await webhook(signed(event(buyer.id, "active"), "e1"));
+  assert.equal((await findUserById(buyer.id))!.plan, "free", "the hand-set plan still stands");
+
+  await redirectedTo(letPaymentsDecide(formOf({ userId: buyer.id })));
+  let after = (await findUserById(buyer.id))!;
+  assert.equal(after.plan, "pro");
+  assert.equal(after.planSource, "billing");
+
+  await webhook(signed(event(buyer.id, "revoked", { modified_at: "2026-12-01T00:00:00Z" }), "e2"));
+  after = (await findUserById(buyer.id))!;
+  assert.equal(after.plan, "free");
+});
+
+test("letting payments decide with no subscription puts the account on Free", async () => {
+  const admin = await makeUser("Boss");
+  const friend = await makeUser("Friend");
+  process.env.ADMIN_EMAILS = admin.email;
+  await signInAs(admin);
+  await redirectedTo(setPlan(formOf({ userId: friend.id, plan: "pro" })));
+  await redirectedTo(letPaymentsDecide(formOf({ userId: friend.id })));
+  const after = (await findUserById(friend.id))!;
+  assert.equal(after.plan, "free");
+  assert.equal(after.planSource, "billing");
 });
 
 test("events for an unknown account or a non-subscription event are answered 200 and ignored", async () => {

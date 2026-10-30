@@ -5,7 +5,7 @@ import { redirect, notFound } from "next/navigation";
 import { randomUUID } from "crypto";
 import { STRIKE_LIMIT, requireFullAdmin } from "@/lib/admin";
 import { restoredEmail, suspendedEmail, takedownEmail, unsuspendedEmail } from "@/lib/admin-emails";
-import { cancelSubscriptionFor } from "@/lib/billing";
+import { cancelSubscriptionFor, grantsPro } from "@/lib/billing";
 import { adminRole, currentImpersonation, currentUser, requireUser } from "@/lib/auth";
 import {
   allUserIds,
@@ -231,7 +231,8 @@ export async function placeLegalHold(formData: FormData) {
   backTo(user, "Froze the account: its photos and the account can't be deleted until you release it.");
 }
 
-// Puts an account on Pro or back on Free by hand, until payments exist.
+// Puts an account on Pro or back on Free by hand. From then on payments
+// don't change it, until an admin uses letPaymentsDecide.
 export async function setPlan(formData: FormData) {
   const admin = await requireFullAdmin();
   const user = await accountFrom(formData);
@@ -248,6 +249,27 @@ export async function setPlan(formData: FormData) {
     detail: `Moved the account to the ${plan === "pro" ? "Pro" : "Free"} plan.`,
   });
   backTo(user, `The account is now on the ${plan === "pro" ? "Pro" : "Free"} plan.`);
+}
+
+// Undoes setPlan: the account's subscription decides the plan again, starting
+// now from the last state Polar sent (Free when there is none).
+export async function letPaymentsDecide(formData: FormData) {
+  const admin = await requireFullAdmin();
+  const user = await accountFrom(formData);
+  let name = "Free";
+  await updateUser(user.id, (u) => {
+    u.plan = u.billing && grantsPro(u.billing.status) ? "pro" : "free";
+    u.planSource = "billing";
+    if (u.plan === "pro") name = "Pro";
+  });
+  await logAdminAction({
+    adminEmail: admin.email,
+    userId: user.id,
+    subdomain: user.subdomain,
+    action: "plan-from-payments",
+    detail: `Let payments decide the plan (now ${name}).`,
+  });
+  backTo(user, `Payments decide this account's plan again. It is on ${name}.`);
 }
 
 export async function releaseLegalHold(formData: FormData) {
