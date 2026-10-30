@@ -1,6 +1,6 @@
 # Handoff
 
-**Status as of Oct 30, 2026.** Everything built so far is on `main` and live at www.folio.cam. **Paid plans (Folio Pro, Polar) are live in production since Oct 30** and a real purchase worked. Uncommitted on purpose (owner said don't commit): this file, `docs/BACKLOG.md`, `CLAUDE.md`, and the untracked `docs/FIX-PLAN.md`, `docs/NEW-SESSION-PROMPT.md`.
+**Status as of Oct 30, 2026.** Everything built so far is on `main` and live at www.folio.cam. **Paid plans (Folio Pro, Polar) are live in production since Oct 30** and a real purchase worked. All of it is committed and pushed (`d686f65`).
 
 ## What is live
 - Free plan (150 photos) and Pro: 1,500 photos, 20 password-protected client galleries, 50 GB, editable and extra special themes (Contact sheet, Monograph), no gallery footer badge (`lib/plans.ts`).
@@ -17,8 +17,8 @@
 2. Vercel Pro plan (Hobby forbids commercial use). Owner chose to stay on Hobby until there are paying users.
 3. The Claude Doc backlog got the Oct 30 billing edits (backlog tab only); its "Agent context" tab and any older Oct 28 differences were not re-checked.
 
-## Just built (Oct 30, uncommitted)
-Admin "Let payments decide" button: `letPaymentsDecide` in `app/actions/admin.ts` (full admin only, logged as `plan-from-payments`, sets `planSource: "billing"` and the plan from the saved `User.billing` via `grantsPro`, Free when none). The admin site page's Plan card now says whether the plan is hand-set and shows the subscription status; the button only appears for hand-set plans. Tests: two in `tests/billing.test.ts`, plus the action added to the signed-out/photographer and viewer lists in `tests/admin.test.ts` and `tests/admin-oversight.test.ts`. tsc, lint, all 479 tests and `npm run build` pass. Next: owner says whether to commit, push and deploy. Once deployed, use it on `folio.user.001@gmail.com`: its last saved subscription state is the cancelled-at-period-end one, so it will show Pro until Nov 30, 2026.
+## Just built (Oct 30, live in d686f65)
+Admin "Let payments decide" button: `letPaymentsDecide` in `app/actions/admin.ts` (full admin only, logged as `plan-from-payments`, sets `planSource: "billing"` and the plan from the saved `User.billing` via `grantsPro`, Free when none). The admin site page's Plan card now says whether the plan is hand-set and shows the subscription status; the button only appears for hand-set plans. Tests: two in `tests/billing.test.ts`, plus the action added to the signed-out/photographer and viewer lists in `tests/admin.test.ts` and `tests/admin-oversight.test.ts`. tsc, lint, all 479 tests and `npm run build` pass. Pushed to `main` and live (deployment `dpl_H6qn6EPkAP96ZuEX9Fkjh1n9A2D3`, READY). Once deployed, use it on `folio.user.001@gmail.com`: its last saved subscription state is the cancelled-at-period-end one, so it will show Pro until Nov 30, 2026.
 
 ## Next coding work
 `docs/FIX-PLAN.md`, Batch 1 first (pg pool error listener, `connection()` in Google cookie read, `impersonationBlock()` on remaining actions).

@@ -50,7 +50,7 @@ From `docs/CODE-REVIEW-2026-10-28.md`, which has the full list and the IDs. The 
 - [ ] Track more than one subscription per account (`User.billing`)
 - [ ] Accessibility: text contrast (`--color-ink-faint`), a `<main>` landmark, visible keyboard focus, focus after reorder buttons, live region for address availability
 - [ ] Design editor stuck on "Saving..." after adding a section (`sameDesign` key order)
-- [x] Admin "let payments decide" button: an account an admin ever set with `setPlan` stayed `planSource: "manual"` forever, so a later purchase was recorded but never granted Pro (seen Oct 30, 2026 on the first real purchase). Done Oct 30 (not yet committed): `letPaymentsDecide` in `app/actions/admin.ts`, button on the admin site page's Plan card
+- [x] Admin "let payments decide" button: an account an admin ever set with `setPlan` stayed `planSource: "manual"` forever, so a later purchase was recorded but never granted Pro (seen Oct 30, 2026 on the first real purchase). Done Oct 30 (live in d686f65): `letPaymentsDecide` in `app/actions/admin.ts`, button on the admin site page's Plan card
 - [ ] Decide what a refund does: refunding in Polar only cancels at period end, so the account keeps Pro until then (Polar's dashboard has no "revoke now" once cancelled)
 - [ ] Neutral sign-up and reset responses, per-email reset limit, timeouts on Upstash/Turnstile/Resend calls, tighten CSP (`unsafe-inline`, `form-action`)
 - [ ] Owner decision: should photos uploaded only for a client gallery appear on the public "all photos" page? (a per-photo hide flag would fix it)
