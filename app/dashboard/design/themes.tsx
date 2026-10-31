@@ -97,6 +97,20 @@ export function ThemeArt({ theme, photos }: { theme: ThemeId; photos: EditorPhot
           <span className="block w-1/2 bg-white p-2 shadow-sm ring-1 ring-black/10">{pic(1, "h-12 w-full")}</span>
         </span>
       );
+    case "tag":
+      return (
+        <span className="relative flex h-20 flex-col overflow-hidden bg-[#0b0b0b]">
+          <span className="relative flex h-11 items-center justify-center overflow-hidden">
+            {pic(0, "absolute inset-0 h-full w-full grayscale brightness-50")}
+            <span className="relative text-base font-black uppercase leading-none tracking-tight text-transparent [-webkit-text-stroke:1px_#d4f53c]">Name</span>
+          </span>
+          <span className="grid flex-1 grid-cols-3 gap-0.5 pt-0.5">
+            {pic(1, "h-full w-full grayscale")}
+            {pic(2, "h-full w-full")}
+            {pic(0, "h-full w-full grayscale")}
+          </span>
+        </span>
+      );
     case "filmstrip":
       return (
         <span className="flex h-20 items-center overflow-hidden bg-[#14100c] px-1">
@@ -284,6 +298,24 @@ export function ThemeSettings({ design, onChange, isPro }: { design: SiteDesign;
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={settings.monograph.pageNumbers} onChange={(e) => set("monograph", { pageNumbers: e.target.checked })} />
             Page number under each photo
+          </label>
+        </>
+      );
+    case "tag":
+      return (
+        <>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="color"
+              value={settings.tag.accent}
+              onChange={(e) => set("tag", { accent: e.target.value })}
+              className="h-8 w-10 cursor-pointer border border-rule"
+            />
+            Name and menu color
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={settings.tag.grain} onChange={(e) => set("tag", { grain: e.target.checked })} />
+            Film grain on the cover photo
           </label>
         </>
       );

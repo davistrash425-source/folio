@@ -119,6 +119,31 @@ test("a site whose owner is no longer Pro can't publish a Pro theme", async () =
   assert.equal(published.published!.theme, "classic");
 });
 
+test("a Pro account keeps the Tag theme's color and grain", async () => {
+  const alice = await makeUser("Alice");
+  await updateUser(alice.id, (u) => void (u.plan = "pro"));
+  await signInAs(alice);
+  const d = presetDesign("tag");
+  const published = await publishDesign({ ...d, themeSettings: { ...d.themeSettings, tag: { accent: "#ff4fa3", grain: false } } });
+  assert.equal(published.published!.theme, "tag");
+  assert.deepEqual(published.published!.themeSettings.tag, { accent: "#ff4fa3", grain: false });
+});
+
+test("a design saved before the Tag theme existed reads with its defaults", () => {
+  const d = presetDesign("classic");
+  const older: Partial<SiteDesign["themeSettings"]> = { ...d.themeSettings };
+  delete older.tag;
+  assert.deepEqual(readDesign({ ...d, themeSettings: older }, "minimal").themeSettings.tag, defaultThemeSettings().tag);
+});
+
+test("a Tag color that isn't a hex color is refused", async () => {
+  const alice = await makeUser("Alice");
+  await updateUser(alice.id, (u) => void (u.plan = "pro"));
+  await signInAs(alice);
+  const d = presetDesign("tag");
+  assert.ok((await saveDraftDesign({ ...d, themeSettings: { ...d.themeSettings, tag: { accent: "lime", grain: true } } })).error);
+});
+
 test("a bad Pro theme setting is refused", async () => {
   const alice = await makeUser("Alice");
   await updateUser(alice.id, (u) => void (u.plan = "pro"));

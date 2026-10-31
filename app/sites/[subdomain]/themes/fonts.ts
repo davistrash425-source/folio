@@ -1,7 +1,7 @@
 // Fonts for the creative themes. `preload: false` keeps them out of the head
 // of pages that don't use them; the browser only downloads a font once text
 // on the page actually uses it.
-import { Archivo, Bebas_Neue, Cormorant_Garamond, Jost, Share_Tech_Mono, Special_Elite } from "next/font/google";
+import { Anton, Archivo, Bebas_Neue, Cormorant_Garamond, Jost, Share_Tech_Mono, Space_Grotesk, Space_Mono, Special_Elite } from "next/font/google";
 
 export const cormorant = Cormorant_Garamond({
   variable: "--font-cormorant",
@@ -46,6 +46,30 @@ export const shareTech = Share_Tech_Mono({
 
 export const specialElite = Special_Elite({
   variable: "--font-elite",
+  subsets: ["latin"],
+  weight: "400",
+  display: "swap",
+  preload: false,
+});
+
+export const anton = Anton({
+  variable: "--font-anton",
+  subsets: ["latin"],
+  weight: "400",
+  display: "swap",
+  preload: false,
+});
+
+export const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  display: "swap",
+  preload: false,
+});
+
+export const spaceMono = Space_Mono({
+  variable: "--font-space-mono",
   subsets: ["latin"],
   weight: "400",
   display: "swap",

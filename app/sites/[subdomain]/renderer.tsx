@@ -8,6 +8,7 @@ import { ExhibitionTheme } from "./themes/exhibition";
 import { FilmstripTheme } from "./themes/filmstrip";
 import { IndexTheme } from "./themes/index-theme";
 import { MonographTheme } from "./themes/monograph";
+import { TagTheme } from "./themes/tag";
 
 const THEMES = {
   classic: ClassicTheme,
@@ -16,6 +17,7 @@ const THEMES = {
   filmstrip: FilmstripTheme,
   contactsheet: ContactsheetTheme,
   monograph: MonographTheme,
+  tag: TagTheme,
 };
 
 export function SiteRenderer({ site }: { site: SiteData }) {

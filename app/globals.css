@@ -29,6 +29,9 @@
   --font-film-title: var(--font-bebas), Impact, "Arial Narrow", sans-serif;
   --font-film-edge: var(--font-share-tech), ui-monospace, monospace;
   --font-film-note: var(--font-elite), "Courier New", monospace;
+  --font-tag-display: var(--font-anton), Impact, "Arial Narrow", sans-serif;
+  --font-tag-sans: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-tag-mono: var(--font-space-mono), ui-monospace, monospace;
 }
 
 body {

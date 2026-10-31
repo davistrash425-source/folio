@@ -36,10 +36,10 @@ export const LOOKS = [
 // Each theme draws the site with its own layout code. Classic is the flexible
 // one (colors, fonts and gallery styles are editable); the others decide how
 // the site looks and moves themselves, and only offer a few settings.
-export const THEMES = ["classic", "exhibition", "index", "filmstrip", "contactsheet", "monograph"] as const;
+export const THEMES = ["classic", "exhibition", "index", "filmstrip", "contactsheet", "monograph", "tag"] as const;
 // Themes only Pro accounts can use. A Free account's design falls back to
 // Classic (withoutProSettings).
-export const PRO_THEMES: readonly (typeof THEMES)[number][] = ["contactsheet", "monograph"];
+export const PRO_THEMES: readonly (typeof THEMES)[number][] = ["contactsheet", "monograph", "tag"];
 export const SHEET_PAPERS = ["light", "dark"] as const;
 export const SHEET_COLUMNS = [4, 6, 8] as const;
 export const BOOK_PAPERS = ["white", "cream", "black"] as const;
@@ -191,6 +191,7 @@ const DEFAULT_PRO = {
 const DEFAULT_PRO_THEMES = {
   contactsheet: { paper: "light", columns: 6 },
   monograph: { paper: "white", pageNumbers: true },
+  tag: { accent: "#d4f53c", grain: true },
 } as const;
 
 // Settings for the creative themes. All of them are always stored, so
@@ -247,6 +248,12 @@ const themeSettingsSchema = z
         pageNumbers: z.boolean().describe("A page number under each photo"),
       })
       .default(() => ({ ...DEFAULT_PRO_THEMES.monograph })),
+    tag: z
+      .object({
+        accent: hex.describe("The outlined name and the current menu item"),
+        grain: z.boolean().describe("Film grain over the cover photo"),
+      })
+      .default(() => ({ ...DEFAULT_PRO_THEMES.tag })),
   })
   .describe("Used only when that theme is chosen");
 
@@ -435,6 +442,7 @@ export function defaultThemeSettings(): ThemeSettings {
     filmstrip: { stock: "gold", frameNumbers: true, pro: { ...DEFAULT_PRO.filmstrip } },
     contactsheet: { ...DEFAULT_PRO_THEMES.contactsheet },
     monograph: { ...DEFAULT_PRO_THEMES.monograph },
+    tag: { ...DEFAULT_PRO_THEMES.tag },
   };
 }
 
