@@ -1,9 +1,7 @@
 # Handoff
 
-## Done (Oct 31, 2026): editor preview ignoring a chosen header photo — Status: complete (closed, not reproducible)
-- Owner reported it on davifphotos, Home page, while the theme was Classic. Could not reproduce locally (dev and production build) or on folio.cam (draft switched to Classic, photo picked with autosave on, reload; draft discarded afterwards). Owner said close it.
-- Added the browser test `tests/e2e/header-photo.spec.ts` (runs in CI with `npm run test:e2e`) as a guard. PR #27.
-- Gotcha: CI and Vercel builds sometimes fail with a Turbopack next/font/google error on Cormorant Garamond ("queries have exactly one entry"); re-running the same commit passes.
+## Logo (Oct 31, 2026): done
+Folio icon (ink tile, italic Newsreader F, red dot) replaced the Next.js favicon: `app/icon.svg`, `app/favicon.ico`, `app/apple-icon.png`; `proxy.ts` lets them through on photographer subdomains too.
 
 ## Current task (Oct 30, 2026): bug check + fix everything — code done, not merged
 - **Goal:** owner asked for a full multi-agent bug check, then "fix everything, go with your recommendations, update all docs".
