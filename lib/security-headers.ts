@@ -4,6 +4,8 @@
 // allowed, and that the site can't be framed by another site), HTTPS is
 // remembered for two years, and the usual browser hardening. It was checked
 // report-only on folio.cam first (Oct 25, 2026).
+import { DRIVE_HOSTS, driveConfig } from "./google-drive";
+
 type Env = Record<string, string | undefined>;
 
 const origin = (url: string | undefined) => {
@@ -27,18 +29,20 @@ export function contentPolicy(env: Env) {
   const photos = origin(env.R2_PUBLIC_URL);
   const uploads = env.R2_ACCOUNT_ID ? `https://*.r2.cloudflarestorage.com` : undefined;
   const turnstile = "https://challenges.cloudflare.com";
-  const list = (...parts: (string | undefined)[]) => parts.filter(Boolean).join(" ");
+  // Google Drive's picker and sign-in, only when it's switched on.
+  const drive = driveConfig(env) ? DRIVE_HOSTS : { script: [], style: [], frame: [], connect: [] };
+  const list = (...parts: (string | string[] | undefined)[]) => parts.flat().filter(Boolean).join(" ");
   return [
     "default-src 'self'",
     // Next.js adds small inline scripts to every page, and the nonce/hash
     // alternatives don't work with this app's partial prerendering (see the
     // Next 16 Content Security Policy guide), so 'unsafe-inline' stays for now.
-    `script-src ${list("'self'", "'unsafe-inline'", turnstile)}`,
-    "style-src 'self' 'unsafe-inline'",
+    `script-src ${list("'self'", "'unsafe-inline'", turnstile, drive.script)}`,
+    `style-src ${list("'self'", "'unsafe-inline'", drive.style)}`,
     `img-src ${list("'self'", "data:", "blob:", photos)}`,
     "font-src 'self' data:",
-    `connect-src ${list("'self'", photos, uploads, sentryOrigin(env.NEXT_PUBLIC_SENTRY_DSN), turnstile)}`,
-    `frame-src ${list("'self'", turnstile)}`,
+    `connect-src ${list("'self'", photos, uploads, sentryOrigin(env.NEXT_PUBLIC_SENTRY_DSN), turnstile, drive.connect)}`,
+    `frame-src ${list("'self'", turnstile, drive.frame)}`,
     "worker-src 'self' blob:",
     "object-src 'none'",
     "base-uri 'self'",

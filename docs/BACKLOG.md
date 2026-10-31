@@ -36,6 +36,7 @@ The working list for picking up Folio one task per session. Step-by-step instruc
 - [x] 9. Choose a payment provider. DECIDED Oct 26, 2026: Polar (merchant of record, pays out to Israel). Sandbox billing is merged to `main` (PR #20 and the downgrade follow-up) and was tested end to end (Oct 26, 2026: buy, cancel, uncancel and end all worked on a Vercel preview; see HANDOFF.md). Production switched on Oct 30, 2026: Polar org `folio-camera` approved, products Monthly `369d04ad-…` and Yearly `f5226918-…`, webhook API version 2026-10, `POLAR_*` in Vercel Production; a real $12 purchase showed Folio Pro and was refunded. Vercel Pro done Oct 30, 2026. Original note: Stripe may not accept Israeli businesses, so Paddle or Lemon Squeezy may fit better. Vercel's free tier also forbids commercial use.
 - [x] 10. Decide the "Made with Folio" footer on client galleries. (decided Oct 25, 2026: Free only, removed on Pro; `showFolioBadge` in `lib/plans.ts`. Free cannot make galleries today, so it rarely shows.)
 - [x] 11. Launch the Free plan, then Pro. (done Oct 30, 2026: owner moved to Vercel Pro and fully launched Folio Pro.)
+- [ ] 12. Switch on Google Drive uploads in Google Cloud: enable the Drive and Picker APIs, make a browser API key, add the `drive.file` scope, set `GOOGLE_PICKER_API_KEY` in Vercel, and have the lawyer add Drive wording to the Privacy page. (added Oct 31, 2026)
 
 ## Code review follow-ups (Oct 28 and Oct 30, 2026)
 
@@ -342,6 +343,7 @@ Every item in this doc, in the order you chose: design → security → legal �
 - [x] Show an Albums empty state explaining why to make one, with the create form in a dialog.
 - [x] Add "New album from selection" in the photo grid.
 - [x] Tell users when a delete didn't happen (for example, during a legal hold).
+- [ ] Upload photos from Google Drive. (Oct 31, 2026: code done on branch `google-drive-upload`, "Choose from Google Drive" on the upload page, `lib/google-drive.ts`. Left: owner item 12, then merge.)
 
 ## Web design editor
 

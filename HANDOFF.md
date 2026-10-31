@@ -1,5 +1,8 @@
 # Handoff
 
+## Google Drive upload (Oct 31, 2026): merged (PR #26)
+"Choose from Google Drive" on the upload page (`lib/google-drive.ts`, `app/dashboard/photo-uploader.tsx`). Only tested with fake keys. **Owner to do:** `docs/OWNER-CHECKLIST.md` item 12 (Drive + Picker APIs, browser key, `drive.file` scope, `GOOGLE_PICKER_API_KEY` in Vercel, Privacy wording with the lawyer Nov 1).
+
 ## Logo (Oct 31, 2026): done
 Folio icon (ink tile, italic Newsreader F, red dot) replaced the Next.js favicon: `app/icon.svg`, `app/favicon.ico`, `app/apple-icon.png`; `proxy.ts` lets them through on photographer subdomains too.
 

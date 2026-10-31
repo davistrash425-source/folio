@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { requireUser } from "@/lib/auth";
+import { driveConfig } from "@/lib/google-drive";
 import { photoSource } from "@/lib/uploads";
 import { PhotoUploader } from "../../editor";
 import { Card, PageHeader } from "../section";
@@ -13,7 +14,7 @@ export default function UploadPage() {
     <>
       <PageHeader title="Upload photos" subtitle="Photos are resized for the web, and location data hidden in the files is removed." />
       <Card>
-        <PhotoUploader />
+        <PhotoUploader drive={driveConfig()} />
       </Card>
       <Suspense fallback={null}>
         <RecentUploads />

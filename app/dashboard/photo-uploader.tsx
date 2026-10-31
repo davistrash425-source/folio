@@ -4,13 +4,18 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from "react";
 import { uploadPhotos } from "@/app/actions/site";
-import { Button, Message } from "@/app/ui/form";
+import { Button, Message, SecondaryButton } from "@/app/ui/form";
 import { CompressError, MAX_UPLOAD_BYTES, UPLOAD_TYPES, compressPhoto, formatMB, isHeic, isIOS, photoType } from "@/lib/compress-image";
-import { UploadError, finishDirect, sendDirect } from "@/lib/photo-upload";
+import { type DriveConfig, type DriveFile, downloadDriveFile, isDriveFile, loadDrive, pickFromDrive } from "@/lib/google-drive";
+import { UploadError, finishDirect, retrying, sendDirect } from "@/lib/photo-upload";
+
+// A photo from the computer, or one picked in Google Drive and downloaded
+// when its turn comes (so a big batch isn't all held in memory at once).
+type Source = File | DriveFile;
 
 type UploadItem = {
-  file: File; // as chosen, to try again with
-  status: "waiting" | "preparing" | "uploading" | "processing" | "done" | "failed";
+  file: Source; // as chosen, to try again with
+  status: "waiting" | "downloading" | "preparing" | "uploading" | "processing" | "done" | "failed";
   size: number; // bytes to send
   sent: number;
   reason?: string;
@@ -36,7 +41,8 @@ const acceptForDevice = () => (isIOS() ? ACCEPT : ACCEPT_WITH_HEIC);
 
 const neverChanges = () => () => {};
 
-export function PhotoUploader() {
+// `drive` is set when Google Drive is configured (driveConfig in lib/google-drive.ts).
+export function PhotoUploader({ drive }: { drive?: DriveConfig | null }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [items, setItems] = useState<UploadItem[]>([]);
@@ -45,9 +51,11 @@ export function PhotoUploader() {
   const accept = useSyncExternalStore(neverChanges, acceptForDevice, () => ACCEPT);
   const busy = items.some((i) => i.status !== "done" && i.status !== "failed");
   const running = useRef(false); // set at once, before the state above updates
-  const queued = useRef<File[]>([]); // chosen or dropped while a batch runs
+  const queued = useRef<Source[]>([]); // chosen or dropped while a batch runs
+  const [driveState, setDriveState] = useState<"loading" | "ready" | "picking" | "unavailable">("loading");
+  const [driveError, setDriveError] = useState<string>();
 
-  async function upload(files: File[]) {
+  async function upload(files: Source[]) {
     if (files.length === 0) return;
     if (running.current) {
       // Uploaded as the next batch, rather than ignored.
@@ -66,10 +74,27 @@ export function PhotoUploader() {
     const finishing = new Set<Promise<void>>();
     let uploaded = 0;
 
-    async function send(i: number, file: File) {
-      const type = photoType(file);
+    async function send(i: number, source: Source) {
+      const type = photoType(source);
       if (!UPLOAD_TYPES.includes(type) && !isHeic(type)) {
         return update(i, { status: "failed", reason: "not a JPG, PNG, WebP, GIF or AVIF" });
+      }
+      const failed = (err: unknown) => {
+        const known = err instanceof UploadError;
+        update(i, { status: "failed", reason: known ? err.message : "upload failed", retry: !known || err.retry });
+      };
+
+      let file: File;
+      if (isDriveFile(source)) {
+        update(i, { status: "downloading" });
+        try {
+          file = await retrying(() => downloadDriveFile(source));
+        } catch (err) {
+          return failed(err);
+        }
+        update(i, { size: file.size });
+      } else {
+        file = source;
       }
 
       let toSend = file;
@@ -96,10 +121,6 @@ export function PhotoUploader() {
       const succeeded = () => {
         uploaded++;
         update(i, { status: "done", sent: toSend.size });
-      };
-      const failed = (err: unknown) => {
-        const known = err instanceof UploadError;
-        update(i, { status: "failed", reason: known ? err.message : "upload failed", retry: !known || err.retry });
       };
 
       update(i, { status: "uploading" });
@@ -154,6 +175,30 @@ export function PhotoUploader() {
   // For the drop listener below, which is added once.
   const uploadDropped = useEffectEvent((files: File[]) => upload(files));
 
+  // Google's libraries load in the background, so the sign-in window can open
+  // straight from the click (a window opened later is blocked as a pop-up).
+  useEffect(() => {
+    if (!drive) return;
+    loadDrive().then(
+      () => setDriveState("ready"),
+      () => setDriveState("unavailable"),
+    );
+  }, [drive]);
+
+  async function chooseFromDrive() {
+    if (!drive) return;
+    setDriveError(undefined);
+    setDriveState("picking");
+    try {
+      upload(await pickFromDrive(drive));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "";
+      if (message !== "cancelled") setDriveError(message || "Google Drive couldn’t be opened");
+    } finally {
+      setDriveState("ready");
+    }
+  }
+
   useEffect(() => {
     // A photo dropped beside the box would otherwise open in the tab,
     // leaving the page. Upload it instead.
@@ -184,7 +229,7 @@ export function PhotoUploader() {
   const done = items.filter((i) => i.status === "done").length;
   const failed = items.filter((i) => i.status === "failed");
   const retryable = failed.filter((i) => i.retry);
-  const active = items.filter((i) => i.status === "preparing" || i.status === "uploading" || i.status === "processing");
+  const active = items.filter((i) => ["downloading", "preparing", "uploading", "processing"].includes(i.status));
   const total = items.reduce((n, i) => n + i.size, 0);
   const sent = items.reduce((n, i) => n + (i.status === "done" || i.status === "failed" ? i.size : i.sent), 0);
   const percent = total ? Math.floor((sent / total) * 100) : 0;
@@ -224,6 +269,15 @@ export function PhotoUploader() {
         />
       </label>
 
+      {drive && driveState !== "unavailable" && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+          <SecondaryButton onClick={chooseFromDrive} disabled={driveState !== "ready"}>
+            {driveState === "picking" ? "Choosing in Google Drive…" : "Choose from Google Drive"}
+          </SecondaryButton>
+          <Message error={driveError} />
+        </div>
+      )}
+
       {items.length > 0 && (
         <div className="space-y-2 text-sm" aria-live="polite">
           <div className="flex items-center gap-3">
@@ -238,7 +292,9 @@ export function PhotoUploader() {
           {active.map((i, n) => (
             <p key={n} className="truncate text-ink-soft" aria-hidden="true">
               {i.file.name}:{" "}
-              {i.status === "preparing"
+              {i.status === "downloading"
+                ? "getting it from Google Drive…"
+                : i.status === "preparing"
                 ? "preparing…"
                 : i.status === "processing"
                   ? "making web copies…"

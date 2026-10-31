@@ -89,6 +89,14 @@ Options: always shown, shown on Free only, or never. Tell Claude. It's a small c
 - Free plan launch: needs 1–7 done. Also decide whether `NEW_SITES_START_PUBLISHED` in `lib/site.ts` should stay `false` (new sites start as drafts, the safer default).
 - Pro launch: needs 5, 9 and 10 done as well.
 
+### 12. Google Drive uploads (added Oct 31, 2026)
+Use the same Google Cloud project as "Continue with Google".
+1. APIs & Services → Library: enable **Google Drive API** and **Google Picker API**.
+2. APIs & Services → Credentials → Create credentials → API key. Edit it: Application restrictions = Websites, add `https://folio.cam/*`, `https://www.folio.cam/*` and `http://localhost:3000/*`; API restrictions = Google Drive API and Google Picker API.
+3. Google Auth Platform → Data access → Add or remove scopes: add `.../auth/drive.file` ("See, edit, create and delete only the specific Google Drive files you use with this app"). It is a non-sensitive scope, so no Google security review is needed. While the app is in Testing mode only the listed test users can use it.
+4. Vercel → folio → Settings → Environment Variables: add `GOOGLE_PICKER_API_KEY` (Production and Preview), then redeploy.
+5. Ask the lawyer to add a line to the Privacy page: Folio reads only the Drive files the photographer picks, only to upload them to their site, and keeps no access afterwards (Google's "Limited Use" rules).
+
 ---
 
 ## What Claude can do once you decide
