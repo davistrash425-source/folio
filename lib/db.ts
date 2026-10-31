@@ -123,6 +123,9 @@ export type User = {
     cancelAtPeriodEnd?: boolean;
     lastEventId?: string; // a redelivered webhook with this id is ignored
     updatedAt?: string; // Polar's modified_at; older events are ignored
+    // Every subscription that still grants Pro, so deleting the account ends
+    // them all. Missing on accounts whose single subscription predates this.
+    activeSubscriptionIds?: string[];
   };
   emailVerified?: boolean;
   // Missing means the site asks AI companies' crawlers not to collect it for
@@ -159,6 +162,10 @@ export type User = {
   googleId?: string;
   // When we emailed a reminder that the site is still a draft (once only).
   draftReminderAt?: string;
+  // Direct uploads started but not finished yet, so their bytes count toward
+  // the storage limit (app/api/photos/start). Each lasts as long as its
+  // upload address; finishing the upload removes it.
+  pendingUploads?: { file: string; bytes: number; expires: number }[];
 };
 
 // One-time links for password resets and email verification. Only a hash of
@@ -290,26 +297,36 @@ export async function updateUser(id: string, fn: (user: User) => void, opts: { p
 // same statement that deletes, so one placed after the caller's check still
 // stops it.
 export async function deleteUser(id: string) {
+  await deleteUsers([id]);
+}
+
+// Deletes the accounts together (an admin's account and its extra sites): if
+// any is on legal hold, this throws LEGAL_HOLD and none is deleted.
+export async function deleteUsers(ids: string[]) {
   const db = await database();
-  const subdomain = await db.transaction(async (query) => {
-    const { rows } = await query<{ subdomain: string; manager: string | null }>(
-      "delete from users where id = $1 and (data->'legalHold') is null returning subdomain, data->>'managedBy' as manager",
-      [id],
-    );
-    if (!rows[0] && (await query("select 1 from users where id = $1", [id])).rows.length) throw new Error("LEGAL_HOLD");
-    await query("delete from tokens where user_id = $1", [id]);
-    // Remember the address, so it stays unavailable for a while
-    // (subdomainOnHold). An admin's extra site leaves it free for that admin.
-    if (rows[0]) {
-      await query("insert into storage_cleanup (user_id) values ($1) on conflict do nothing", [id]);
-      await query(
-        "insert into released_subdomains (subdomain, user_id) values ($1, $2) on conflict (subdomain) do update set released_at = now(), user_id = $2",
-        [rows[0].subdomain, rows[0].manager],
+  const subdomains = await db.transaction(async (query) => {
+    const deleted: string[] = [];
+    for (const id of ids) {
+      const { rows } = await query<{ subdomain: string; manager: string | null }>(
+        "delete from users where id = $1 and (data->'legalHold') is null returning subdomain, data->>'managedBy' as manager",
+        [id],
       );
+      if (!rows[0] && (await query("select 1 from users where id = $1", [id])).rows.length) throw new Error("LEGAL_HOLD");
+      await query("delete from tokens where user_id = $1", [id]);
+      // Remember the address, so it stays unavailable for a while
+      // (subdomainOnHold). An admin's extra site leaves it free for that admin.
+      if (rows[0]) {
+        await query("insert into storage_cleanup (user_id) values ($1) on conflict do nothing", [id]);
+        await query(
+          "insert into released_subdomains (subdomain, user_id) values ($1, $2) on conflict (subdomain) do update set released_at = now(), user_id = $2",
+          [rows[0].subdomain, rows[0].manager],
+        );
+        deleted.push(rows[0].subdomain);
+      }
     }
-    return rows[0]?.subdomain;
+    return deleted;
   });
-  if (subdomain) siteChanged(subdomain);
+  for (const subdomain of subdomains) siteChanged(subdomain);
 }
 
 // Deleted accounts whose files haven't been removed from storage yet.
@@ -445,6 +462,17 @@ export async function takeToken(hash: string, kind: Token["kind"]) {
   ]);
   const token = rows[0] ? toToken(rows[0]) : null;
   return token && Date.parse(token.expiresAt) > Date.now() ? token : null;
+}
+
+// Whether the user has an unexpired link of this kind still waiting, so a
+// second request keeps the first link rather than replacing it.
+export async function hasPendingToken(userId: string, kind: Token["kind"]) {
+  const db = await database();
+  const { rows } = await db.query("select 1 from tokens where user_id = $1 and kind = $2 and expires_at > now()", [
+    userId,
+    kind,
+  ]);
+  return rows.length > 0;
 }
 
 // A visitor's report about a site (copyright, harmful content…), kept so

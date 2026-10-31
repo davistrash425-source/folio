@@ -1,9 +1,9 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { impersonationBlock, requireUser } from "@/lib/auth";
+import { currentImpersonation, impersonationBlock, requireUser } from "@/lib/auth";
 import { cancelSubscriptionFor } from "@/lib/billing";
-import { createUser, deleteUser, findUserByEmail, findUserBySubdomain, managedSites, subdomainOnHold, updateUser } from "@/lib/db";
+import { createUser, deleteUsers, findUserByEmail, findUserBySubdomain, hasPendingToken, logAdminAction, managedSites, subdomainOnHold, updateUser } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
 import { clearGoogleSignup, readGoogleSignup } from "@/lib/google";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
@@ -12,6 +12,7 @@ import {
   createSession,
   deleteSession,
   hashPassword,
+  isLegacyPasswordHash,
   verifyPassword,
 } from "@/lib/session";
 import { ADDRESS_HOLD_MONTHS, NEW_SITES_START_PUBLISHED, SUPPORT_EMAIL, appUrl, validateSubdomain } from "@/lib/site";
@@ -155,11 +156,27 @@ export async function login(_prev: FormState, formData: FormData): Promise<FormS
   if (!(await verifyPassword(password, user?.passwordHash ?? "")) || !user) {
     return { error: "Wrong email or password.", fields: { email } };
   }
+  // Upgrade a password hashed with the old default cost, now that it's confirmed.
+  if (isLegacyPasswordHash(user.passwordHash)) {
+    const upgraded = await hashPassword(password);
+    await updateUser(user.id, (u) => void (u.passwordHash = upgraded));
+  }
   await createSession(user.id);
   redirect("/dashboard");
 }
 
 export async function logout() {
+  // Logging out also ends viewing an account as its owner, so log that too.
+  const impersonation = await currentImpersonation();
+  if (impersonation) {
+    await logAdminAction({
+      adminEmail: impersonation.admin.email,
+      userId: impersonation.target.id,
+      subdomain: impersonation.target.subdomain,
+      action: "impersonation-ended",
+      detail: "Stopped viewing the account as its owner (logged out).",
+    });
+  }
   await deleteSession();
   redirect("/");
 }
@@ -173,9 +190,19 @@ export async function requestPasswordReset(_prev: FormState, formData: FormData)
   const sent = { ok: "If an account uses that email, we've sent it a reset link.", fields };
 
   const user = await findUserByEmail(email);
-  // Same answer either way, so the form can't be used to find out who has an account.
-  if (!user) return sent;
+  // Same answer either way, so the form can't be used to find out who has an
+  // account. A missing account still does the scrypt work of a real one, so
+  // the reply time doesn't give it away either.
+  if (!user) {
+    await verifyPassword("timing-equalizer", "");
+    return sent;
+  }
+  // A pending link still works; a second request keeps it rather than making
+  // the first email's link fail.
+  if (await hasPendingToken(user.id, "reset")) return sent;
   const token = await createToken(user.id, "reset", HOUR);
+  // The same answer whether or not sending works, so a mail outage can't
+  // tell anyone which addresses have accounts.
   await sendEmail({
     to: user.email,
     subject: "Reset your Folio password",
@@ -184,7 +211,7 @@ export async function requestPasswordReset(_prev: FormState, formData: FormData)
 ${appUrl(`/reset-password?token=${token}`)}
 
 The link works for 1 hour. If it wasn't you, ignore this email.`,
-  });
+  }).catch((err) => console.error("Couldn't send a password reset email", err));
   return sent;
 }
 
@@ -207,6 +234,18 @@ export async function resetPassword(_prev: FormState, formData: FormData): Promi
 }
 
 // ── Email verification ──────────────────────────────────────────────────
+
+// The Confirm button on /verify-email. Opening the link doesn't confirm
+// anything, because mail scanners open links before people do and would use
+// the one-time token up.
+export async function confirmEmail(formData: FormData) {
+  const userId = await redeemToken(String(formData.get("token") ?? ""), "verify");
+  if (!userId) redirect("/dashboard/manage/account?verified=expired");
+  await updateUser(userId, (u) => {
+    u.emailVerified = true;
+  });
+  redirect("/dashboard/manage/account?verified=1");
+}
 
 export async function resendVerification(): Promise<FormState> {
   const user = await requireUser();
@@ -266,11 +305,11 @@ export async function deleteAccount(_prev: FormState, formData: FormData): Promi
     console.error("Couldn't end the subscription before deleting an account", user.id, err);
     return { error: `We couldn't end your subscription just now, so your account was not deleted. Try again in a few minutes or write to ${SUPPORT_EMAIL}.` };
   }
+  // All together: a legal hold placed meanwhile on any of them stops the lot.
+  const accounts = [...extraSites, user];
   try {
-    for (const account of [...extraSites, user]) {
-      await deleteUser(account.id);
-      await removeAccountFiles(account.id);
-    }
+    await deleteUsers(accounts.map((a) => a.id));
+    for (const account of accounts) await removeAccountFiles(account.id);
   } catch (err) {
     if ((err as Error).message !== "LEGAL_HOLD") throw err;
     return { error: `Your account can't be deleted right now. Write to ${SUPPORT_EMAIL} for help.` };

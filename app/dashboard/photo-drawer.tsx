@@ -11,10 +11,11 @@ import { useFocusTrap } from "@/app/ui/use-focus-trap";
 
 // Side panel for one photo's details. The frame stays open while you move
 // between photos; the form inside is replaced for each one.
-export function PhotoDrawer({ photo, albums, onClose, onPrev, onNext }: {
+export function PhotoDrawer({ photo, albums, onClose, onPrev, onNext, onSaveFailed }: {
   photo: LibraryPhoto;
   albums: { id: string; title: string }[];
   onClose: () => void;
+  onSaveFailed?: () => void; // a save failed, perhaps after the drawer closed
   onPrev?: () => void;
   onNext?: () => void;
 }) {
@@ -46,7 +47,7 @@ export function PhotoDrawer({ photo, albums, onClose, onPrev, onNext }: {
           </div>
           <button type="button" onClick={onClose} aria-label="Close" className="px-3 py-1 text-xl hover:bg-ink/5">×</button>
         </div>
-        <PhotoDetails key={photo.id} photo={photo} albums={albums} onDeleted={onClose} />
+        <PhotoDetails key={photo.id} photo={photo} albums={albums} onDeleted={onClose} onSaveFailed={onSaveFailed} />
       </div>
     </div>
   );
@@ -61,10 +62,11 @@ const sameFields = (a: PhotoFields, b: PhotoFields) =>
 // when you move to another photo or close the drawer.
 const AUTOSAVE_DELAY = 800;
 
-function PhotoDetails({ photo, albums, onDeleted }: {
+function PhotoDetails({ photo, albums, onDeleted, onSaveFailed }: {
   photo: LibraryPhoto;
   albums: { id: string; title: string }[];
   onDeleted: () => void;
+  onSaveFailed?: () => void;
 }) {
   const [fields, setFields] = useState<PhotoFields>({
     description: photo.description,
@@ -94,6 +96,7 @@ function PhotoDetails({ photo, albums, onDeleted }: {
         if (result.error) {
           saved.current = before;
           setStatus("error");
+          onSaveFailed?.();
           return;
         }
         setStatus(sameFields(latest.current, values) ? "saved" : "saving");
@@ -101,9 +104,18 @@ function PhotoDetails({ photo, albums, onDeleted }: {
       () => {
         saved.current = before;
         setStatus("error");
+        onSaveFailed?.();
       },
     );
   });
+
+  // Warn before leaving the page with details that haven't saved yet.
+  useEffect(() => {
+    if (status !== "saving" && status !== "error") return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [status]);
 
   useEffect(() => {
     const timer = setTimeout(() => persist(fields), AUTOSAVE_DELAY);
@@ -210,15 +222,20 @@ function PhotoDetails({ photo, albums, onDeleted }: {
 export function SmallButton({
   label,
   children,
+  disabled,
+  onClick,
   ...props
 }: React.ComponentProps<"button"> & { label: string }) {
+  // Stays focusable when disabled (aria-disabled), like IconButton.
   return (
     <button
       type="button"
       aria-label={label}
       title={label}
       {...props}
-      className="bg-paper/90 px-2 py-1 text-xs font-medium border border-rule disabled:opacity-40"
+      aria-disabled={disabled || undefined}
+      onClick={disabled ? undefined : onClick}
+      className="bg-paper/90 px-2 py-1 text-xs font-medium border border-rule aria-disabled:opacity-40"
     >
       {children}
     </button>

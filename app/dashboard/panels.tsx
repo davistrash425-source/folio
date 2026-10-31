@@ -7,6 +7,7 @@ import { createSite } from "@/app/actions/sites";
 import { Button, Field, Input, Message, buttonClass, secondaryButtonClass } from "@/app/ui/form";
 import { ConfirmButton } from "@/app/ui/confirm";
 import { Dialog } from "@/app/ui/dialog";
+import { keepFields } from "@/app/ui/keep-fields";
 import type { Inquiry } from "@/lib/db";
 
 export function PublishToggle({ published }: { published: boolean }) {
@@ -17,7 +18,7 @@ export function PublishToggle({ published }: { published: boolean }) {
         label="Take offline"
         confirmLabel="Take offline"
         message="Take your site offline?"
-        onConfirm={() => startTransition(() => setPublished(false))}
+        onConfirm={() => startTransition(() => void setPublished(false))}
         className={`${secondaryButtonClass} h-8 px-3`}
         confirmClassName={`${secondaryButtonClass} h-8 px-3`}
       />
@@ -27,7 +28,7 @@ export function PublishToggle({ published }: { published: boolean }) {
     <button
       type="button"
       disabled={pending}
-      onClick={() => startTransition(() => setPublished(true))}
+      onClick={() => startTransition(() => void setPublished(true))}
       className={`${buttonClass} h-8 px-3`}
     >
       {pending ? "Saving…" : "Put site online"}
@@ -126,7 +127,7 @@ export function Inbox({ inquiries, photos = {} }: { inquiries: Inquiry[]; photos
                   <ConfirmButton
                     label="Delete"
                     message="Delete this message?"
-                    onConfirm={() => startTransition(() => deleteInquiry(q.id))}
+                    onConfirm={() => startTransition(() => void deleteInquiry(q.id))}
                     className="px-3 py-1.5 text-accent hover:bg-accent-soft"
                     confirmClassName="bg-accent px-3 py-1.5 text-sm text-paper hover:bg-ink"
                   />
@@ -186,7 +187,7 @@ function AddressInput({ defaultValue, domain }: { defaultValue: string; domain: 
 }
 
 export function AddressForm({ subdomain, domain }: { subdomain: string; domain: string }) {
-  const [state, action, pending] = useActionState(changeAddress, {});
+  const [state, action, pending] = useActionState(keepFields(changeAddress), {});
   const formRef = useRef<HTMLFormElement>(null);
   const confirmed = useRef(false);
   // The new address waiting for a yes, shown as old -> new.
@@ -211,7 +212,7 @@ export function AddressForm({ subdomain, domain }: { subdomain: string; domain: 
       }}
       className="space-y-3"
     >
-      <AddressInput defaultValue={subdomain} domain={domain} />
+      <AddressInput defaultValue={state.fields?.subdomain ?? subdomain} domain={domain} />
       <p className="text-sm text-ink-soft">
         Your site moves to the new address straight away, and the old one stops working, so update any links you’ve
         shared. Nobody else can take your old address for a year, and you can move back to it.

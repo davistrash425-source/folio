@@ -4,9 +4,9 @@ import { utimes } from "fs/promises";
 import path from "path";
 import { GET as daily } from "../app/api/cron/daily/route.ts";
 import { deleteAccount } from "../app/actions/auth.ts";
-import { DRAFT_REMINDER_AFTER_DAYS, removeAccountFiles, removeOrphanedOriginals, retryStorageCleanups, sendDraftReminders } from "../lib/cleanup.ts";
+import { DRAFT_REMINDER_AFTER_DAYS, removeAccountFiles, removeOrphanedOriginals, removeOrphanedWebCopies, retryStorageCleanups, sendDraftReminders } from "../lib/cleanup.ts";
 import { deleteUser, findUserById, pendingStorageCleanups, updateUser } from "../lib/db.ts";
-import { UPLOAD_DIR, storage } from "../lib/uploads.ts";
+import { UPLOAD_DIR, storage, webCopyFiles } from "../lib/uploads.ts";
 import { addPhoto, captureEmails, filesOf, formOf, makeUser, redirectedTo, resetRequest, signInAs } from "./helpers.ts";
 
 beforeEach(resetRequest);
@@ -40,6 +40,20 @@ test("an account on legal hold keeps its unfinished uploads too", async () => {
   const result = await removeOrphanedOriginals();
   assert.equal(result.removed, 0);
   assert.ok(filesOf(alice.id).includes("33333333-3333-3333-3333-333333333333.orig.jpg"));
+});
+
+test("web copies that belong to no photo are deleted; a photo's own copies stay", async () => {
+  const alice = await makeUser("Alice");
+  const { photo } = await addPhoto(alice.id);
+  await oldOriginal(alice.id, "11111111-1111-1111-1111-111111111111-640.webp", 2 * DAY); // orphaned
+  await oldOriginal(alice.id, "22222222-2222-2222-2222-222222222222-1280.webp", 60_000); // recent, still settling
+
+  const result = await removeOrphanedWebCopies();
+  assert.equal(result.removed, 1);
+  const left = filesOf(alice.id);
+  assert.ok(!left.includes("11111111-1111-1111-1111-111111111111-640.webp"));
+  assert.ok(left.includes("22222222-2222-2222-2222-222222222222-1280.webp"));
+  for (const copy of webCopyFiles(photo)) assert.ok(left.includes(copy), `${copy} kept`);
 });
 
 test("deleting an account queues its files, and they're cleared once removed", async () => {
@@ -101,5 +115,13 @@ test("the daily job only runs for Vercel's cron, with the secret", async (t) => 
   assert.equal((await call("Bearer wrong")).status, 404);
   const ok = await call("Bearer s3cret");
   assert.equal(ok.status, 200);
-  assert.deepEqual(Object.keys(await ok.json()), ["closedAccounts", "unfinishedUploads", "draftReminders"]);
+  assert.deepEqual(Object.keys(await ok.json()), ["closedAccounts", "unfinishedUploads", "draftReminders", "orphanedWebCopies"]);
+});
+
+test("two reminder runs at the same time still send one email", async (t) => {
+  const emails = captureEmails(t);
+  const draft = await makeUser("Twin", { published: false });
+  await updateUser(draft.id, (x) => void (x.createdAt = new Date(Date.now() - (DRAFT_REMINDER_AFTER_DAYS + 1) * DAY).toISOString()));
+  await Promise.all([sendDraftReminders(), sendDraftReminders()]);
+  assert.equal(emails.filter((e) => e.includes(draft.email)).length, 1);
 });

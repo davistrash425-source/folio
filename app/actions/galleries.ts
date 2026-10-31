@@ -4,13 +4,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { randomUUID } from "crypto";
 import { z } from "zod";
-import { requireUser } from "@/lib/auth";
+import { impersonationBlock, requireUser } from "@/lib/auth";
 import { findUserBySubdomain, updateUser } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
 import { MIN_GALLERY_PASSWORD, findGallery, galleryExpired, galleryPhotos, newGallerySlug, validExpiryDate } from "@/lib/galleries";
 import { galleriesOpen, galleryLimit } from "@/lib/plans";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
-import { siteUrl } from "@/lib/site";
+import { isLive, siteUrl } from "@/lib/site";
 import { grantGalleryAccess, hasGalleryAccess, hashPassword, verifyPassword } from "@/lib/session";
 import { MAX_PHOTOS } from "@/lib/uploads";
 
@@ -107,11 +107,15 @@ export async function setGalleryPhotos(id: string, photoIds: string[]): Promise<
 // photographer gives it separately, so the mailbox alone isn't enough.
 export async function emailGalleryLink(id: string, _prev: GalleryState, formData: FormData): Promise<GalleryState> {
   const user = await requireUser();
+  const blocked = await impersonationBlock();
+  if (blocked) return { error: blocked };
   const to = String(formData.get("email") ?? "").trim();
   const note = String(formData.get("note") ?? "").trim().slice(0, 1000);
   if (!z.email().safeParse(to).success) return { error: "Enter your client's email address." };
   const gallery = findGallery(user, id);
   if (!gallery) return { error: "That gallery no longer exists." };
+  if (!galleriesOpen(user)) return { error: NOT_PRO };
+  if (!isLive(user)) return { error: "Your site is offline, so this gallery can't be shared." };
   if (!(await rateLimit(`gallery-email:${user.id}`, 20, 60 * 60 * 1000))) {
     return { error: "You've sent a lot of emails. Try again in an hour." };
   }
@@ -133,6 +137,8 @@ export async function emailGalleryLink(id: string, _prev: GalleryState, formData
 
 export async function deleteGallery(id: string): Promise<GalleryState> {
   const user = await requireUser();
+  const blocked = await impersonationBlock();
+  if (blocked) return { error: blocked };
   await updateUser(
     user.id,
     (u) => {
@@ -166,7 +172,7 @@ export async function unlockGallery(
     return { error: "Too many tries. Wait a few minutes and try again." };
   }
   const owner = await findUserBySubdomain(subdomain);
-  const found = owner && !owner.suspended && owner.emailVerified && galleriesOpen(owner) ? findGallery(owner, slug) : undefined;
+  const found = owner && isLive(owner) && galleriesOpen(owner) ? findGallery(owner, slug) : undefined;
   const gallery = found && !galleryExpired(found) ? found : undefined;
   // Takes the same time whether or not there is such a gallery.
   const ok = await verifyPassword(password, gallery?.passwordHash ?? "");
@@ -183,7 +189,7 @@ export async function toggleFavourite(subdomain: string, slug: string, photoId: 
     return { error: "Too many changes. Wait a few minutes." };
   }
   const owner = await findUserBySubdomain(subdomain);
-  const gallery = owner && !owner.suspended && owner.emailVerified && galleriesOpen(owner) ? findGallery(owner, slug) : undefined;
+  const gallery = owner && isLive(owner) && galleriesOpen(owner) ? findGallery(owner, slug) : undefined;
   if (!owner || !gallery || galleryExpired(gallery) || !(await hasGalleryAccess(gallery.id, gallery.passwordHash))) {
     return { error: "This gallery isn't available." };
   }

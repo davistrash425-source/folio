@@ -5,15 +5,16 @@ import { useActionState, useState, useTransition } from "react";
 import { createGallery, deleteGallery, emailGalleryLink, setGalleryPhotos, updateGallery } from "@/app/actions/galleries";
 import { Button, Field, Input, Message } from "@/app/ui/form";
 import { ConfirmButton } from "@/app/ui/confirm";
+import { keepFields } from "@/app/ui/keep-fields";
 import { PhotoPicker } from "./design/pickers";
 import type { EditorPhoto } from "./design/types";
 
 export function CreateGalleryForm() {
-  const [state, action, pending] = useActionState(createGallery, {});
+  const [state, action, pending] = useActionState(keepFields(createGallery), {});
   return (
     <form action={action} className="max-w-md space-y-4">
       <Field label="Gallery name" hint="Usually the client or the shoot, like “Maya & Dan, June”.">
-        <Input name="title" required maxLength={80} />
+        <Input name="title" required maxLength={80} defaultValue={state.fields?.title} />
       </Field>
       <Field label="Password" hint="Give this to your client with the link. At least 6 characters.">
         <Input name="password" type="text" required minLength={6} autoComplete="off" />
@@ -27,17 +28,17 @@ export function CreateGalleryForm() {
 }
 
 export function GalleryDetailsForm({ gallery }: { gallery: { id: string; title: string; expiresAt?: string } }) {
-  const [state, action, pending] = useActionState(updateGallery.bind(null, gallery.id), {});
+  const [state, action, pending] = useActionState(keepFields(updateGallery.bind(null, gallery.id)), {});
   return (
     <form action={action} className="max-w-md space-y-4">
       <Field label="Gallery name">
-        <Input name="title" required maxLength={80} defaultValue={gallery.title} />
+        <Input name="title" required maxLength={80} defaultValue={state.fields?.title ?? gallery.title} />
       </Field>
       <Field label="New password" hint="Leave empty to keep the current one. Changing it signs everyone out of the gallery.">
         <Input name="password" type="text" minLength={6} autoComplete="off" />
       </Field>
       <Field label="Link expires" hint="The last day the link works. Leave empty for no end date.">
-        <Input name="expires" type="date" defaultValue={gallery.expiresAt ?? ""} />
+        <Input name="expires" type="date" defaultValue={state.fields?.expires ?? gallery.expiresAt ?? ""} />
       </Field>
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={pending}>{pending ? "Saving…" : "Save"}</Button>
@@ -48,14 +49,14 @@ export function GalleryDetailsForm({ gallery }: { gallery: { id: string; title: 
 }
 
 export function EmailLinkForm({ galleryId }: { galleryId: string }) {
-  const [state, action, pending] = useActionState(emailGalleryLink.bind(null, galleryId), {});
+  const [state, action, pending] = useActionState(keepFields(emailGalleryLink.bind(null, galleryId)), {});
   return (
     <form action={action} className="max-w-md space-y-4">
       <Field label="Client's email" hint="They get the link. The password isn't included: send it yourself, ideally another way.">
-        <Input name="email" type="email" required autoComplete="off" />
+        <Input name="email" type="email" required autoComplete="off" defaultValue={state.fields?.email} />
       </Field>
       <Field label="Message (optional)">
-        <Input name="note" maxLength={1000} />
+        <Input name="note" maxLength={1000} defaultValue={state.fields?.note} />
       </Field>
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={pending}>{pending ? "Sending…" : "Email the link"}</Button>

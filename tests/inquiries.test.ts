@@ -230,3 +230,26 @@ test("messages arriving, being read and being deleted don't clear the public sit
   await deleteInquiry(sent.id);
   assert.ok(!revalidated.includes(tag), "reading and deleting are private");
 });
+
+test("a full inbox drops the oldest read message first, so unread ones survive a flood", async () => {
+  const owner = await makeUser("Busy");
+  const now = Date.now();
+  await updateUser(owner.id, (u) => {
+    u.inquiries = Array.from({ length: 500 }, (_, i) => ({
+      id: `q${i}`,
+      name: "Someone",
+      email: "s@example.com",
+      date: "",
+      message: `message ${i}`,
+      createdAt: new Date(now - i * 1000).toISOString(),
+      read: i !== 499, // the very oldest is unread
+    }));
+  });
+  fromIp("198.51.100.88");
+  await sendInquiry(owner.subdomain, {}, formOf({ name: "New client", email: "new@example.com", message: "Hello" }));
+  const inbox = (await findUserById(owner.id))!.inquiries!;
+  assert.equal(inbox.length, 500);
+  assert.equal(inbox[0].message, "Hello");
+  assert.ok(inbox.some((q) => q.id === "q499"), "the unread message is kept");
+  assert.ok(!inbox.some((q) => q.id === "q498"), "the oldest read one went instead");
+});

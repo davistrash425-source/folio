@@ -5,7 +5,9 @@ import { findUserBySubdomain } from "@/lib/db";
 import { findGallery, galleryExpired, galleryPhotos } from "@/lib/galleries";
 import { galleriesOpen } from "@/lib/plans";
 import { hasGalleryAccess } from "@/lib/session";
+import { isLive } from "@/lib/site";
 import { photoSource } from "@/lib/uploads";
+import { ReportLink } from "../../themes/report-link";
 import { FolioBadge } from "./folio-badge";
 import { PhotoGrid } from "./photo-grid";
 import { UnlockForm } from "./unlock-form";
@@ -29,7 +31,7 @@ async function Gallery({ params }: { params: PageProps<"/sites/[subdomain]/g/[ga
   const { subdomain, gallery: slug } = await params;
   const owner = await findUserBySubdomain(subdomain);
   // Same page for a wrong link and for a site that is closed or unconfirmed.
-  const gallery = owner && !owner.suspended && owner.emailVerified && galleriesOpen(owner) ? findGallery(owner, slug) : undefined;
+  const gallery = owner && isLive(owner) && galleriesOpen(owner) ? findGallery(owner, slug) : undefined;
   if (!owner || !gallery) notFound();
 
   if (galleryExpired(gallery)) {
@@ -73,6 +75,9 @@ async function Gallery({ params }: { params: PageProps<"/sites/[subdomain]/g/[ga
       ) : (
         <PhotoGrid subdomain={subdomain} slug={gallery.slug} photos={photos} favourites={favourites} />
       )}
+      <p className="mt-8 text-center text-xs text-ink-faint">
+        <ReportLink site={{ subdomain, preview: false }} />
+      </p>
     </main>
     <FolioBadge owner={owner} />
     </>

@@ -101,6 +101,7 @@ export function PhotoLibrary({
   }
 
   function run(action: () => Promise<{ error?: string; ok?: string }>) {
+    setNotice({});
     startTransition(async () => {
       const result = await action();
       setNotice(result);
@@ -128,7 +129,12 @@ export function PhotoLibrary({
               key={f.id}
               type="button"
               aria-pressed={filter === f.id}
-              onClick={() => setFilter(f.id)}
+              onClick={() => {
+                setFilter(f.id);
+                // A bulk action must only touch photos the photographer can see.
+                setSelected(new Set());
+                setNotice({});
+              }}
               className={chipClass(filter === f.id)}
             >
               {f.label} <span className="opacity-60">{count}</span>
@@ -195,7 +201,6 @@ export function PhotoLibrary({
             className="px-3 py-1.5 text-sm text-accent hover:bg-accent-soft"
             confirmClassName="bg-accent px-3 py-1.5 text-sm text-paper hover:bg-ink"
           />
-          <Message error={notice.error} ok={notice.ok} />
           <button
             type="button"
             onClick={() => {
@@ -208,6 +213,9 @@ export function PhotoLibrary({
           </button>
         </div>
       )}
+
+      {/* Outside the bar, which closes when an action works. */}
+      <Message error={notice.error} ok={notice.ok} />
 
       {newAlbumOpen && (
         <Dialog title={`New album with ${selected.size} photo${selected.size === 1 ? "" : "s"}`} onClose={() => setNewAlbumOpen(false)}>
@@ -276,8 +284,10 @@ export function PhotoLibrary({
                   if (next) setOrder(next);
                 }}
                 onDrop={(e) => e.preventDefault()}
-                onDragEnd={() => {
-                  if (dragId && order.some((p, j) => p.id !== photos[j].id)) {
+                onDragEnd={(e) => {
+                  // Escape or a drop outside the grid puts everything back.
+                  if (e.dataTransfer.dropEffect === "none") setOrder(photos);
+                  else if (dragId && order.some((p, j) => p.id !== photos[j].id)) {
                     startTransition(() => reorderPhotos(order.map((p) => p.id)));
                   }
                   setDragId(null);
@@ -328,9 +338,9 @@ export function PhotoLibrary({
         </ul>
       )}
 
+      {/* Not keyed by photo: Previous and Next keep the drawer (and focus) in place. */}
       {openIndex !== -1 && (
         <PhotoDrawer
-          key={visible[openIndex].id}
           photo={visible[openIndex]}
           albums={albums}
           onClose={() => {
@@ -341,6 +351,7 @@ export function PhotoLibrary({
           }}
           onPrev={openIndex > 0 ? () => setOpenId(visible[openIndex - 1].id) : undefined}
           onNext={openIndex < visible.length - 1 ? () => setOpenId(visible[openIndex + 1].id) : undefined}
+          onSaveFailed={() => setNotice({ error: "A photo's details couldn't be saved. Open it and try again." })}
         />
       )}
     </div>

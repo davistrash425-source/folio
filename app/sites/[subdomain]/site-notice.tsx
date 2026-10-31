@@ -1,8 +1,9 @@
 import { headers } from "next/headers";
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
+import { subdomainOnHold } from "@/lib/db";
 import { siteNotice, type SiteLook, type SiteNotice } from "@/lib/public-site";
-import { appUrl, siteSubdomain, validateSubdomain } from "@/lib/site";
+import { ADDRESS_HOLD_MONTHS, appUrl, siteSubdomain, validateSubdomain } from "@/lib/site";
 
 // Same mapping as the Classic theme, so the page reads as the photographer's.
 const BODY_FONT = { sans: "font-sans", serif: "font-serif", mixed: "font-sans", mono: "font-mono" };
@@ -13,10 +14,11 @@ const BODY_FONT = { sans: "font-sans", serif: "font-serif", mixed: "font-sans", 
 export async function SiteNotFound() {
   const subdomain = siteSubdomain((await headers()).get("host") ?? "");
   const notice: SiteNotice = subdomain ? ((await siteNotice(subdomain)) ?? { status: "missing" }) : { status: "missing" };
-  return <SiteNoticePage notice={notice} subdomain={subdomain} />;
+  const held = subdomain ? await subdomainOnHold(subdomain, ADDRESS_HOLD_MONTHS) : false;
+  return <SiteNoticePage notice={notice} subdomain={subdomain} held={held} />;
 }
 
-export function SiteNoticePage({ notice, subdomain }: { notice: SiteNotice; subdomain: string | null }) {
+export function SiteNoticePage({ notice, subdomain, held = false }: { notice: SiteNotice; subdomain: string | null; held?: boolean }) {
   if (notice.status === "offline") {
     return (
       <Themed look={notice.look}>
@@ -34,8 +36,9 @@ export function SiteNoticePage({ notice, subdomain }: { notice: SiteNotice; subd
       </Themed>
     );
   }
-  // Only addresses someone could actually sign up for get the offer.
-  const claimable = subdomain && !validateSubdomain(subdomain);
+  // Only addresses someone could actually sign up for get the offer: a valid
+  // name that isn't reserved and isn't still held for its previous owner.
+  const claimable = subdomain && !held && !validateSubdomain(subdomain);
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center">
       <h1 className="font-display text-4xl">This site doesn’t exist yet</h1>

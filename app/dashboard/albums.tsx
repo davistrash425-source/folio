@@ -7,10 +7,11 @@ import { createAlbum, deleteAlbum, setAlbumCover, setAlbumPhotos, updateAlbum } 
 import { Button, Field, Input, Message, buttonClass, inputClass, secondaryButtonClass } from "@/app/ui/form";
 import { ConfirmButton } from "@/app/ui/confirm";
 import { Dialog } from "@/app/ui/dialog";
+import { keepFields } from "@/app/ui/keep-fields";
 
 // photoIds: start the album with these (from a selection in the photo grid).
 export function CreateAlbumForm({ photoIds = [] }: { photoIds?: string[] }) {
-  const [state, action, pending] = useActionState(createAlbum, {});
+  const [state, action, pending] = useActionState(keepFields(createAlbum), {});
 
   return (
     <form action={action} className="space-y-4">
@@ -18,10 +19,10 @@ export function CreateAlbumForm({ photoIds = [] }: { photoIds?: string[] }) {
         <input key={id} type="hidden" name="photoIds" value={id} />
       ))}
       <Field label="Album name">
-        <Input name="title" required maxLength={60} placeholder="e.g. Weddings" data-autofocus />
+        <Input name="title" required maxLength={60} defaultValue={state.fields?.title} placeholder="e.g. Weddings" data-autofocus />
       </Field>
       <Field label="Short description" hint="Optional. Shown on the album page.">
-        <Input name="description" maxLength={500} placeholder="Add a line about these photos…" />
+        <Input name="description" maxLength={500} defaultValue={state.fields?.description} placeholder="Add a line about these photos…" />
       </Field>
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={pending}>{pending ? "Creating…" : "Create album"}</Button>
@@ -52,14 +53,14 @@ export function NewAlbumButton({ label = "New album", primary = false }: { label
 }
 
 export function AlbumDetailsForm({ album }: { album: { id: string; title: string; description: string } }) {
-  const [state, action, pending] = useActionState(updateAlbum.bind(null, album.id), {});
+  const [state, action, pending] = useActionState(keepFields(updateAlbum.bind(null, album.id)), {});
   return (
     <form action={action} className="space-y-4">
       <Field label="Album name">
-        <Input name="title" required maxLength={60} defaultValue={album.title} />
+        <Input name="title" required maxLength={60} defaultValue={state.fields?.title ?? album.title} />
       </Field>
       <Field label="Short description">
-        <textarea name="description" rows={3} maxLength={500} defaultValue={album.description} className={inputClass} />
+        <textarea name="description" rows={3} maxLength={500} defaultValue={state.fields?.description ?? album.description} className={inputClass} />
       </Field>
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={pending}>{pending ? "Saving…" : "Save"}</Button>
@@ -100,11 +101,14 @@ export function AlbumPhotos({
     setOrder(next);
     startTransition(() => setAlbumPhotos(albumId, next));
   }
+  // Swaps two photos as shown. `order` can also hold photos that aren't shown
+  // (taken down by Folio), so positions are looked up by id.
   function move(from: number, to: number) {
-    if (to < 0 || to >= order.length) return;
+    if (to < 0 || to >= inAlbum.length) return;
+    const a = order.indexOf(inAlbum[from].id);
+    const b = order.indexOf(inAlbum[to].id);
     const next = [...order];
-    const [id] = next.splice(from, 1);
-    next.splice(to, 0, id);
+    [next[a], next[b]] = [next[b], next[a]];
     save(next);
   }
 
@@ -189,14 +193,17 @@ export function DeleteAlbumButton({ albumId, title }: { albumId: string; title: 
   );
 }
 
-function Small({ label, danger, children, ...props }: React.ComponentProps<"button"> & { label: string; danger?: boolean }) {
+// Stays focusable when disabled (aria-disabled), like IconButton.
+function Small({ label, danger, children, disabled, onClick, ...props }: React.ComponentProps<"button"> & { label: string; danger?: boolean }) {
   return (
     <button
       type="button"
       aria-label={label}
       title={label}
       {...props}
-      className={`bg-paper/90 px-2 py-1 text-xs font-medium disabled:opacity-40 ${danger ? "text-accent" : ""}`}
+      aria-disabled={disabled || undefined}
+      onClick={disabled ? undefined : onClick}
+      className={`bg-paper/90 px-2 py-1 text-xs font-medium aria-disabled:opacity-40 ${danger ? "text-accent" : ""}`}
     >
       {children}
     </button>

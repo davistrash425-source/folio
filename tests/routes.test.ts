@@ -242,3 +242,14 @@ test("addresses that try to climb out of the photo folders find nothing", async 
     assert.equal(res.status, 404, `${userId} / ${file}`);
   }
 });
+
+test("the export leaves out client gallery passwords", async () => {
+  const alice = await makeUser("Alice");
+  await updateUser(alice.id, (u) => {
+    u.galleries = [{ id: "g1", slug: "abc", title: "Maya & Dan", passwordHash: "gallerysalt:galleryhash", photoIds: [], createdAt: new Date().toISOString() }];
+  });
+  await signInAs(alice);
+  const text = readZip(Buffer.from(await (await exportAccount()).arrayBuffer())).get("account.json")!.toString();
+  assert.ok(text.includes("Maya & Dan"), "the gallery itself is in the export");
+  assert.ok(!text.includes("galleryhash"));
+});

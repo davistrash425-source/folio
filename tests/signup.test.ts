@@ -2,9 +2,8 @@
 // new site goes live.
 import { beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
-import { signup } from "../app/actions/auth.ts";
+import { confirmEmail, signup } from "../app/actions/auth.ts";
 import { sendInquiry } from "../app/actions/site.ts";
-import { GET as verifyEmail } from "../app/verify-email/route.ts";
 import { deleteUser, findUserByEmail, findUserById, updateUser } from "../lib/db.ts";
 import { database } from "../lib/pg.ts";
 import { siteData } from "../lib/public-site.ts";
@@ -31,7 +30,9 @@ test("a new site starts as a draft and goes live only once it's published", asyn
   assert.equal(siteData(user), null, "not live before publishing");
 
   const link = /https?:\/\/\S+\/verify-email\?token=\S+/.exec(emails.join("\n"))![0];
-  assert.equal(await redirectedTo(verifyEmail(new Request(link))), "/dashboard/manage/account?verified=1");
+  const token = new URL(link).searchParams.get("token")!;
+  assert.equal(await redirectedTo(confirmEmail(formOf({ token }))), "/dashboard/manage/account?verified=1");
+  assert.equal(await redirectedTo(confirmEmail(formOf({ token }))), "/dashboard/manage/account?verified=expired", "the link works once");
   assert.equal(siteData((await findUserById(user.id))!), null, "confirmed, but still a draft");
 
   await updateUser(user.id, (u) => (u.published = true));

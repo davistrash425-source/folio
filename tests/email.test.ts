@@ -60,3 +60,15 @@ test("without Resend, development prints the email instead", async (t) => {
   assert.equal(fetchCalls.length, 0);
   assert.match(printed[0], /To: a@example\.com/);
 });
+
+test("the email call carries a timeout so a hung provider can't stall a request", async (t) => {
+  process.env.RESEND_API_KEY = "re_test";
+  process.env.EMAIL_FROM = "hello@folio.example";
+  let signal: AbortSignal | undefined;
+  t.mock.method(globalThis, "fetch", async (_url: string, init: RequestInit = {}) => {
+    signal = init.signal ?? undefined;
+    return new Response('{"id":"1"}');
+  });
+  await sendEmail({ to: "a@example.com", subject: "Hi", text: "x" });
+  assert.ok(signal instanceof AbortSignal, "the fetch has an abort signal");
+});

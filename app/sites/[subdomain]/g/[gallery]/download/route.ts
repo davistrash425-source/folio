@@ -3,6 +3,7 @@ import { findGallery, galleryExpired, galleryPhotos } from "@/lib/galleries";
 import { galleriesOpen } from "@/lib/plans";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { hasGalleryAccess } from "@/lib/session";
+import { isLive } from "@/lib/site";
 import { downloadFile, storage } from "@/lib/uploads";
 import { zipResponse } from "@/lib/zip";
 
@@ -12,7 +13,7 @@ import { zipResponse } from "@/lib/zip";
 export async function GET(_req: Request, ctx: RouteContext<"/sites/[subdomain]/g/[gallery]/download">) {
   const { subdomain, gallery: slug } = await ctx.params;
   const owner = await findUserBySubdomain(subdomain);
-  const gallery = owner && !owner.suspended && owner.emailVerified && galleriesOpen(owner) ? findGallery(owner, slug) : undefined;
+  const gallery = owner && isLive(owner) && galleriesOpen(owner) ? findGallery(owner, slug) : undefined;
   if (!owner || !gallery || galleryExpired(gallery) || !(await hasGalleryAccess(gallery.id, gallery.passwordHash))) {
     return new Response("Not found", { status: 404 });
   }

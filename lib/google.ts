@@ -4,6 +4,7 @@
 // short-lived signed cookies, so a forged request can't swap the state or sign
 // someone else up.
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 import {
   createHash,
   createHmac,
@@ -64,6 +65,7 @@ async function setSignedCookie(name: string, data: string, maxAgeMs: number) {
 }
 
 async function readSignedCookie(name: string) {
+  await connection(); // the expiry check depends on the current time
   const raw = (await cookies()).get(name)?.value;
   if (!raw) return null;
   const lastDot = raw.lastIndexOf(".");
@@ -151,6 +153,7 @@ export async function exchangeAndVerify(
   const tokenRes = await fetch(TOKEN, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    signal: AbortSignal.timeout(10_000),
     body: new URLSearchParams({
       code,
       client_id: clientId(),
@@ -203,9 +206,10 @@ async function verifyIdToken(idToken: string): Promise<GoogleIdentity | null> {
 async function googleKey(kid: string) {
   let keys: { kid: string; kty: string; n: string; e: string }[];
   try {
-    const res = await fetch(CERTS);
+    const res = await fetch(CERTS, { signal: AbortSignal.timeout(10_000) });
     if (!res.ok) return null;
     keys = ((await res.json()) as { keys: typeof keys }).keys;
+    if (!Array.isArray(keys)) return null;
   } catch {
     return null;
   }

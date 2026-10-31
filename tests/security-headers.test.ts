@@ -29,5 +29,6 @@ test("the content policy allows the photo store, uploads, Sentry and Turnstile, 
   assert.match(policy, /connect-src [^;]*https:\/\/o123\.ingest\.de\.sentry\.io/);
   assert.match(policy, /script-src [^;]*https:\/\/challenges\.cloudflare\.com/);
   assert.match(policy, /object-src 'none'/);
+  assert.match(policy, /form-action 'self'/, "forms can only submit back to the site");
   assert.doesNotMatch(policy, /\*(;|$| )/, "no bare wildcard source");
 });

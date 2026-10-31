@@ -1,5 +1,5 @@
 import { timingSafeEqual } from "crypto";
-import { removeOrphanedOriginals, retryStorageCleanups, sendDraftReminders } from "@/lib/cleanup";
+import { removeOrphanedOriginals, removeOrphanedWebCopies, retryStorageCleanups, sendDraftReminders } from "@/lib/cleanup";
 
 // Vercel Cron calls this once a day (vercel.json) and sends
 // `Authorization: Bearer <CRON_SECRET>` when CRON_SECRET is set. Without that
@@ -24,5 +24,6 @@ export async function GET(req: Request) {
     closedAccounts: await run(retryStorageCleanups),
     unfinishedUploads: await run(removeOrphanedOriginals),
     draftReminders: await run(sendDraftReminders),
+    orphanedWebCopies: await run(removeOrphanedWebCopies),
   });
 }

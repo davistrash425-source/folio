@@ -1,5 +1,7 @@
 # Fix plan — open issues, in order of importance
 
+**Status, Oct 30, 2026:** done. Every batch except Batch 9 (per-photo hide flag, waiting on the owner) is built. The work sat uncommitted in `.claude/worktrees/fix-plan` and is now merged into branch `bug-check-fixes`, with the Oct 30 bug check (`docs/CODE-REVIEW-2026-10-30.md`). The batch descriptions below are kept for reference.
+
 Source: `docs/CODE-REVIEW-2026-10-28.md` (open items). Each batch is a self-contained PR that lands independently. Ordered most-important first. Item IDs in parentheses point back to the review doc / `docs/FULL-CHECK-NOTES.md`.
 
 Before a batch is "done" it must pass: `npx tsc --noEmit`, `npx eslint app lib tests proxy.ts`, `npm test`, and add or adjust a test in the right file (`tests/ownership.test.ts` for cross-account checks, `tests/signed-out.test.ts` for auth, `tests/` otherwise).

@@ -76,10 +76,21 @@ GitHub Actions (`.github/workflows/ci.yml`) runs lint, type checks, `npm test`, 
 | Public pricing page | `app/pricing/page.tsx` |
 | Client galleries (Pro) | `lib/galleries.ts`, `app/actions/galleries.ts`, `app/sites/[subdomain]/g/[gallery]`, dashboard `app/dashboard/manage/galleries` |
 | Sign in with Google | `lib/google.ts`, `app/api/auth/google/start` and `callback`, `app/(auth)/signup/google` |
-| Email confirmation | `lib/verify-email.ts`, `app/verify-email/route.ts` |
+| Email confirmation | `lib/verify-email.ts`, `app/(auth)/verify-email/page.tsx` (Confirm button), `confirmEmail` in `app/actions/auth.ts` |
 | Daily cleanup and reminders (cron) | `app/api/cron/daily/route.ts`, `lib/cleanup.ts`, schedule in `vercel.json` |
 | Security headers and CSP | `lib/security-headers.ts` |
-| Address availability check (sign-up) | `app/api/address` |
+| Address availability check (sign-up) | `app/api/address`, `lib/address.ts` |
+| Public site loading and caching | `lib/public-site.ts`, site shape in `lib/site-data.ts` |
+| Social link cleanup | `lib/social.ts` |
+| Setup steps (the "go live" checklist) | `lib/steps.ts` |
+| Theme helpers | `lib/theme-utils.ts` |
+| Report reasons and DMCA notices | `lib/reports.ts` |
+| Legal pages and the DMCA agent | `lib/legal.ts` |
+| Error reporting (Sentry) | `lib/sentry.ts` |
+| Turnstile bot check | `lib/turnstile.ts` |
+| Takedown cache purge (Cloudflare) | `lib/cdn.ts` |
+| Browser-side direct upload | `lib/photo-upload.ts` |
+| Launch readiness checks | `lib/readiness.ts` |
 
 ## Environment variables
 

@@ -8,6 +8,7 @@ import { AwsClient } from "aws4fetch";
 import type { Photo } from "./db";
 import { DATA_DIR } from "./pg";
 import { PRO_PHOTO_LIMIT } from "./plans";
+import { purgeCache } from "./cdn";
 import { processImage, variantName, type PhotoRights } from "./images";
 
 export const UPLOAD_DIR = path.join(DATA_DIR, "uploads");
@@ -16,13 +17,14 @@ export const MAX_PHOTO_BYTES = 20 * 1024 * 1024;
 // account may hold is `photoLimit(user)` in lib/plans.ts.
 export const MAX_PHOTOS = PRO_PHOTO_LIMIT;
 
-export const IMAGE_TYPES: Record<string, string> = {
+// No prototype, so a type like "constructor" finds nothing (see MIME_BY_EXT).
+export const IMAGE_TYPES: Record<string, string | undefined> = Object.assign(Object.create(null), {
   "image/jpeg": "jpg",
   "image/png": "png",
   "image/webp": "webp",
   "image/gif": "gif",
   "image/avif": "avif",
-};
+});
 
 // No prototype, so looking up an extension like "constructor" finds nothing
 // instead of one of JavaScript's built-in properties.
@@ -50,16 +52,19 @@ function segment(name: string) {
 const userDir = (userId: string) => path.join(UPLOAD_DIR, segment(userId));
 const local = (userId: string, file: string) => path.join(userDir(userId), segment(file));
 
-export type StoredOriginal = { userId: string; file: string; modified: number };
+export type StoredFile = { userId: string; file: string; modified: number };
 
 export type Storage = {
   put(userId: string, file: string, data: Buffer): Promise<void>;
   get(userId: string, file: string): Promise<Buffer>; // throws if missing
-  remove(userId: string, file: string): Promise<void>;
+  // Removes one file; true when it was there, false when it was already gone.
+  remove(userId: string, file: string): Promise<boolean>;
   removeAll(userId: string): Promise<void>;
   // Every private original in storage, with when it was last written, for
   // finding uploads that were never finished (lib/cleanup.ts).
-  listOriginals(): Promise<StoredOriginal[]>;
+  listOriginals(): Promise<StoredFile[]>;
+  // Every public web copy in storage, for the orphan sweep (lib/cleanup.ts).
+  listPublic(): Promise<StoredFile[]>;
   // A short-lived address the browser can upload `file` to directly, for
   // stores that support it (R2). Hosts like Vercel cap request bodies at a
   // few MB, so large photos can't go through the app's own server.
@@ -77,16 +82,33 @@ const diskStorage: Storage = {
     return fs.readFile(local(userId, file));
   },
   async remove(userId, file) {
-    await fs.rm(local(userId, file), { force: true });
+    try {
+      await fs.unlink(local(userId, file));
+      return true;
+    } catch (err) {
+      if ((err as { code?: string }).code === "ENOENT") return false;
+      throw err;
+    }
   },
   async removeAll(userId) {
     await fs.rm(userDir(userId), { recursive: true, force: true });
   },
   async listOriginals() {
-    const found: StoredOriginal[] = [];
+    const found: StoredFile[] = [];
     for (const userId of await fs.readdir(UPLOAD_DIR).catch(() => [])) {
       for (const file of await fs.readdir(path.join(UPLOAD_DIR, userId)).catch(() => [])) {
         if (!isPrivateFile(file)) continue;
+        const { mtimeMs } = await fs.stat(path.join(UPLOAD_DIR, userId, file));
+        found.push({ userId, file, modified: mtimeMs });
+      }
+    }
+    return found;
+  },
+  async listPublic() {
+    const found: StoredFile[] = [];
+    for (const userId of await fs.readdir(UPLOAD_DIR).catch(() => [])) {
+      for (const file of await fs.readdir(path.join(UPLOAD_DIR, userId)).catch(() => [])) {
+        if (isPrivateFile(file)) continue; // originals are listOriginals' job
         const { mtimeMs } = await fs.stat(path.join(UPLOAD_DIR, userId, file));
         found.push({ userId, file, modified: mtimeMs });
       }
@@ -203,7 +225,8 @@ export function r2Storage(config: R2Config): Storage {
       return Buffer.from(await (await send(objectUrl(userId, file))).arrayBuffer());
     },
     async remove(userId, file) {
-      await send(objectUrl(userId, file), { method: "DELETE" });
+      const res = await send(objectUrl(userId, file), { method: "DELETE" });
+      return res.status !== 404;
     },
     async uploadUrl(userId, file, contentType, size) {
       const url = new URL(objectUrl(userId, file));
@@ -218,10 +241,18 @@ export function r2Storage(config: R2Config): Storage {
       return signed.url;
     },
     async listOriginals() {
-      const found: StoredOriginal[] = [];
+      const found: StoredFile[] = [];
       for (const { key, modified } of await listObjects(config.privateBucket, "")) {
         const [userId, file, ...rest] = key.split("/");
         if (userId && file && !rest.length && isPrivateFile(file)) found.push({ userId, file, modified });
+      }
+      return found;
+    },
+    async listPublic() {
+      const found: StoredFile[] = [];
+      for (const { key, modified } of await listObjects(config.publicBucket, "")) {
+        const [userId, file, ...rest] = key.split("/");
+        if (userId && file && !rest.length && !isPrivateFile(file)) found.push({ userId, file, modified });
       }
       return found;
     },
@@ -242,7 +273,7 @@ export function r2Storage(config: R2Config): Storage {
   };
 }
 
-const UPLOAD_URL_SECONDS = 10 * 60;
+export const UPLOAD_URL_SECONDS = 10 * 60;
 
 const unescapeXml = (s: string) =>
   s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&");
@@ -319,6 +350,8 @@ export async function directUpload(userId: string, contentType: string, size: nu
   return { file, url: await storage.uploadUrl(userId, file, contentType, size) };
 }
 
+const SERVER_TROUBLE = /out of memory|cannot allocate|ENOMEM|EMFILE|too many open files/i;
+
 // The ways finishDirectUpload fails because of the photo itself, rather than
 // storage being unavailable (worth trying again).
 export const PHOTO_ERRORS = new Set(["BAD_PATH", "NOT_UPLOADED", "TOO_LARGE", "NOT_AN_IMAGE"]);
@@ -351,6 +384,9 @@ export async function finishDirectUpload(
     if (data.length > MAX_PHOTO_BYTES) throw new Error("TOO_LARGE");
     image = await processImage(data, rights);
   } catch (err) {
+    // The server running short (memory, open files) isn't the photo's fault:
+    // keep it, and the browser tries again. Anything else is a bad file.
+    if (SERVER_TROUBLE.test((err as Error).message)) throw err;
     await storage.remove(userId, file).catch(() => {});
     throw new Error((err as Error).message === "TOO_LARGE" ? "TOO_LARGE" : "NOT_AN_IMAGE", { cause: err });
   }
@@ -384,13 +420,29 @@ export async function deletePhotoFiles(userId: string, photo: Photo) {
   await Promise.all([storage.remove(userId, photo.file), deleteWebCopies(userId, photo)]);
 }
 
+// The web copy file names for a photo (its variants; none for photos from
+// before web copies existed, which serve their original).
+export function webCopyFiles(photo: Photo) {
+  return (photo.variants ?? []).map((w) => variantName(baseName(photo.file), w));
+}
+
 // Deletes only the public web copies, keeping the private original: what a
 // takedown does, so the photo can be put back. (Photos from before web copies
-// existed serve their original and have none to delete.)
+// existed serve their original and have none to delete.) Returns how many
+// copies were actually there, and purges the CDN cache for each address: the
+// copies are immutable, so deleting the object isn't enough to stop them.
 export async function deleteWebCopies(userId: string, photo: Photo) {
-  await Promise.all(
-    (photo.variants ?? []).map((w) => storage.remove(userId, variantName(baseName(photo.file), w))),
-  );
+  const files = webCopyFiles(photo);
+  const removed = await Promise.all(files.map((f) => storage.remove(userId, f)));
+  await purgeCache(publicUrls(userId, files));
+  return removed.filter(Boolean).length;
+}
+
+// The public addresses the web copies are served from. Without R2 (development
+// and tests) there are none and nothing is purged.
+function publicUrls(userId: string, files: string[]) {
+  const base = process.env.R2_PUBLIC_URL?.replace(/\/+$/, "");
+  return base ? files.map((f) => `${base}/${userId}/${f}`) : [];
 }
 
 // Makes a photo's web copies again from its original, under the same names.

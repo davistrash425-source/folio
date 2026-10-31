@@ -6,11 +6,15 @@ import { managedSites } from "@/lib/db";
 import { isLive, isPublished, siteUrl } from "@/lib/site";
 import { previewLabel } from "@/lib/steps";
 import { ImpersonationBanner } from "./impersonation-banner";
-import { DashboardTabs, DashboardTabsView, SiteSwitcher, StickyBar } from "./nav";
+import { DashboardTabs, DashboardTabsView, Menu, SiteSwitcher, StickyBar } from "./nav";
 
 export default function DashboardLayout({ children }: LayoutProps<"/dashboard">) {
   return (
     <div className="flex flex-1 flex-col">
+      {/* Skip link: keyboard users jump straight to the page, past the bar. */}
+      <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:bg-ink focus:px-3 focus:py-2 focus:text-sm focus:text-paper">
+        Skip to content
+      </a>
       {/* On phones the two wrappers drop out (`contents`), so the tabs pin to
           the top of the screen on their own and the site status scrolls away
           beneath them. From md up the whole bar is pinned. */}
@@ -33,7 +37,9 @@ export default function DashboardLayout({ children }: LayoutProps<"/dashboard">)
           </div>
         </div>
       </StickyBar>
-      {children}
+      <main id="main" className="flex flex-1 flex-col">
+        {children}
+      </main>
       <ImpersonationBanner />
     </div>
   );
@@ -85,10 +91,10 @@ async function SiteStatus() {
 }
 
 // "Log out" and the account settings, in one small menu instead of their own
-// header row. Uses <details> like SiteSwitcher, so it needs no JavaScript.
+// header row. A <details> like SiteSwitcher, so it opens without JavaScript.
 function AccountMenu() {
   return (
-    <details className="relative">
+    <Menu className="relative">
       <summary className="flex h-8 cursor-pointer list-none items-center gap-1 text-ink-soft hover:text-ink">
         Account <span aria-hidden="true" className="text-ink-faint">▾</span>
       </summary>
@@ -100,6 +106,6 @@ function AccountMenu() {
           <button className="block w-full px-3 py-2 text-left text-sm hover:bg-card">Log out</button>
         </form>
       </div>
-    </details>
+    </Menu>
   );
 }

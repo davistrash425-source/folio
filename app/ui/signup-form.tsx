@@ -12,7 +12,7 @@ import { useAddressCheck, type AddressStatus } from "@/app/ui/use-address-check"
 // The shared look for a text box that's fine or in error (red border).
 const box = (isError: boolean) =>
   `w-full border bg-card text-sm text-ink outline-none transition-colors ${
-    isError ? "border-accent" : "border-rule focus:border-ink"
+    isError ? "border-accent" : "border-rule focus-within:border-ink"
   }`;
 
 export function SignupForm({ initialSubdomain }: { initialSubdomain: string }) {
@@ -24,6 +24,7 @@ export function SignupForm({ initialSubdomain }: { initialSubdomain: string }) {
   const [password, setPassword] = useState("");
   const [subdomain, setSubdomain] = useState(initialSubdomain);
   const [showPassword, setShowPassword] = useState(false);
+  const [terms, setTerms] = useState(false); // controlled, so a failed submit doesn't untick it
   const { status, message, checking } = useAddressCheck(subdomain);
 
   const field = state.field;
@@ -108,12 +109,12 @@ export function SignupForm({ initialSubdomain }: { initialSubdomain: string }) {
             />
             <span className="pr-3 text-sm text-ink-soft">.{ROOT_DOMAIN}</span>
           </div>
-          <span id="signup-address-hint" className="mt-1.5 block text-xs text-ink-faint">
+          <span id="signup-address-hint" aria-live="polite" className="mt-1.5 block text-xs text-ink-faint">
             <AddressHint status={status} message={message} checking={checking} />
           </span>
         </label>
         <label className="flex items-start gap-2 text-sm text-ink-soft">
-          <input type="checkbox" name="terms" className="mt-0.5" />
+          <input type="checkbox" name="terms" checked={terms} onChange={(e) => setTerms(e.target.checked)} className="mt-0.5" />
           <span>
             I agree to the <Link href="/terms" target="_blank" className="underline">Terms</Link> and{" "}
             <Link href="/privacy" target="_blank" className="underline">Privacy Policy</Link>.

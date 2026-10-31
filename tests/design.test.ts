@@ -13,6 +13,7 @@ import {
   newPage,
   presetDesign,
   readDesign,
+  sameDesign,
   showsCaption,
   uniqueSlug,
   visibleAlbums,
@@ -26,6 +27,15 @@ import { aboutText, heroText } from "../app/sites/[subdomain]/themes/shared.ts";
 
 let n = 0;
 const makeId = () => `t${++n}`;
+
+test("sameDesign ignores key order but still sees real differences", () => {
+  const a = { pages: [{ id: "p1", slug: "", title: "Home", sections: [{ type: "grid", photoIds: ["a", "b"] }] }] };
+  const b = { pages: [{ sections: [{ photoIds: ["a", "b"], type: "grid" }], title: "Home", id: "p1", slug: "" }] };
+  assert.equal(sameDesign(a as never, b as never), true, "same content, different key order");
+
+  const c = { pages: [{ id: "p1", slug: "", title: "Home", sections: [{ type: "grid", photoIds: ["a"] }] }] };
+  assert.equal(sameDesign(a as never, c as never), false, "a real difference still differs");
+});
 
 test("every theme and every Classic look makes a valid design with a home and an About page", () => {
   for (const theme of THEMES) {

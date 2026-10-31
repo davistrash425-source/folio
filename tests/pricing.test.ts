@@ -18,12 +18,13 @@ test("the pricing page is in the app's sitemap and linked from the landing page"
   assert.match(source("../app/page.tsx"), /href="\/pricing"/);
 });
 
-test("Pro costs $12 a month or $120 a year, and the checkout buttons say the same", () => {
+test("Pro costs $12 a month or $120 a year, and the checkout buttons read the same prices", () => {
   assert.equal(PRO_PRICE_MONTHLY, 12);
   assert.equal(PRO_PRICE_YEARLY, 120);
   const buttons = source("../app/dashboard/manage/billing/buttons.tsx");
-  assert.ok(buttons.includes(`$${PRO_PRICE_MONTHLY} a month`));
-  assert.ok(buttons.includes(`$${PRO_PRICE_YEARLY} a year`));
+  assert.ok(buttons.includes("${PRO_PRICE_MONTHLY} a month"));
+  assert.ok(buttons.includes("${PRO_PRICE_YEARLY} a year"));
+  assert.doesNotMatch(buttons, /\$\d/, "no price typed in by hand");
 });
 
 test("the pricing page reads its limits from lib/plans instead of repeating the numbers", () => {
