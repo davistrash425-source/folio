@@ -37,7 +37,16 @@ jobs:
       - run: npx next typegen
       - run: npx tsc --noEmit
       - run: npm test
-      - run: npm run build
+      # Turbopack sometimes fails on the Google Fonts it downloads ("next/font/google
+      # queries have exactly one entry", a Next.js bug), so try up to three times.
+      - name: Build
+        run: |
+          for attempt in 1 2 3; do
+            npm run build && exit 0
+            echo "::warning::Build attempt $attempt failed"
+            rm -rf .next
+          done
+          exit 1
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/folio
       - name: Smoke test the production build
@@ -50,8 +59,7 @@ jobs:
       - name: Browser test (sign-up to publishing)
         run: |
           npx playwright install --with-deps chromium
-          # Turbopack's dev server sometimes fails to load a Google font ("next/font/google
-          # queries have exactly one entry", a Next.js bug), so try up to three times, each
+          # The same Turbopack font bug hits the dev server: try up to three times, each
           # with a fresh dev cache. A real failure fails all three.
           for attempt in 1 2 3; do
             npm run test:e2e && exit 0
