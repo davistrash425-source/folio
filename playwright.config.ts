@@ -3,8 +3,8 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
-// Browser tests: sign-up through publishing, in a real browser against a
-// production build with a throwaway data folder. Run with `npm run test:e2e`.
+// Browser tests: sign-up through publishing, in a real browser against the
+// dev server with a throwaway data folder. Run with `npm run test:e2e`.
 const port = 3100;
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "folio-e2e-"));
 export default defineConfig({
