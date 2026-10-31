@@ -27,7 +27,7 @@ const rows: [string, string, string][] = [
   ["Photos", n(FREE_PHOTO_LIMIT), n(PRO_PHOTO_LIMIT)],
   ["Storage", "Enough for your photos", `${PRO_STORAGE_LIMIT / GB} GB`],
   ["Standard themes", "Yes", "Yes"],
-  ["Special themes", "No", `${PRO_THEMES.length} extra (Contact sheet, Monograph, Tag)`],
+  ["Special themes", "No", `${PRO_THEMES.length} extra (Contact sheet, Monograph, Tag, Mosaic, Studio)`],
   ["Private client galleries", "No", `Up to ${PRO_GALLERY_LIMIT}`],
   ["“Made with Folio” on client galleries", "Shown", "Removed"],
 ];

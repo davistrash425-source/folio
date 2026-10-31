@@ -48,6 +48,18 @@ export const THEME_INFO: Record<ThemeId, ThemeInfo> = {
     description: "Street and graffiti: black pages, black-and-white photos that turn to color on hover, your name in huge outlined letters. Folio Pro.",
     customizable: false,
   },
+  mosaic: {
+    name: "Mosaic",
+    tagline: "Wall to wall",
+    description: "A white page with your name as a narrow wordmark and your work as one edge-to-edge wall of tiles. Folio Pro.",
+    customizable: false,
+  },
+  studio: {
+    name: "Studio",
+    tagline: "Ready for clients",
+    description: "For commercial work: a bold headline beside a big photo, project cards, service columns and a dark contact panel. Folio Pro.",
+    customizable: false,
+  },
   filmstrip: {
     name: "Film strip",
     tagline: "Frame by frame",

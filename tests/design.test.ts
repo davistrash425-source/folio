@@ -55,8 +55,8 @@ test("every Classic look has a name and description in the look picker", () => {
   assert.deepEqual(Object.keys(CLASSIC_LOOKS), [...LOOKS]);
 });
 
-test("there are seven themes: one flexible, three that style themselves and three more for Pro", () => {
-  assert.deepEqual([...THEMES], ["classic", "exhibition", "index", "filmstrip", "contactsheet", "monograph", "tag"]);
+test("there are nine themes: one flexible, three that style themselves and five more for Pro", () => {
+  assert.deepEqual([...THEMES], ["classic", "exhibition", "index", "filmstrip", "contactsheet", "monograph", "tag", "mosaic", "studio"]);
 });
 
 test("invalid designs are rejected", () => {

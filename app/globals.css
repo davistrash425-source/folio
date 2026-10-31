@@ -32,6 +32,9 @@
   --font-tag-display: var(--font-anton), Impact, "Arial Narrow", sans-serif;
   --font-tag-sans: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
   --font-tag-mono: var(--font-space-mono), ui-monospace, monospace;
+  --font-mosaic-mark: var(--font-martian), ui-monospace, monospace;
+  --font-studio-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-studio-serif: var(--font-instrument-serif), ui-serif, Georgia, serif;
 }
 
 body {

@@ -144,6 +144,35 @@ test("a Tag color that isn't a hex color is refused", async () => {
   assert.ok((await saveDraftDesign({ ...d, themeSettings: { ...d.themeSettings, tag: { accent: "lime", grain: true } } })).error);
 });
 
+test("a Pro account keeps the Mosaic columns and the Studio color", async () => {
+  const alice = await makeUser("Alice");
+  await updateUser(alice.id, (u) => void (u.plan = "pro"));
+  await signInAs(alice);
+  const d = presetDesign("mosaic");
+  const published = await publishDesign({ ...d, themeSettings: { ...d.themeSettings, mosaic: { columns: 5 }, studio: { accent: "#7aa7ff" } } });
+  assert.equal(published.published!.theme, "mosaic");
+  assert.deepEqual(published.published!.themeSettings.mosaic, { columns: 5 });
+  assert.deepEqual(published.published!.themeSettings.studio, { accent: "#7aa7ff" });
+});
+
+test("a design saved before Mosaic and Studio existed reads with their defaults", () => {
+  const d = presetDesign("classic");
+  const older: Partial<SiteDesign["themeSettings"]> = { ...d.themeSettings };
+  delete older.mosaic;
+  delete older.studio;
+  const read = readDesign({ ...d, themeSettings: older }, "minimal");
+  assert.deepEqual(read.themeSettings.mosaic, defaultThemeSettings().mosaic);
+  assert.deepEqual(read.themeSettings.studio, defaultThemeSettings().studio);
+});
+
+test("Mosaic only takes 3, 4 or 5 tiles per row", async () => {
+  const alice = await makeUser("Alice");
+  await updateUser(alice.id, (u) => void (u.plan = "pro"));
+  await signInAs(alice);
+  const d = presetDesign("mosaic");
+  assert.ok((await saveDraftDesign({ ...d, themeSettings: { ...d.themeSettings, mosaic: { columns: 6 } } })).error);
+});
+
 test("a bad Pro theme setting is refused", async () => {
   const alice = await makeUser("Alice");
   await updateUser(alice.id, (u) => void (u.plan = "pro"));
