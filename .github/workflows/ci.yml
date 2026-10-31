@@ -50,7 +50,15 @@ jobs:
       - name: Browser test (sign-up to publishing)
         run: |
           npx playwright install --with-deps chromium
-          npm run test:e2e
+          # Turbopack's dev server sometimes fails to load a Google font ("next/font/google
+          # queries have exactly one entry", a Next.js bug), so try up to three times, each
+          # with a fresh dev cache. A real failure fails all three.
+          for attempt in 1 2 3; do
+            npm run test:e2e && exit 0
+            echo "::warning::Browser test attempt $attempt failed"
+            rm -rf .next/dev
+          done
+          exit 1
       - name: Show server log if something failed
         if: failure()
         run: cat server.log || true
