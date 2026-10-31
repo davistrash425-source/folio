@@ -1,5 +1,8 @@
 # Handoff
 
+## Three new Pro themes: Tag, Mosaic, Studio (Oct 31, 2026, PR #28)
+`themes/tag.tsx`, `themes/mosaic.tsx`, `themes/studio.tsx`, fonts in `themes/fonts.ts` (Anton, Space Grotesk/Mono, Martian Mono with `wdth` axis, Instrument Sans/Serif), registered in `lib/design.ts`, `lib/themes.ts`, `renderer.tsx`, the editor and pricing. Design canvas: https://claude.ai/artifact/SnR4E3A6YDQojvoYobgxXB. Gotcha: a pre-existing `Date.now()` prerender error from `app/sites/[subdomain]/not-found.tsx` shows in the dev console on site pages.
+
 ## Google Drive upload (Oct 31, 2026): merged (PR #26)
 "Choose from Google Drive" on the upload page (`lib/google-drive.ts`, `app/dashboard/photo-uploader.tsx`). Only tested with fake keys. **Owner to do:** `docs/OWNER-CHECKLIST.md` item 12 (Drive + Picker APIs, browser key, `drive.file` scope, `GOOGLE_PICKER_API_KEY` in Vercel, Privacy wording with the lawyer Nov 1).
 

@@ -203,6 +203,8 @@ Every item in this doc, in the order you chose: design → security → legal �
 - [x] Pro limits in code: 1,500 photos, 20 client galleries and the 50 GB storage limit (`lib/plans.ts`; `Photo.bytes` is recorded on upload, photos from before count as 0 until a backfill) ($12/mo, $120/yr launch price)
 - [x] Editable special themes (Exhibition, Index, Film Strip) for Pro: three extra settings each in `themeSettings.<theme>.pro` (mat/print size/label typeface; row size/title case/year column; frame size/border/sprockets); the server resets them for Free accounts, the editor shows them locked
 - [x] More special themes for Pro (Contact sheet and Monograph: two extra Pro themes with their own settings — paper/columns and paper/page-numbers)
+- [x] Tag theme for Pro (street/graffiti; designed on the "Folio Pro — New Themes" canvas, Oct 31, 2026; settings: accent color, film grain)
+- [x] Mosaic and Studio themes for Pro (same canvas; Mosaic inspired by nordstadtlicht.com, setting: tiles per row; Studio for commercial work, setting: button color; a Studio text section with several paragraphs becomes numbered service columns)
 - [x] Password-protected client galleries (Pro; dashboard "Client galleries", public link `name.folio.cam/g/<random>`, password cookie tied to the password, attempt limits, hidden from search; a link is private but the image files behind it are the same public web copies)
 - [x] Staff can move an account to Pro or Free by hand (admin site page, logged) until payments exist
 - [x] Client gallery follow-ups: download-all zip (web copies, rate limited), expiry date, client favourites (hearts, shown to the photographer), email the link to the client (never the password)

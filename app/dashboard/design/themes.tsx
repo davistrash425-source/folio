@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element -- user uploads are served by our own route */
 import {
   BOOK_PAPERS, CLASSIC_LOOKS, EXHIBITION_FRAMES, FILM_BORDERS, FILM_FRAME_SIZES, FILM_STOCKS, INDEX_SORTS, LABEL_FONTS, PRINT_SIZES,
-  PRO_THEMES, ROW_SIZES, SHEET_COLUMNS, SHEET_PAPERS, THEMES, TITLE_CASES, WALLS, type SiteDesign, type LookId, type ThemeId,
+  MOSAIC_COLUMNS, PRO_THEMES, ROW_SIZES, SHEET_COLUMNS, SHEET_PAPERS, THEMES, TITLE_CASES, WALLS, type SiteDesign, type LookId, type ThemeId,
 } from "@/lib/design";
 import { TEMPLATES } from "@/lib/templates";
 import { THEME_INFO } from "@/lib/themes";
@@ -95,6 +95,42 @@ export function ThemeArt({ theme, photos }: { theme: ThemeId; photos: EditorPhot
         <span className="flex h-20 items-center justify-center gap-1 overflow-hidden bg-white px-3">
           <span className="block w-1/2 bg-white p-2 shadow-sm ring-1 ring-black/10">{pic(0, "h-12 w-full")}</span>
           <span className="block w-1/2 bg-white p-2 shadow-sm ring-1 ring-black/10">{pic(1, "h-12 w-full")}</span>
+        </span>
+      );
+    case "tag":
+      return (
+        <span className="relative flex h-20 flex-col overflow-hidden bg-[#0b0b0b]">
+          <span className="relative flex h-11 items-center justify-center overflow-hidden">
+            {pic(0, "absolute inset-0 h-full w-full grayscale brightness-50")}
+            <span className="relative text-base font-black uppercase leading-none tracking-tight text-transparent [-webkit-text-stroke:1px_#d4f53c]">Name</span>
+          </span>
+          <span className="grid flex-1 grid-cols-3 gap-0.5 pt-0.5">
+            {pic(1, "h-full w-full grayscale")}
+            {pic(2, "h-full w-full")}
+            {pic(0, "h-full w-full grayscale")}
+          </span>
+        </span>
+      );
+    case "mosaic":
+      return (
+        <span className="flex h-20 flex-col overflow-hidden bg-white">
+          <span className="m-1.5 block h-1.5 w-1/2 bg-black" />
+          <span className="grid flex-1 grid-cols-4">
+            {[0, 1, 2, 0, 1, 2, 0, 1].map((n, i) => (
+              <span key={i} className="block h-full">{pic(n, `h-full w-full ${i % 3 === 1 ? "grayscale" : ""}`)}</span>
+            ))}
+          </span>
+        </span>
+      );
+    case "studio":
+      return (
+        <span className="flex h-20 items-center gap-1.5 overflow-hidden bg-[#f6f5f2] px-2">
+          <span className="flex w-2/5 flex-col gap-1">
+            <span className="block h-1.5 w-full bg-[#141414]" />
+            <span className="block h-1.5 w-3/4 bg-[#141414]" />
+            <span className="mt-1 block h-2 w-8 rounded-full bg-[#e8572a]" />
+          </span>
+          {pic(0, "h-16 flex-1 rounded-sm")}
         </span>
       );
     case "filmstrip":
@@ -286,6 +322,45 @@ export function ThemeSettings({ design, onChange, isPro }: { design: SiteDesign;
             Page number under each photo
           </label>
         </>
+      );
+    case "tag":
+      return (
+        <>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="color"
+              value={settings.tag.accent}
+              onChange={(e) => set("tag", { accent: e.target.value })}
+              className="h-8 w-10 cursor-pointer border border-rule"
+            />
+            Name and menu color
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={settings.tag.grain} onChange={(e) => set("tag", { grain: e.target.checked })} />
+            Film grain on the cover photo
+          </label>
+        </>
+      );
+    case "mosaic":
+      return (
+        <Choice
+          label="Tiles per row"
+          value={String(settings.mosaic.columns) as "3" | "4" | "5"}
+          options={MOSAIC_COLUMNS.map((v) => [String(v), String(v)] as ["3" | "4" | "5", string])}
+          onChange={(columns) => set("mosaic", { columns: Number(columns) as 3 | 4 | 5 })}
+        />
+      );
+    case "studio":
+      return (
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="color"
+            value={settings.studio.accent}
+            onChange={(e) => set("studio", { accent: e.target.value })}
+            className="h-8 w-10 cursor-pointer border border-rule"
+          />
+          Button color
+        </label>
       );
     default:
       return null;

@@ -132,7 +132,7 @@ Each account has a `SiteDesign` object (`lib/design.ts`): theme, colors, fonts, 
 
 ## Themes
 
-A site is drawn by one of six themes, each with its own layout code in `app/sites/[subdomain]/themes/`: four are free (Classic, Exhibition, Index, Film strip) and two are on Folio Pro (Contact sheet, Monograph). They all read the same content (pages, sections, photos, albums, captions, bio), so switching themes never loses anything.
+A site is drawn by one of nine themes, each with its own layout code in `app/sites/[subdomain]/themes/`: four are free (Classic, Exhibition, Index, Film strip) and five are on Folio Pro (Contact sheet, Monograph, Tag, Mosaic, Studio). They all read the same content (pages, sections, photos, albums, captions, bio), so switching themes never loses anything.
 
 | Theme | What it is | Settings |
 | --- | --- | --- |
@@ -142,6 +142,9 @@ A site is drawn by one of six themes, each with its own layout code in `app/site
 | **Film strip** | Frames on strips of film with sprocket holes, edge print and frame numbers; text on taped paper notes | Film stock, frame numbers |
 | **Contact sheet** *(Pro)* | A photographer's proof sheet: rows of numbered frames on a sheet of paper you click to open | Paper (light/dark), frames per row |
 | **Monograph** *(Pro)* | A photo book: one photo to a page with wide margins, captions and page numbers | Paper (white/cream/black), page numbers on/off |
+| **Tag** *(Pro)* | Street and graffiti: black pages, a grainy black-and-white cover with the name in huge outlined letters, then the menu bar; black-and-white photo grid that turns to color on hover, numbered frames and series | Name and menu color, film grain on/off |
+| **Mosaic** *(Pro)* | A white page with the name as a narrow monospace wordmark; photos and albums as one edge-to-edge wall of 3:2 tiles with no gaps, titles on hover (always shown on phones) | Tiles per row (3/4/5) |
+| **Studio** *(Pro)* | For commercial work: bold headline beside a large photo, "Book a shoot" in the top bar, albums as project cards, a text section with several paragraphs becomes numbered service columns (first line = heading), dark contact panel | Button color |
 
 - The five creative themes set their own layout, colors and fonts. The editor hides Classic's controls for them (and locks the Pro themes on Free accounts), and Classic's settings are kept for when you switch back.
 - Classic's 17 looks (Minimal, Sepia Print, Polaroid…) are color, font and gallery presets, not separate layouts.

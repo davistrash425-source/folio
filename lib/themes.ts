@@ -1,4 +1,4 @@
-// What the four themes are called and what the editor offers for each.
+// What the themes are called and what the editor offers for each.
 // Browser-safe on purpose: the editor and the site renderer both import it.
 import type { ThemeId } from "./design";
 
@@ -40,6 +40,24 @@ export const THEME_INFO: Record<ThemeId, ThemeInfo> = {
     name: "Monograph",
     tagline: "Turn the page",
     description: "A photo book: one photo to a page with wide margins, captions and page numbers. Folio Pro.",
+    customizable: false,
+  },
+  tag: {
+    name: "Tag",
+    tagline: "Hit the street",
+    description: "Street and graffiti: black pages, black-and-white photos that turn to color on hover, your name in huge outlined letters. Folio Pro.",
+    customizable: false,
+  },
+  mosaic: {
+    name: "Mosaic",
+    tagline: "Wall to wall",
+    description: "A white page with your name as a narrow wordmark and your work as one edge-to-edge wall of tiles. Folio Pro.",
+    customizable: false,
+  },
+  studio: {
+    name: "Studio",
+    tagline: "Ready for clients",
+    description: "For commercial work: a bold headline beside a big photo, project cards, service columns and a dark contact panel. Folio Pro.",
     customizable: false,
   },
   filmstrip: {
