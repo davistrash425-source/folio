@@ -1,20 +1,23 @@
 # Handoff
 
-## Three new Pro themes: Tag, Mosaic, Studio (Oct 31, 2026, PR #28)
+## Status (Oct 31, 2026): no open PRs
+Everything is merged into `main` and deployed: #25 (bug-check fixes), #26 (Google Drive upload), #27 (header-photo browser test), #28 (three new Pro themes), plus the logo and two CI fixes. The owner asked for PRs to be managed end to end: bring the branch up to date with main, resolve conflicts, push, squash-merge once CI is green.
+
+**CI gotcha:** Turbopack sometimes fails on Google Fonts with "next/font/google queries have exactly one entry" (Next.js 16.4.2 bug; hit both `next build` and the dev server in the browser test, about half the CI runs on #28). `.github/workflows/ci.yml` now retries the build and the browser test up to 3 times (each attempt logs a `::warning::`). A Vercel deploy could hit it too: if a deploy fails with that message, just redeploy. Mocking the fonts (`NEXT_FONT_GOOGLE_MOCKED_RESPONSES`) was tried: Turbopack needs every exact font URL listed, so it was dropped.
+
+## Three new Pro themes: Tag, Mosaic, Studio (Oct 31, 2026, PR #28, live)
 `themes/tag.tsx`, `themes/mosaic.tsx`, `themes/studio.tsx`, fonts in `themes/fonts.ts` (Anton, Space Grotesk/Mono, Martian Mono with `wdth` axis, Instrument Sans/Serif), registered in `lib/design.ts`, `lib/themes.ts`, `renderer.tsx`, the editor and pricing. Design canvas: https://claude.ai/artifact/SnR4E3A6YDQojvoYobgxXB. Gotcha: a pre-existing `Date.now()` prerender error from `app/sites/[subdomain]/not-found.tsx` shows in the dev console on site pages.
 
-## Google Drive upload (Oct 31, 2026): merged (PR #26)
-"Choose from Google Drive" on the upload page (`lib/google-drive.ts`, `app/dashboard/photo-uploader.tsx`). Only tested with fake keys. **Owner to do:** `docs/OWNER-CHECKLIST.md` item 12 (Drive + Picker APIs, browser key, `drive.file` scope, `GOOGLE_PICKER_API_KEY` in Vercel, Privacy wording with the lawyer Nov 1).
+## Google Drive upload (Oct 31, 2026): live (PR #26)
+"Choose from Google Drive" on the upload page (`lib/google-drive.ts`, `app/dashboard/photo-uploader.tsx`); the button shows on www.folio.cam. Set up Oct 31 in Google Cloud project "folio" (`extreme-core-512711-c7`): Drive API and Picker API enabled; API key "Folio Drive picker (browser)" limited to `folio.cam/*`, `www.folio.cam/*`, `localhost:3000/*` and those two APIs; `drive.file` scope added (non-sensitive; the app is In production, so anyone can use it). Owner added `GOOGLE_PICKER_API_KEY` to Vercel Production. **Not yet tried:** a real sign-in, pick and upload. **Owner to do:** Privacy wording with the lawyer Nov 1 (Folio reads only the Drive files picked).
 
 ## Logo (Oct 31, 2026): done
 Folio icon (ink tile, italic Newsreader F, red dot) replaced the Next.js favicon: `app/icon.svg`, `app/favicon.ico`, `app/apple-icon.png`; `proxy.ts` lets them through on photographer subdomains too.
 
-## Current task (Oct 30, 2026): bug check + fix everything — code done, not merged
-- **Goal:** owner asked for a full multi-agent bug check, then "fix everything, go with your recommendations, update all docs".
-- **Done:** all findings fixed on branch `bug-check-fixes`, which also carries the Oct 29 FIX-PLAN work (it was uncommitted in `.claude/worktrees/fix-plan`, applied here) and the Vercel Pro docs commit `7d884e3` (cherry-picked from `worktree-status-vercel-pro`). Full list and decisions: `docs/CODE-REVIEW-2026-10-30.md`. tsc, eslint, `npm run build` and 513/513 tests pass. Docs updated: CLAUDE.md, README.md, both review docs, FIX-PLAN.md, BACKLOG.md and the Claude Doc (both tabs).
-- **In progress:** committing on the branch. Next: ask the owner before pushing; then a PR, CI, merge, check the Vercel deploy.
-- **Owner to do after merge:** set `CLOUDFLARE_PURGE_TOKEN` + `CLOUDFLARE_PURGE_ZONE_ID` in Vercel (takedown cache purge); try the new email Confirm button once on production.
-- **Gotchas:** the old worktrees `.claude/worktrees/fix-plan` and `status-vercel-pro` are now redundant (their work is on this branch); remove them only after the branch is merged. `--color-rule` got much darker (#8f8879) for contrast, so every divider line is darker; revert in `app/globals.css` if the owner dislikes it.
+## Bug check + fixes (Oct 30, 2026): merged (PR #25)
+- All findings fixed; full list and decisions: `docs/CODE-REVIEW-2026-10-30.md`.
+- **Owner to do:** set `CLOUDFLARE_PURGE_TOKEN` + `CLOUDFLARE_PURGE_ZONE_ID` in Vercel (takedown cache purge); try the new email Confirm button once on production.
+- **Gotchas:** the old worktrees `.claude/worktrees/fix-plan` and `status-vercel-pro` are redundant now that #25 is merged. `--color-rule` got much darker (#8f8879) for contrast, so every divider line is darker; revert in `app/globals.css` if the owner dislikes it.
 
 ## What is live
 - Free plan (150 photos) and Pro: 1,500 photos, 20 password-protected client galleries, 50 GB, editable and extra special themes (Contact sheet, Monograph), no gallery footer badge (`lib/plans.ts`).
@@ -31,7 +34,8 @@ The owner has moved to Vercel Pro and has fully launched Folio Pro. They meet th
 
 ## Still to do (owner)
 1. Lawyer review of Terms, Privacy and Copyright (brief: `docs/LAWYER-BRIEF.md`; meeting Sunday, Nov 1, 2026), then set `LEGAL_DRAFT=false` and apply any wording changes the lawyer asks for.
-2. After `bug-check-fixes` is merged: the Cloudflare purge variables (above).
+2. The Cloudflare purge variables (above).
+3. Try "Choose from Google Drive" once on www.folio.cam (sign in to Google, pick a photo, check it uploads).
 
 ## Just built (Oct 30, live in d686f65)
 Admin "Let payments decide" button: `letPaymentsDecide` in `app/actions/admin.ts` (full admin only, logged as `plan-from-payments`, sets `planSource: "billing"` and the plan from the saved `User.billing` via `grantsPro`, Free when none). The admin site page's Plan card now says whether the plan is hand-set and shows the subscription status; the button only appears for hand-set plans. Tests: two in `tests/billing.test.ts`, plus the action added to the signed-out/photographer and viewer lists in `tests/admin.test.ts` and `tests/admin-oversight.test.ts`. tsc, lint, all 479 tests and `npm run build` pass. Pushed to `main` and live (deployment `dpl_H6qn6EPkAP96ZuEX9Fkjh1n9A2D3`, READY). Once deployed, use it on `folio.user.001@gmail.com`: its last saved subscription state is the cancelled-at-period-end one, so it will show Pro until Nov 30, 2026.

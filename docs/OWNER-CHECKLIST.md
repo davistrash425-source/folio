@@ -89,7 +89,7 @@ Options: always shown, shown on Free only, or never. Tell Claude. It's a small c
 - Free plan launch: needs 1–7 done. Also decide whether `NEW_SITES_START_PUBLISHED` in `lib/site.ts` should stay `false` (new sites start as drafts, the safer default).
 - Pro launch: needs 5, 9 and 10 done as well.
 
-### 12. Google Drive uploads (added Oct 31, 2026)
+### 12. Google Drive uploads (added Oct 31, 2026; steps 1–4 done Oct 31)
 Use the same Google Cloud project as "Continue with Google".
 1. APIs & Services → Library: enable **Google Drive API** and **Google Picker API**.
 2. APIs & Services → Credentials → Create credentials → API key. Edit it: Application restrictions = Websites, add `https://folio.cam/*`, `https://www.folio.cam/*` and `http://localhost:3000/*`; API restrictions = Google Drive API and Google Picker API.
