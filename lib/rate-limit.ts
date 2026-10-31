@@ -27,6 +27,7 @@ async function inUpstash(url: string, token: string, key: string, limit: number,
   const res = await fetch(`${url.replace(/\/+$/, "")}/multi-exec`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    signal: AbortSignal.timeout(10_000),
     body: JSON.stringify([
       ["ZREMRANGEBYSCORE", redisKey, "0", String(now - windowMs)],
       ["ZADD", redisKey, String(now), `${now}-${randomUUID()}`],

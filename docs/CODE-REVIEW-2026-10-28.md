@@ -1,5 +1,7 @@
 # Code review, Oct 28, 2026
 
+**Status, Oct 30, 2026:** everything under "Open" below is fixed on branch `bug-check-fixes`. The exceptions are the per-photo hide flag, which needs the owner, and `'unsafe-inline'` in `script-src`. See `docs/CODE-REVIEW-2026-10-30.md`.
+
 Read-only review of `main` (6ffd352) by six reviewers, one per area (auth and security, data and billing, photos, public sites and design, dashboard and accessibility, docs against code), followed by fixes for the confirmed bugs. This replaces the unverified `docs/FULL-CHECK-NOTES.md` as the list to work from; that file still has the raw findings with IDs (A1-1, P-5, X-6 and so on), and the IDs below point back to it.
 
 Method note: the reviewers were small models. Every finding listed under "Fixed" was re-read in the code by the lead before and after the fix. Findings under "Open" are confirmed by a reviewer reading the code, not reproduced by running it, unless it says so.

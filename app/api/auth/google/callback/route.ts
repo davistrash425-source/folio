@@ -20,6 +20,9 @@ export async function GET(req: Request) {
 
   const existing = await findUserByEmail(identity.email);
   if (existing) {
+    // Linked to a different Google account: the address now belongs to someone
+    // else (a reassigned work address), who must not get this account.
+    if (existing.googleId && existing.googleId !== identity.googleId) return redirect("/login?error=google");
     if (!existing.googleId) {
       // Google has confirmed this address. If the account's email was never
       // confirmed, whoever created it with a password may not be the owner, so

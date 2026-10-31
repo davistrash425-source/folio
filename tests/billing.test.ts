@@ -7,7 +7,7 @@ import * as billingActions from "../app/actions/billing.ts";
 import { deleteAccount } from "../app/actions/auth.ts";
 import { deleteAccountAsAdmin, letPaymentsDecide, setPlan } from "../app/actions/admin.ts";
 import { POST as webhook } from "../app/api/webhooks/billing/route.ts";
-import { findUserById } from "../lib/db.ts";
+import { findUserById, updateUser } from "../lib/db.ts";
 import { photoLimit } from "../lib/plans.ts";
 import { addPhoto, captureEmails, formOf, makeUser, redirectedTo, resetRequest, signInAs } from "./helpers.ts";
 
@@ -261,6 +261,35 @@ test("deleting an account ends its subscription first", async (t) => {
   assert.equal(await findUserById(u.id), null);
 });
 
+test("two active subscriptions are both recorded, and ending one leaves the other", async () => {
+  const u = await makeUser("Double");
+  await webhook(signed(event(u.id, "active", { id: "sub-month" }), "e1"));
+  await webhook(signed(event(u.id, "active", { id: "sub-year", recurring_interval: "year", modified_at: "2026-11-02T00:00:00Z" }), "e2"));
+  const both = (await findUserById(u.id))!;
+  assert.deepEqual(both.billing?.activeSubscriptionIds?.sort(), ["sub-month", "sub-year"]);
+  assert.equal(both.plan, "pro");
+
+  await webhook(signed(event(u.id, "revoked", { id: "sub-month", modified_at: "2026-11-03T00:00:00Z" }), "e3"));
+  const after = (await findUserById(u.id))!;
+  assert.deepEqual(after.billing?.activeSubscriptionIds, ["sub-year"]);
+  assert.equal(after.plan, "pro", "still Pro on the yearly subscription");
+});
+
+test("deleting an account ends every active subscription", async (t) => {
+  const u = await makeUser("DoubleGone", { password: "correct horse battery" });
+  await webhook(signed(event(u.id, "active", { id: "sub-month" }), "e1"));
+  await webhook(signed(event(u.id, "active", { id: "sub-year", recurring_interval: "year", modified_at: "2026-11-02T00:00:00Z" }), "e2"));
+  await signInAs(u);
+  const sent = fakePolar(t);
+  await redirectedTo(deleteAccount({}, formOf({ password: "correct horse battery" })));
+  const deleted = sent.filter((r) => r.method === "DELETE").map((r) => r.url).sort();
+  assert.deepEqual(deleted, [
+    "https://sandbox-api.polar.sh/v1/subscriptions/sub-month",
+    "https://sandbox-api.polar.sh/v1/subscriptions/sub-year",
+  ]);
+  assert.equal(await findUserById(u.id), null);
+});
+
 test("if Polar can't end the subscription, deleting the account is refused and nothing is deleted", async (t) => {
   const u = await makeUser("Stuck", { password: "correct horse battery" });
   await webhook(signed(event(u.id, "active"), "e1"));
@@ -295,4 +324,41 @@ test("an admin's delete is refused the same way when Polar can't end the subscri
   const to = await redirectedTo(deleteAccountAsAdmin(formOf({ userId: u.id, confirm: u.subdomain })));
   assert.match(decodeURIComponent(to!.split("?done=")[1]), /nothing was deleted/);
   assert.ok(await findUserById(u.id));
+});
+
+test("an event Polar sends before the subscription ever changed is dated by its creation, so later order still holds", async () => {
+  const u = await makeUser("Fresh");
+  await webhook(signed(event(u.id, "active", { modified_at: null, created_at: "2026-11-01T00:00:00Z" }), "e1"));
+  assert.equal((await findUserById(u.id))!.billing?.updatedAt, "2026-11-01T00:00:00Z");
+  await webhook(signed(event(u.id, "revoked", { modified_at: "2026-11-05T00:00:00Z" }), "e2"));
+  const late = await webhook(signed(event(u.id, "active", { modified_at: null, created_at: "2026-11-01T00:00:00Z" }), "e3"));
+  assert.deepEqual(await late.json(), { outcome: "stale" });
+  assert.equal((await findUserById(u.id))!.plan, "free");
+});
+
+test("an event with no date at all doesn't wipe the newest date seen", async () => {
+  const u = await makeUser("Undated");
+  await webhook(signed(event(u.id, "active", { modified_at: "2026-11-05T00:00:00Z" }), "e1"));
+  await webhook(signed(event(u.id, "active", { modified_at: null, cancel_at_period_end: true }), "e2"));
+  assert.equal((await findUserById(u.id))!.billing?.updatedAt, "2026-11-05T00:00:00Z");
+});
+
+test("dates are compared as times, not as text", async () => {
+  const u = await makeUser("Precise");
+  await webhook(signed(event(u.id, "active", { modified_at: "2026-11-01T00:00:00Z" }), "e1"));
+  // As text, ".200Z" sorts before "Z", which would wrongly call this older.
+  const later = await webhook(signed(event(u.id, "revoked", { modified_at: "2026-11-01T00:00:00.200Z" }), "e2"));
+  assert.deepEqual(await later.json(), { outcome: "recorded" });
+  assert.equal((await findUserById(u.id))!.plan, "free");
+});
+
+test("deleting an account whose only subscription already ended doesn't need Polar", async (t) => {
+  const u = await makeUser("Lapsed", { password: "correct horse battery" });
+  // Saved before accounts kept a list of active subscriptions.
+  await updateUser(u.id, (x) => void (x.billing = { subscriptionId: "sub-old", status: "revoked", interval: "month" }));
+  await signInAs(u);
+  const sent = fakePolar(t, () => ({ detail: "Subscription is not active" }), 400);
+  await redirectedTo(deleteAccount({}, formOf({ password: "correct horse battery" })));
+  assert.equal(sent.length, 0, "nothing to end");
+  assert.equal(await findUserById(u.id), null);
 });

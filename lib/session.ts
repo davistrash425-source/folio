@@ -13,11 +13,20 @@ const scrypt = promisify(scryptCb) as (
   password: string,
   salt: string,
   keylen: number,
+  options?: { N?: number; maxmem?: number },
 ) => Promise<Buffer>;
 
 const COOKIE_NAME = "session";
 const KEY_LENGTH = 64;
 const MAX_AGE = 60 * 60 * 24 * 30; // 30 days
+// scrypt's work factor. Node's default is 2^14; 2^15 makes offline cracking
+// twice as hard while keeping login and tests fast. Passwords hashed before
+// this change carry no version marker and are upgraded on their next login.
+const SCRYPT_N = 32768;
+// 128 * N * r is about 32 MiB here, just over Node's default 32 MiB cap, so
+// raise the memory ceiling a little.
+const SCRYPT_MAXMEM = 64 * 1024 * 1024;
+const HASH_PREFIX = "v2";
 
 function secret() {
   const s = process.env.SESSION_SECRET;
@@ -34,25 +43,36 @@ function sign(value: string) {
 
 export async function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
-  const hash = await scrypt(password, salt, KEY_LENGTH);
-  return `${salt}:${hash.toString("hex")}`;
+  const hash = await scrypt(password, salt, KEY_LENGTH, { N: SCRYPT_N, maxmem: SCRYPT_MAXMEM });
+  return `${HASH_PREFIX}:${salt}:${hash.toString("hex")}`;
 }
 
 export async function verifyPassword(password: string, stored: string) {
-  const [salt, hash] = stored.split(":");
+  // "v2:<salt>:<hash>" since the cost was raised; older "salt:hash" records
+  // still verify at the default cost and are re-hashed on their next login.
+  const parts = stored.split(":");
+  const versioned = parts.length >= 3;
+  const salt = versioned ? parts[1] : parts[0];
+  const hash = versioned ? parts[2] : parts[1];
   if (!salt || !hash) {
     // No password to check (Google accounts, or no such account). Do the same
     // amount of work anyway, so the reply isn't faster for these and doesn't
     // reveal which emails have a password.
-    await scrypt(password, "0".repeat(32), KEY_LENGTH);
+    await scrypt(password, "0".repeat(32), KEY_LENGTH, { N: SCRYPT_N, maxmem: SCRYPT_MAXMEM });
     return false;
   }
   const expected = Buffer.from(hash, "hex");
   // A damaged hash decodes short (even to nothing, which would match any
   // password), so only a full-length one counts.
   if (expected.length !== KEY_LENGTH) return false;
-  const actual = await scrypt(password, salt, expected.length);
+  const actual = await scrypt(password, salt, expected.length, versioned ? { N: SCRYPT_N, maxmem: SCRYPT_MAXMEM } : undefined);
   return timingSafeEqual(expected, actual);
+}
+
+// True for a password hashed with the old default cost, which should be
+// re-hashed at the next successful login.
+export function isLegacyPasswordHash(stored: string) {
+  return stored.split(":").length === 2;
 }
 
 // An admin working on one of their extra sites is signed in as that site, and

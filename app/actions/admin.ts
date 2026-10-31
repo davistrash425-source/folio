@@ -5,11 +5,11 @@ import { redirect, notFound } from "next/navigation";
 import { randomUUID } from "crypto";
 import { STRIKE_LIMIT, requireFullAdmin } from "@/lib/admin";
 import { restoredEmail, suspendedEmail, takedownEmail, unsuspendedEmail } from "@/lib/admin-emails";
-import { cancelSubscriptionFor, grantsPro } from "@/lib/billing";
+import { billingGrantsPro, cancelSubscriptionFor } from "@/lib/billing";
 import { adminRole, currentImpersonation, currentUser, requireUser } from "@/lib/auth";
 import {
   allUserIds,
-  deleteUser,
+  deleteUsers,
   findReport,
   findUserById,
   findUserBySubdomain,
@@ -88,8 +88,9 @@ export async function takeDownPhotos(formData: FormData) {
   });
   if (!chosen.length) backTo(user, "Nothing changed: choose photos that are on the site.");
   // Also for photos already down, so a retry after a storage error removes their leftover copies.
+  let cleaned = 0;
   try {
-    await Promise.all(chosen.map((photo) => deleteWebCopies(user.id, photo)));
+    cleaned = (await Promise.all(chosen.map((photo) => deleteWebCopies(user.id, photo)))).reduce((n, c) => n + c, 0);
   } catch (err) {
     console.error("Couldn't delete the web copies of taken-down photos", user.id, err);
     await logAdminAction({
@@ -102,7 +103,27 @@ export async function takeDownPhotos(formData: FormData) {
     });
     backTo(user, "The photos are off the site, but their web copies couldn't all be deleted. Try the takedown again in a moment.");
   }
-  if (!taken.length) backTo(user, "Nothing changed: choose photos that are on the site.");
+  if (!taken.length) {
+    if (!cleaned) backTo(user, "Nothing changed: choose photos that are on the site.");
+    // A retry that finished cleaning up leftover copies: close the report and
+    // tell the photographer, as the original takedown would have.
+    const leftovers = `${cleaned} leftover ${cleaned === 1 ? "copy" : "copies"}`;
+    if (report) await setReportStatus(report.id, "closed", `Cleaned up ${leftovers}.`);
+    await logAdminAction({
+      adminEmail: admin.email,
+      userId: user.id,
+      subdomain: user.subdomain,
+      reportId: report?.id,
+      action: "take-down-photos",
+      detail: `Cleaned up ${leftovers}.`,
+    });
+    const emailed = await tellOwner(
+      user,
+      formData,
+      takedownEmail({ name: user.profile.name, siteUrl: siteUrl(user.subdomain), count: chosen.length, report, note }),
+    );
+    backTo(user, `Cleaned up ${leftovers}.${emailed}`);
+  }
   if (report) await setReportStatus(report.id, "closed", `Took down ${plural(taken.length)}.`);
 
   await logAdminAction({
@@ -258,7 +279,7 @@ export async function letPaymentsDecide(formData: FormData) {
   const user = await accountFrom(formData);
   let name = "Free";
   await updateUser(user.id, (u) => {
-    u.plan = u.billing && grantsPro(u.billing.status) ? "pro" : "free";
+    u.plan = u.billing && billingGrantsPro(u.billing) ? "pro" : "free";
     u.planSource = "billing";
     if (u.plan === "pro") name = "Pro";
   });
@@ -292,7 +313,7 @@ export async function releaseLegalHold(formData: FormData) {
 // them, dated with each photo's upload year. Does as many as it can in about
 // 40 seconds (the admin page allows 60); run it again until none are left.
 export async function addRightsToOlderPhotos() {
-  await requireFullAdmin();
+  const admin = await requireFullAdmin();
   const started = Date.now();
   const outOfTime = () => Date.now() - started > 40_000;
   let updated = 0;
@@ -330,6 +351,14 @@ export async function addRightsToOlderPhotos() {
     `Added copyright details to ${plural(updated)}.` +
     (failed ? ` ${plural(failed)} failed; see the server log.` : "") +
     (left ? ` ${plural(left)} left: run it again.` : " All done.");
+  const account = await findUserById(admin.id);
+  await logAdminAction({
+    adminEmail: admin.email,
+    userId: admin.id,
+    subdomain: account?.subdomain ?? "",
+    action: "add-rights-to-older-photos",
+    detail: message,
+  });
   redirect(`/admin?done=${encodeURIComponent(message)}`);
 }
 
@@ -475,11 +504,10 @@ export async function deleteAccountAsAdmin(formData: FormData) {
     action: "delete-account",
     detail: `Deleted the account ${user.email} (${plural(user.photos.length)}${accounts.length > 1 ? `, and ${accounts.length - 1} extra site(s)` : ""}).`,
   });
+  // All together: a legal hold placed meanwhile on any of them stops the lot.
   try {
-    for (const account of accounts.reverse()) {
-      await deleteUser(account.id);
-      await removeAccountFiles(account.id);
-    }
+    await deleteUsers(accounts.reverse().map((a) => a.id));
+    for (const account of accounts) await removeAccountFiles(account.id);
   } catch (err) {
     if ((err as Error).message !== "LEGAL_HOLD") throw err;
     backTo(user, "This account is on legal hold, so it can't be deleted. Release the hold first.");
@@ -503,12 +531,13 @@ export async function startImpersonation(formData: FormData) {
   if (adminRole(user) || user.managedBy || user.id === admin.id) backTo(user, "You can't view staff accounts or extra sites this way.");
   if ((await currentUser())?.id !== admin.id) backTo(user, "Switch back to your own site first.");
 
+  const expiresAt = new Date(Date.now() + IMPERSONATION_MINUTES * 60 * 1000).toISOString();
   await logAdminAction({
     adminEmail: admin.email,
     userId: user.id,
     subdomain: user.subdomain,
     action: "impersonation-started",
-    detail: `Started viewing the account as its owner (up to ${IMPERSONATION_MINUTES} minutes). Reason: ${reason}`,
+    detail: `Started viewing the account as its owner until ${expiresAt} (${IMPERSONATION_MINUTES} minutes). Reason: ${reason}`,
   });
   await beginImpersonation(admin.id, user.id);
   revalidatePath("/dashboard", "layout");

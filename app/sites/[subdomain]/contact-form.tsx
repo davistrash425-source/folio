@@ -4,6 +4,7 @@
 import { useActionState, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { sendInquiry } from "@/app/actions/site";
 import { Turnstile } from "@/app/ui/turnstile";
+import { keepFields } from "@/app/ui/keep-fields";
 import { INQUIRE_EVENT, INQUIRE_KEY } from "./lightbox";
 
 const never = () => () => {};
@@ -19,7 +20,8 @@ const onServer = () => null;
 
 // Colors come from the site's CSS variables (see SiteRenderer).
 export function ContactForm({ subdomain, preview }: { subdomain: string; preview?: boolean }) {
-  const [state, action, pending] = useActionState(sendInquiry.bind(null, subdomain), {});
+  const [state, action, pending] = useActionState(keepFields(sendInquiry.bind(null, subdomain)), {});
+  const f = state.fields ?? {};
   const formRef = useRef<HTMLFormElement>(null);
   // The photo asked about with the lightbox's "Inquire" button: from the
   // address when it came from another page, or from its event on this one.
@@ -68,19 +70,19 @@ export function ContactForm({ subdomain, preview }: { subdomain: string; preview
       )}
       <label className="block text-sm">
         Name
-        <input name="name" required autoComplete="name" className={`mt-1 ${field}`} />
+        <input name="name" required maxLength={80} autoComplete="name" defaultValue={f.name} className={`mt-1 ${field}`} />
       </label>
       <label className="block text-sm">
         Email
-        <input name="email" type="email" required autoComplete="email" className={`mt-1 ${field}`} />
+        <input name="email" type="email" required maxLength={120} autoComplete="email" defaultValue={f.email} className={`mt-1 ${field}`} />
       </label>
       <label className="block text-sm sm:col-span-2">
         Date or timeframe <span className={muted}>(optional)</span>
-        <input name="date" placeholder="e.g. June 14, 2027" className={`mt-1 ${field}`} />
+        <input name="date" maxLength={80} defaultValue={f.date} placeholder="e.g. June 14, 2027" className={`mt-1 ${field}`} />
       </label>
       <label className="block text-sm sm:col-span-2">
         Message
-        <textarea name="message" required rows={4} className={`mt-1 ${field}`} />
+        <textarea name="message" required rows={4} maxLength={4000} defaultValue={f.message} className={`mt-1 ${field}`} />
       </label>
       {/* Hidden from people; bots that fill it in are ignored. */}
       <div aria-hidden="true" className="absolute -left-[9999px]">

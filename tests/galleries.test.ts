@@ -5,6 +5,7 @@ import { createGallery, deleteGallery, setGalleryPhotos, unlockGallery, updateGa
 import { findUserById, updateUser } from "../lib/db.ts";
 import { hasGalleryAccess } from "../lib/session.ts";
 import { PRO_GALLERY_LIMIT } from "../lib/plans.ts";
+import { deletePhoto, deletePhotos } from "../app/actions/site.ts";
 import { addPhoto, formOf, fromIp, makeUser, redirectedTo, resetRequest, signInAs, signOut } from "./helpers.ts";
 import { cookieJar } from "./stubs/next-headers.ts";
 
@@ -91,6 +92,16 @@ test("password guesses are limited", async () => {
   assert.match((await unlockGallery(owner.subdomain, gallery.slug, {}, formOf({ password: "secret1" }))).error!, /Too many/);
 });
 
+test("an offline site's galleries can't be opened", async () => {
+  const owner = await proUser();
+  await redirectedTo(createGallery({}, formOf({ title: "Client", password: "secret1" })));
+  const gallery = await galleryFor(owner.id);
+  await updateUser(owner.id, (u) => void (u.published = false));
+  signOut();
+  fromIp("198.51.100.80");
+  assert.equal((await unlockGallery(owner.subdomain, gallery.slug, {}, formOf({ password: "secret1" }))).error, "That password isn't right.");
+});
+
 test("a gallery holds only the owner's own photos, and other accounts can't change it", async () => {
   const owner = await proUser();
   const { photo: mine } = await addPhoto(owner.id);
@@ -114,4 +125,21 @@ test("deleting a gallery removes it", async () => {
   await redirectedTo(createGallery({}, formOf({ title: "Client", password: "secret1" })));
   await deleteGallery((await galleryFor(owner.id)).id);
   assert.deepEqual((await findUserById(owner.id))!.galleries, []);
+});
+
+test("deleting a photo takes it out of client galleries and their favourites", async () => {
+  const user = await proUser();
+  const { photo: kept } = await addPhoto(user.id);
+  const { photo: gone } = await addPhoto(user.id);
+  const { photo: alsoGone } = await addPhoto(user.id);
+  await createGallery({}, formOf({ title: "Client", password: "secret1" })).catch(() => {});
+  const gallery = await galleryFor(user.id);
+  await setGalleryPhotos(gallery.id, [kept.id, gone.id, alsoGone.id]);
+  await updateUser(user.id, (u) => void (u.galleries![0].favouriteIds = [gone.id, kept.id]));
+
+  await deletePhoto(gone.id);
+  await deletePhotos([alsoGone.id]);
+  const after = await galleryFor(user.id);
+  assert.deepEqual(after.photoIds, [kept.id], "the count matches what the client sees");
+  assert.deepEqual(after.favouriteIds, [kept.id]);
 });

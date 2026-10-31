@@ -1,4 +1,5 @@
 import { currentUser, impersonationBlock } from "@/lib/auth";
+import type { ClientGallery } from "@/lib/db";
 import { storage } from "@/lib/uploads";
 import { zipResponse } from "@/lib/zip";
 
@@ -10,11 +11,17 @@ export async function GET() {
   // An admin viewing the account as its owner can't download its data.
   if (await impersonationBlock()) return new Response("Not available while viewing this account as an admin", { status: 403 });
 
-  const account: Partial<typeof user> = { ...user };
+  const account: Omit<Partial<typeof user>, "galleries"> & { galleries?: Omit<ClientGallery, "passwordHash">[] } = { ...user };
   delete account.passwordHash;
   delete account.adminNotes; // Folio's private notes about the account, not the photographer's data
   delete account.legalHold; // Folio's staff note on a legal hold, not the photographer's data
   delete account.managedBy; // the id of the admin's own account, an internal reference
+  // Client galleries without their password hashes, like the account's own.
+  account.galleries = user.galleries?.map((g) => {
+    const gallery: Partial<ClientGallery> = { ...g };
+    delete gallery.passwordHash;
+    return gallery as Omit<ClientGallery, "passwordHash">;
+  });
   // Photos whose files couldn't be read. Listed in MISSING-FILES.txt, the last
   // entry, so the owner knows the download is incomplete.
   const missing: string[] = [];

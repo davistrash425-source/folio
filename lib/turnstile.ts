@@ -5,8 +5,17 @@
 export const TURNSTILE_FIELD = "cf-turnstile-response";
 const VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 
+let warned = false;
+
 export function turnstileEnabled() {
-  return Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && process.env.TURNSTILE_SECRET_KEY);
+  const site = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
+  const secret = Boolean(process.env.TURNSTILE_SECRET_KEY);
+  // One key alone shows the widget but checks nothing, so say so once.
+  if (site !== secret && !warned) {
+    warned = true;
+    console.error("Turnstile needs both NEXT_PUBLIC_TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY; with one, nothing is checked.");
+  }
+  return site && secret;
 }
 
 // True if the visitor passed. A missing, reused or wrong token fails. If
@@ -20,6 +29,7 @@ export async function verifyTurnstile(token: FormDataEntryValue | null, ip: stri
     const res = await fetch(VERIFY_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(10_000),
       body: JSON.stringify({ secret, response: token, ...(ip !== "local" ? { remoteip: ip } : {}) }),
     });
     if (!res.ok) throw new Error(`Turnstile answered ${res.status}`);

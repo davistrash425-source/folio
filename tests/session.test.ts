@@ -1,10 +1,12 @@
 import { beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
+import { randomBytes, scryptSync } from "crypto";
 import {
   createSession,
   deleteSession,
   getSessionUserId,
   hashPassword,
+  isLegacyPasswordHash,
   verifyPassword,
 } from "../lib/session.ts";
 import { cookieJar } from "./stubs/next-headers.ts";
@@ -95,4 +97,18 @@ test("a damaged stored password matches nothing", async () => {
   for (const stored of ["", "nocolon", "salt:", ":abcd", "salt:zz", "salt:not-hex"]) {
     assert.equal(await verifyPassword("anything", stored), false, `matched ${JSON.stringify(stored)}`);
   }
+});
+
+test("new hashes are versioned, and an old default-cost hash still verifies", async () => {
+  const fresh = await hashPassword("correct horse");
+  assert.match(fresh, /^v2:/, "new hashes carry a version marker");
+  assert.equal(await verifyPassword("correct horse", fresh), true);
+  assert.equal(isLegacyPasswordHash(fresh), false);
+
+  // A hash made before the cost change (salt:hash, no marker) still verifies
+  // at the old cost and is recognised as needing an upgrade.
+  const salt = randomBytes(16).toString("hex");
+  const legacy = `${salt}:${scryptSync("correct horse", salt, 64).toString("hex")}`;
+  assert.equal(await verifyPassword("correct horse", legacy), true);
+  assert.equal(isLegacyPasswordHash(legacy), true);
 });

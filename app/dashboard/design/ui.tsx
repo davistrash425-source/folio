@@ -82,14 +82,18 @@ export function Choice<T extends string>({ label, value, options, onChange, lock
   );
 }
 
-export function IconButton({ label, children, ...props }: React.ComponentProps<"button"> & { label: string }) {
+// `disabled` keeps the button focusable (aria-disabled): a move button that
+// reaches the end of the list would otherwise drop keyboard focus.
+export function IconButton({ label, children, disabled, onClick, ...props }: React.ComponentProps<"button"> & { label: string }) {
   return (
     <button
       type="button"
       aria-label={label}
       title={label}
       {...props}
-      className="rounded px-1.5 opacity-70 hover:bg-ink/10 hover:opacity-100 disabled:opacity-25"
+      aria-disabled={disabled || undefined}
+      onClick={disabled ? undefined : onClick}
+      className="rounded px-1.5 opacity-70 hover:bg-ink/10 hover:opacity-100 aria-disabled:opacity-25"
     >
       {children}
     </button>

@@ -4,6 +4,7 @@
 // `designSchema` is safe to render, so no change can break a site.
 // Uses relative imports only, so tests can run it directly with Node.
 import { z } from "zod";
+import { PRO_PHOTO_LIMIT } from "./plans";
 
 const hex = z.string().regex(/^#[0-9a-f]{6}$/i, "Use a 6-digit hex color like #1a1a1a");
 const id = z.string().min(1).max(64);
@@ -80,7 +81,7 @@ const gallerySection = z.object({
   source: z
     .discriminatedUnion("kind", [
       z.object({ kind: z.literal("all") }),
-      z.object({ kind: z.literal("photos"), photoIds: z.array(z.string()).describe("In display order") }),
+      z.object({ kind: z.literal("photos"), photoIds: z.array(z.string()).max(PRO_PHOTO_LIMIT).describe("In display order") }),
       z.object({ kind: z.literal("album"), albumId: z.string() }),
     ])
     .describe("Which photos this gallery shows"),
@@ -162,7 +163,7 @@ const designBase = z.object({
   nav: z.object({ albums: z.boolean().describe("Also list albums in the site menu") }),
   albums: z.object({
     show: z.enum(["all", "selected"]).describe("Which albums are on the site (each gets a page at /<album>)"),
-    albumIds: z.array(z.string()).describe("Used when show is 'selected', in order"),
+    albumIds: z.array(z.string()).max(PRO_PHOTO_LIMIT).describe("Used when show is 'selected', in order"),
   }),
   gallery: z
     .object({
@@ -174,7 +175,7 @@ const designBase = z.object({
     .describe("Site-wide gallery style"),
   captions: z.object({
     show: z.enum(["none", "chosen", "all"]).describe("Which photos show their description under them"),
-    photoIds: z.array(z.string()).describe("Used when show is 'chosen'"),
+    photoIds: z.array(z.string()).max(PRO_PHOTO_LIMIT).describe("Used when show is 'chosen'"),
     includeLocation: z.boolean(),
   }),
 });
@@ -600,6 +601,9 @@ export function readDesign(stored: unknown, fallbackTheme: unknown): SiteDesign 
   if (v2.success) return fromV2(v2.data);
   const v1 = designSchemaV1.safeParse(stored);
   if (v1.success) return fromV2(fromV1(v1.data));
+  // A stored design that fits no version is replaced by the default layout,
+  // and the next save keeps that, so say so in the log.
+  if (stored != null) console.error("A stored design didn't parse; showing the default layout", current.error.issues.slice(0, 3));
   return legacyDesign(isLook(fallbackTheme) ? fallbackTheme : "minimal");
 }
 
@@ -661,8 +665,20 @@ export function showsCaption(design: SiteDesign, photoId: string) {
   return show === "all" || (show === "chosen" && photoIds.includes(photoId));
 }
 
+// Sorts object keys recursively so two designs that differ only in key order
+// still match. zod re-orders keys when it parses a design, so a straight
+// JSON.stringify comparison made the editor stick on "Saving…" (A4-1).
+function canonical(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return Object.fromEntries(Object.keys(record).sort().map((key) => [key, canonical(record[key])]));
+  }
+  return value;
+}
+
 export function sameDesign(a: SiteDesign, b: SiteDesign) {
-  return JSON.stringify(a) === JSON.stringify(b);
+  return JSON.stringify(canonical(a)) === JSON.stringify(canonical(b));
 }
 
 // A page address made from a title that doesn't clash with `taken`.

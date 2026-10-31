@@ -15,6 +15,12 @@ export const maxDuration = 60;
 
 const signedOut = () => Response.json({ error: "you've been signed out — log in again" }, { status: 401 });
 
+// One request at a time per upload. A second, racing request for the same file
+// waits for the first and reuses its answer, so the web copies aren't made
+// twice. (Per-process; on a multi-instance host the extra write is harmless —
+// identical bytes under the same names.)
+const inflight = new Map<string, Promise<Response>>();
+
 // Step two of a direct upload (see ../start): checks the photo that arrived
 // in storage, makes its web copies and adds it to the account. Answers 503
 // when storage fails, which the browser retries; other errors are the photo's.
@@ -50,41 +56,55 @@ export async function POST(req: Request) {
   if (existing?.removed) return answer({ error: "this photo was taken down by Folio, so it can't be uploaded again" });
   if (existing) return answer({ ok: "Uploaded 1 photo." });
 
-  let photo: Awaited<ReturnType<typeof finishDirectUpload>>;
-  try {
-    photo = await finishDirectUpload(user.id, file, timings, photoRights(user.profile));
-  } catch (err) {
-    const message = (err as Error).message;
-    // Storage failures aren't the photo's fault. Log them, or they're invisible.
-    if (!PHOTO_ERRORS.has(message)) {
-      console.error("finishPhotoUpload:", err);
-      return answer({ error: "couldn't be saved, try again in a minute" }, 503);
-    }
-    if (message === "NOT_AN_IMAGE") console.warn("finishPhotoUpload:", (err as Error).cause);
-    return answer({ error: message === "TOO_LARGE" ? "over 20 MB" : "couldn't be read as an image" });
-  }
-  started = performance.now();
+  const pending = inflight.get(file);
+  if (pending) return (await pending).clone();
 
-  let blocked: string | null = null;
+  const finish = async (): Promise<Response> => {
+    let photo: Awaited<ReturnType<typeof finishDirectUpload>>;
+    try {
+      photo = await finishDirectUpload(user.id, file, timings, photoRights(user.profile));
+    } catch (err) {
+      const message = (err as Error).message;
+      // Storage failures aren't the photo's fault. Log them, or they're invisible.
+      if (!PHOTO_ERRORS.has(message)) {
+        console.error("finishPhotoUpload:", err);
+        return answer({ error: "couldn't be saved, try again in a minute" }, 503);
+      }
+      if (message === "NOT_AN_IMAGE") console.warn("finishPhotoUpload:", (err as Error).cause);
+      return answer({ error: message === "TOO_LARGE" ? "over 20 MB" : "couldn't be read as an image" });
+    }
+    started = performance.now();
+
+    let blocked: string | null = null;
+    try {
+      await updateUser(user.id, (u) => {
+        u.pendingUploads = u.pendingUploads?.filter((p) => p.file !== file && p.expires > Date.now());
+        if (u.photos.some((p) => p.id === photo.id)) return; // finished twice
+        blocked = uploadBlock(u, photo.bytes);
+        if (!blocked) u.photos.push({ ...photo, createdAt: new Date().toISOString() });
+      });
+    } catch (err) {
+      // The account was deleted while the photo was uploading (say, from
+      // another tab). Don't leave its photos behind.
+      if ((err as Error).message !== "USER_NOT_FOUND") throw err;
+      await storage.removeAll(user.id);
+      return signedOut();
+    }
+    lap("save");
+    if (blocked) {
+      await deletePhotoFiles(user.id, { ...photo, createdAt: "" });
+      return answer({ error: blocked });
+    }
+    // The browser refreshes the page itself once the whole batch is done.
+    revalidatePath("/dashboard", "layout");
+    return answer({ ok: "Uploaded 1 photo." });
+  };
+
+  const running = finish();
+  inflight.set(file, running);
   try {
-    await updateUser(user.id, (u) => {
-      if (u.photos.some((p) => p.id === photo.id)) return; // finished twice
-      blocked = uploadBlock(u, photo.bytes);
-      if (!blocked) u.photos.push({ ...photo, createdAt: new Date().toISOString() });
-    });
-  } catch (err) {
-    // The account was deleted while the photo was uploading (say, from
-    // another tab). Don't leave its photos behind.
-    if ((err as Error).message !== "USER_NOT_FOUND") throw err;
-    await storage.removeAll(user.id);
-    return signedOut();
+    return await running;
+  } finally {
+    inflight.delete(file);
   }
-  lap("save");
-  if (blocked) {
-    await deletePhotoFiles(user.id, { ...photo, createdAt: "" });
-    return answer({ error: blocked });
-  }
-  // The browser refreshes the page itself once the whole batch is done.
-  revalidatePath("/dashboard", "layout");
-  return answer({ ok: "Uploaded 1 photo." });
 }

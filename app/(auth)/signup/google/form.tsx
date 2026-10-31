@@ -9,13 +9,14 @@ import { useAddressCheck, type AddressStatus } from "@/app/ui/use-address-check"
 
 const box = (isError: boolean) =>
   `w-full border bg-card text-sm text-ink outline-none transition-colors ${
-    isError ? "border-accent" : "border-rule focus:border-ink"
+    isError ? "border-accent" : "border-rule focus-within:border-ink"
   }`;
 
 export function GoogleSignupForm({ name, email }: { name: string; email: string }) {
   const [state, action, pending] = useActionState(completeGoogleSignup, {});
   const [displayName, setDisplayName] = useState(name);
   const [subdomain, setSubdomain] = useState("");
+  const [terms, setTerms] = useState(false); // controlled, so a failed submit doesn't untick it
   const { status, message, checking } = useAddressCheck(subdomain);
 
   const field = state.field;
@@ -62,12 +63,12 @@ export function GoogleSignupForm({ name, email }: { name: string; email: string 
             />
             <span className="pr-3 text-sm text-ink-soft">.{ROOT_DOMAIN}</span>
           </div>
-          <span id="google-address-hint" className="mt-1.5 block text-xs text-ink-faint">
+          <span id="google-address-hint" aria-live="polite" className="mt-1.5 block text-xs text-ink-faint">
             <AddressHint status={status} message={message} checking={checking} />
           </span>
         </label>
         <label className="flex items-start gap-2 text-sm text-ink-soft">
-          <input type="checkbox" name="terms" className="mt-0.5" />
+          <input type="checkbox" name="terms" checked={terms} onChange={(e) => setTerms(e.target.checked)} className="mt-0.5" />
           <span>
             I agree to the <Link href="/terms" target="_blank" className="underline">Terms</Link> and{" "}
             <Link href="/privacy" target="_blank" className="underline">Privacy Policy</Link>.

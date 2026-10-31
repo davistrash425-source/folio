@@ -30,7 +30,9 @@ export function contentPolicy(env: Env) {
   const list = (...parts: (string | undefined)[]) => parts.filter(Boolean).join(" ");
   return [
     "default-src 'self'",
-    // Next.js adds small inline scripts to every page.
+    // Next.js adds small inline scripts to every page, and the nonce/hash
+    // alternatives don't work with this app's partial prerendering (see the
+    // Next 16 Content Security Policy guide), so 'unsafe-inline' stays for now.
     `script-src ${list("'self'", "'unsafe-inline'", turnstile)}`,
     "style-src 'self' 'unsafe-inline'",
     `img-src ${list("'self'", "data:", "blob:", photos)}`,
@@ -40,6 +42,7 @@ export function contentPolicy(env: Env) {
     "worker-src 'self' blob:",
     "object-src 'none'",
     "base-uri 'self'",
+    "form-action 'self'",
     "frame-ancestors 'self'",
   ].join("; ");
 }

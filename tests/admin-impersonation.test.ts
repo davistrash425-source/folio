@@ -7,12 +7,13 @@ import assert from "node:assert/strict";
 import * as adminActions from "../app/actions/admin.ts";
 import * as authActions from "../app/actions/auth.ts";
 import * as siteActions from "../app/actions/site.ts";
+import * as galleryActions from "../app/actions/galleries.ts";
 import { GET as exportAccount } from "../app/api/export/route.ts";
 import { requireAdmin } from "../lib/admin.ts";
 import { currentImpersonation, currentUser } from "../lib/auth.ts";
 import { adminActionsFor, findUserById, updateUser } from "../lib/db.ts";
 import { IMPERSONATION_MINUTES, minutesLeft } from "../lib/session.ts";
-import { addPhoto, databaseText, formOf, makeUser, redirectedTo, resetRequest, signInAs, signOut } from "./helpers.ts";
+import { addAlbum, addInquiry, addPhoto, databaseText, formOf, makeUser, redirectedTo, resetRequest, signInAs, signOut } from "./helpers.ts";
 import { cookieJar } from "./stubs/next-headers.ts";
 import { NotFoundError } from "./stubs/next-navigation.ts";
 
@@ -69,6 +70,7 @@ test("starting needs a typed reason, then shows the account as its owner and log
   assert.equal(log[0].action, "impersonation-started");
   assert.equal(log[0].adminEmail, admin.email);
   assert.ok(log[0].detail.includes(REASON));
+  assert.match(log[0].detail, /until \d{4}-\d{2}-\d{2}T/, "the expiry time is recorded");
 });
 
 test("viewers, photographers and signed-out visitors can't start it", async () => {
@@ -128,7 +130,7 @@ test("while viewing an account, its password, address, sessions, export and dele
 });
 
 test("everything else works as the account, and only the account: other people's data stays out of reach", async () => {
-  const { admin, alice, bob } = await world();
+  const { alice, bob } = await world();
   const mine = (await addPhoto(alice.id)).photo;
   const theirs = (await addPhoto(bob.id, { description: "bob's" })).photo;
   await start(alice);
@@ -141,10 +143,25 @@ test("everything else works as the account, and only the account: other people's
   const bobNow = (await findUserById(bob.id))!;
   assert.equal(bobNow.photos.length, 1);
   assert.equal(bobNow.photos[0].description, "bob's");
+});
 
-  await siteActions.setPublished(false);
-  assert.equal((await findUserById(alice.id))!.published, false);
-  assert.notEqual((await findUserById(admin.id))!.published, false, "the admin's own account is untouched");
+test("while viewing an account, changing its content, profile or galleries is off limits", async () => {
+  const { alice } = await world();
+  const { photo } = await addPhoto(alice.id);
+  await addAlbum(alice.id, "Alice album", [photo.id]);
+  await addInquiry(alice.id, "a message");
+  await start(alice);
+  const before = await databaseText();
+
+  assert.match((await siteActions.deletePhoto(photo.id)).error ?? "", /Stop viewing it first/);
+  assert.match((await siteActions.deleteAlbum("any-album")).error ?? "", /Stop viewing it first/);
+  assert.match((await siteActions.deleteInquiry("any-inquiry")).error ?? "", /Stop viewing it first/);
+  assert.match((await siteActions.saveProfile({}, formOf({ name: "New Name" }))).error ?? "", /Stop viewing it first/);
+  assert.match((await siteActions.setPublished(false)).error ?? "", /Stop viewing it first/);
+  assert.match((await galleryActions.deleteGallery("any-gallery")).error ?? "", /Stop viewing it first/);
+  assert.match((await galleryActions.emailGalleryLink("any-gallery", {}, formOf({ email: "client@example.com" }))).error ?? "", /Stop viewing it first/);
+
+  assert.equal(await databaseText(), before, "nothing about the account changed");
 });
 
 test("a suspended account stays suspended while an admin views it", async () => {
@@ -235,4 +252,12 @@ test("logging out also drops the viewing cookie", async () => {
   await redirectedTo(authActions.logout());
   assert.ok(!cookieJar.has(COOKIE));
   assert.equal(await currentUser(), null);
+});
+
+test("logging out while viewing an account as its owner logs that it ended", async () => {
+  const { alice } = await world();
+  await start(alice);
+  await redirectedTo(authActions.logout());
+  const log = await adminActionsFor(alice.id);
+  assert.deepEqual(log.map((a) => a.action).sort(), ["impersonation-ended", "impersonation-started"]);
 });

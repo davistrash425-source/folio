@@ -2,7 +2,15 @@
 
 ## Done (Oct 31, 2026): editor preview ignoring a chosen header photo — Status: complete (closed, not reproducible)
 - Owner reported it on davifphotos, Home page, while the theme was Classic. Could not reproduce locally (dev and production build) or on folio.cam (draft switched to Classic, photo picked with autosave on, reload; draft discarded afterwards). Owner said close it.
-- Added the browser test `tests/e2e/header-photo.spec.ts` (runs in CI with `npm run test:e2e`) as a guard. Committed on branch `worktree-fix-preview-header-photo` (worktree `.claude/worktrees/fix-preview-header-photo`, cut from origin/main); not pushed.
+- Added the browser test `tests/e2e/header-photo.spec.ts` (runs in CI with `npm run test:e2e`) as a guard. PR #27.
+- Gotcha: CI and Vercel builds sometimes fail with a Turbopack next/font/google error on Cormorant Garamond ("queries have exactly one entry"); re-running the same commit passes.
+
+## Current task (Oct 30, 2026): bug check + fix everything — code done, not merged
+- **Goal:** owner asked for a full multi-agent bug check, then "fix everything, go with your recommendations, update all docs".
+- **Done:** all findings fixed on branch `bug-check-fixes`, which also carries the Oct 29 FIX-PLAN work (it was uncommitted in `.claude/worktrees/fix-plan`, applied here) and the Vercel Pro docs commit `7d884e3` (cherry-picked from `worktree-status-vercel-pro`). Full list and decisions: `docs/CODE-REVIEW-2026-10-30.md`. tsc, eslint, `npm run build` and 513/513 tests pass. Docs updated: CLAUDE.md, README.md, both review docs, FIX-PLAN.md, BACKLOG.md and the Claude Doc (both tabs).
+- **In progress:** committing on the branch. Next: ask the owner before pushing; then a PR, CI, merge, check the Vercel deploy.
+- **Owner to do after merge:** set `CLOUDFLARE_PURGE_TOKEN` + `CLOUDFLARE_PURGE_ZONE_ID` in Vercel (takedown cache purge); try the new email Confirm button once on production.
+- **Gotchas:** the old worktrees `.claude/worktrees/fix-plan` and `status-vercel-pro` are now redundant (their work is on this branch); remove them only after the branch is merged. `--color-rule` got much darker (#8f8879) for contrast, so every divider line is darker; revert in `app/globals.css` if the owner dislikes it.
 
 ## What is live
 - Free plan (150 photos) and Pro: 1,500 photos, 20 password-protected client galleries, 50 GB, editable and extra special themes (Contact sheet, Monograph), no gallery footer badge (`lib/plans.ts`).
@@ -14,26 +22,24 @@
 - Legal pages are still drafts (`LEGAL_DRAFT = true` in `lib/legal.ts`).
 - `/admin` works for `davifree425@gmail.com` (owner confirmed Oct 30; staff roles need a confirmed email).
 
-## Still to do before a proper Pro launch (owner)
-1. Lawyer review of Terms, Privacy and Copyright (brief: `docs/LAWYER-BRIEF.md`), then set `LEGAL_DRAFT=false`.
-2. Vercel Pro plan (Hobby forbids commercial use). Owner chose to stay on Hobby until there are paying users.
-3. The Claude Doc backlog got the Oct 30 billing edits (backlog tab only); its "Agent context" tab and any older Oct 28 differences were not re-checked.
+## Owner update (Oct 30)
+The owner has moved to Vercel Pro and has fully launched Folio Pro. They meet the lawyer on Sunday, Nov 1, 2026.
+
+## Still to do (owner)
+1. Lawyer review of Terms, Privacy and Copyright (brief: `docs/LAWYER-BRIEF.md`; meeting Sunday, Nov 1, 2026), then set `LEGAL_DRAFT=false` and apply any wording changes the lawyer asks for.
+2. After `bug-check-fixes` is merged: the Cloudflare purge variables (above).
 
 ## Just built (Oct 30, live in d686f65)
 Admin "Let payments decide" button: `letPaymentsDecide` in `app/actions/admin.ts` (full admin only, logged as `plan-from-payments`, sets `planSource: "billing"` and the plan from the saved `User.billing` via `grantsPro`, Free when none). The admin site page's Plan card now says whether the plan is hand-set and shows the subscription status; the button only appears for hand-set plans. Tests: two in `tests/billing.test.ts`, plus the action added to the signed-out/photographer and viewer lists in `tests/admin.test.ts` and `tests/admin-oversight.test.ts`. tsc, lint, all 479 tests and `npm run build` pass. Pushed to `main` and live (deployment `dpl_H6qn6EPkAP96ZuEX9Fkjh1n9A2D3`, READY). Once deployed, use it on `folio.user.001@gmail.com`: its last saved subscription state is the cancelled-at-period-end one, so it will show Pro until Nov 30, 2026.
 
 ## Next coding work
-`docs/FIX-PLAN.md`, Batch 1 first (pg pool error listener, `connection()` in Google cookie read, `impersonationBlock()` on remaining actions).
+Merge `bug-check-fixes`. Then what's left in `docs/CODE-REVIEW-2026-10-30.md` under "Still open" (per-photo hide flag needs the owner; `'unsafe-inline'` stays for now).
 
-## Code review (Oct 28, 2026)
-`docs/CODE-REVIEW-2026-10-28.md` is the list to work from: what was fixed and what is still open, most important first. It replaces the unverified `docs/FULL-CHECK-NOTES.md` (raw findings, kept for the IDs). The "Folio: Full Project Check" Claude Doc was never filled in and is superseded; ignore it.
-- Fixed in PR #24 (merged and live): staff roles need a confirmed email; Google sign-in no longer lets a pre-registered password survive on an unconfirmed account; `/apiary`-style paths are rewritten; account deletion stops when Polar can't end the subscription; late events for an older subscription are ignored; admin `setPlan` refreshes the live site; takedown retries after a storage error; deletion refuses legal-hold accounts inside the SQL; finish can't re-publish a taken-down photo; the export no longer includes `legalHold` and lists unreadable photos in `MISSING-FILES.txt`; the orphan sweep skips legal-hold accounts.
-- Biggest open items: ZIP export above 4 GiB, taken-down photos staying cached for a year, no pool `error` listener in `lib/pg.ts`, several actions missing `impersonationBlock()`, client galleries ignoring "site offline", low-contrast text and keyboard focus gaps. Details are in the review doc.
-- **`docs/FIX-PLAN.md`** is the ordered execution plan for all open items, split into 11 self-contained batches. Work from it top-down.
-- **Staff roles now require a confirmed email, and that is live.** The owner confirmed on Oct 30 that `/admin` still works for `davifree425@gmail.com` (the only `ADMIN_EMAILS` entry), so that account is confirmed.
+## Code reviews
+`docs/CODE-REVIEW-2026-10-30.md` is current: everything from the Oct 28 review and the Oct 30 bug check is fixed on `bug-check-fixes`, with what's still open at the end. `docs/CODE-REVIEW-2026-10-28.md` and `docs/FIX-PLAN.md` are kept for reference. Staff roles require a confirmed email (live; `/admin` works for `davifree425@gmail.com`).
 
 ## Branches
-No open PRs; `main` is the only branch. (Old branches were deleted Oct 28; a backup bundle of all of them is in `Davi's Projects/folio-cleanup-backup-2026-10-28`, outside the repo.)
+`main` (live) and `bug-check-fixes` (this work, not pushed yet). Worktree branches `worktree-fix-plan` and `worktree-status-vercel-pro` are folded into `bug-check-fixes`. A backup bundle of the branches deleted Oct 28 is in `Davi's Projects/folio-cleanup-backup-2026-10-28`, outside the repo.
 
 ## Sandbox facts
 Polar sandbox org `foliocam`; products Monthly `d11e5d3e-b633-4869-8f70-57a5299633de`, Yearly `fe2b76c3-bcd0-4502-99c2-a54a22300054`; token `folio-sandbox` expires Nov 25, 2026. The sandbox webhook (id `c3c351de-bb5e-4d2a-b051-84c163045dbd`) still points at a deleted preview URL with a Vercel protection-bypass secret; delete the secret and repoint or remove the webhook when the sandbox is no longer needed. Vercel Preview also has a branch-scoped `PRO_FOR_EVERYONE` variable for a deleted branch; it does nothing and can be removed in the dashboard.

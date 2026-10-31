@@ -113,12 +113,18 @@ export function DesignEditor(props: {
   function run(action: () => Promise<DesignResult>) {
     setError(undefined);
     setSaveError(false);
+    const before = design;
     startTransition(async () => {
       const result = await action();
       if (result.error) return setError(result.error);
       if (result.draft) {
-        setSaved(result.draft);
-        setDesign(result.draft);
+        const draft = result.draft;
+        // The stored draft changed, so the next edit must save even if it
+        // matches something sent before (an edit, Undo, the same edit again).
+        lastSent.current = null;
+        setSaved(draft);
+        // Edits made while this ran stay on screen, and autosave stores them.
+        setDesign((now) => (now === before ? draft : now));
       }
       if (result.published) setPublished(result.published);
       setCanUndo(Boolean(result.canUndo));
