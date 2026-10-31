@@ -1,6 +1,8 @@
 # Handoff
 
-**Status as of Oct 30, 2026.** Everything built so far is on `main` and live at www.folio.cam. **Paid plans (Folio Pro, Polar) are live in production since Oct 30** and a real purchase worked. All of it is committed and pushed (`d686f65`).
+## Done (Oct 31, 2026): editor preview ignoring a chosen header photo — Status: complete (closed, not reproducible)
+- Owner reported it on davifphotos, Home page, while the theme was Classic. Could not reproduce locally (dev and production build) or on folio.cam (draft switched to Classic, photo picked with autosave on, reload; draft discarded afterwards). Owner said close it.
+- Added the browser test `tests/e2e/header-photo.spec.ts` (runs in CI with `npm run test:e2e`) as a guard. Committed on branch `worktree-fix-preview-header-photo` (worktree `.claude/worktrees/fix-preview-header-photo`, cut from origin/main); not pushed.
 
 ## What is live
 - Free plan (150 photos) and Pro: 1,500 photos, 20 password-protected client galleries, 50 GB, editable and extra special themes (Contact sheet, Monograph), no gallery footer badge (`lib/plans.ts`).
