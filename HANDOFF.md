@@ -1,11 +1,11 @@
 # Handoff
 
-## Current task (Oct 31, 2026): upload photos from Google Drive — code done, not committed
+## Current task (Oct 31, 2026): upload photos from Google Drive — code done, committed (cc18aa0)
 - **Goal:** owner asked for a "From Google Drive" option on the upload page.
-- **Done (branch `google-drive-upload`, cut from unpushed `bug-check-fixes`, uncommitted):** `lib/google-drive.ts` (config, picker, token, download), `app/dashboard/photo-uploader.tsx` ("Choose from Google Drive" button; Drive files are downloaded in their upload slot, new "downloading" status), `app/dashboard/manage/upload/page.tsx`, `lib/security-headers.ts` (Google hosts only when configured), `tests/google-drive.test.ts`. Docs: CLAUDE.md, README.md, docs/BACKLOG.md (Photos item + owner item 12), docs/OWNER-CHECKLIST.md (section 12), Claude Doc backlog tab (both items). tsc, eslint (project files), 518/518 tests, build pass.
+- **Done (branch `google-drive-upload`, cut from unpushed `bug-check-fixes`, committed cc18aa0):** `lib/google-drive.ts` (config, picker, token, download), `app/dashboard/photo-uploader.tsx` ("Choose from Google Drive" button; Drive files are downloaded in their upload slot, new "downloading" status), `app/dashboard/manage/upload/page.tsx`, `lib/security-headers.ts` (Google hosts only when configured), `tests/google-drive.test.ts`. Docs: CLAUDE.md, README.md, docs/BACKLOG.md (Photos item + owner item 12), docs/OWNER-CHECKLIST.md (section 12), Claude Doc backlog tab (both items). tsc, eslint (project files), 518/518 tests, build pass.
 - **Browser check:** with fake keys, the button renders; the Google scripts and picker iframe load under the enforced CSP with no violations. Not tested: a real sign-in and download (needs the owner's Google Cloud setup).
 - **Gotcha:** local `npm run dev` currently breaks on a next/font/google error in `app/sites/[subdomain]/themes/fonts.ts` (Cormorant Garamond) and every dashboard page bounces to /login on the client. Not caused by this change (the dashboard home does it too); cause unknown. A throwaway local account `drivetest` was made in `data/`.
-- **Next:** owner says commit/push → commit on this branch; PR after `bug-check-fixes` merges.
+- **Next:** ask the owner before pushing. Push `bug-check-fixes` and merge it first, then push this branch and open its PR.
 - **Owner to do:** OWNER-CHECKLIST item 12 (Drive + Picker APIs, browser key, `drive.file` scope, `GOOGLE_PICKER_API_KEY` in Vercel, Privacy wording with the lawyer Nov 1).
 
 ## Current task (Oct 30, 2026): bug check + fix everything — code done, not merged
