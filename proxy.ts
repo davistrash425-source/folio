@@ -19,5 +19,6 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   // Each excluded name must be a whole path segment, so /apiary is still a site page.
-  matcher: ["/((?!(?:api|_photos|_next/static|_next/image|favicon\\.ico)(?:/|$)).*)"],
+  // The icon files (app/favicon.ico, icon.svg, apple-icon.png) are Folio's on every host.
+  matcher: ["/((?!(?:api|_photos|_next/static|_next/image|favicon\\.ico|icon\\.svg|apple-icon\\.png)(?:/|$)).*)"],
 };

@@ -1,5 +1,8 @@
 # Handoff
 
+## Logo (Oct 31, 2026): done
+Folio icon (ink tile, italic Newsreader F, red dot) replaced the Next.js favicon: `app/icon.svg`, `app/favicon.ico`, `app/apple-icon.png`; `proxy.ts` lets them through on photographer subdomains too.
+
 ## Current task (Oct 30, 2026): bug check + fix everything — code done, not merged
 - **Goal:** owner asked for a full multi-agent bug check, then "fix everything, go with your recommendations, update all docs".
 - **Done:** all findings fixed on branch `bug-check-fixes`, which also carries the Oct 29 FIX-PLAN work (it was uncommitted in `.claude/worktrees/fix-plan`, applied here) and the Vercel Pro docs commit `7d884e3` (cherry-picked from `worktree-status-vercel-pro`). Full list and decisions: `docs/CODE-REVIEW-2026-10-30.md`. tsc, eslint, `npm run build` and 513/513 tests pass. Docs updated: CLAUDE.md, README.md, both review docs, FIX-PLAN.md, BACKLOG.md and the Claude Doc (both tabs).
