@@ -1,5 +1,13 @@
 # Handoff
 
+## Current task (Oct 31, 2026): upload photos from Google Drive — code done, not committed
+- **Goal:** owner asked for a "From Google Drive" option on the upload page.
+- **Done (branch `google-drive-upload`, cut from unpushed `bug-check-fixes`, uncommitted):** `lib/google-drive.ts` (config, picker, token, download), `app/dashboard/photo-uploader.tsx` ("Choose from Google Drive" button; Drive files are downloaded in their upload slot, new "downloading" status), `app/dashboard/manage/upload/page.tsx`, `lib/security-headers.ts` (Google hosts only when configured), `tests/google-drive.test.ts`. Docs: CLAUDE.md, README.md, docs/BACKLOG.md (Photos item + owner item 12), docs/OWNER-CHECKLIST.md (section 12), Claude Doc backlog tab (both items). tsc, eslint (project files), 518/518 tests, build pass.
+- **Browser check:** with fake keys, the button renders; the Google scripts and picker iframe load under the enforced CSP with no violations. Not tested: a real sign-in and download (needs the owner's Google Cloud setup).
+- **Gotcha:** local `npm run dev` currently breaks on a next/font/google error in `app/sites/[subdomain]/themes/fonts.ts` (Cormorant Garamond) and every dashboard page bounces to /login on the client. Not caused by this change (the dashboard home does it too); cause unknown. A throwaway local account `drivetest` was made in `data/`.
+- **Next:** owner says commit/push → commit on this branch; PR after `bug-check-fixes` merges.
+- **Owner to do:** OWNER-CHECKLIST item 12 (Drive + Picker APIs, browser key, `drive.file` scope, `GOOGLE_PICKER_API_KEY` in Vercel, Privacy wording with the lawyer Nov 1).
+
 ## Current task (Oct 30, 2026): bug check + fix everything — code done, not merged
 - **Goal:** owner asked for a full multi-agent bug check, then "fix everything, go with your recommendations, update all docs".
 - **Done:** all findings fixed on branch `bug-check-fixes`, which also carries the Oct 29 FIX-PLAN work (it was uncommitted in `.claude/worktrees/fix-plan`, applied here) and the Vercel Pro docs commit `7d884e3` (cherry-picked from `worktree-status-vercel-pro`). Full list and decisions: `docs/CODE-REVIEW-2026-10-30.md`. tsc, eslint, `npm run build` and 513/513 tests pass. Docs updated: CLAUDE.md, README.md, both review docs, FIX-PLAN.md, BACKLOG.md and the Claude Doc (both tabs).

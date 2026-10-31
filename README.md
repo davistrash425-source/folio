@@ -112,6 +112,7 @@ GitHub Actions (`.github/workflows/ci.yml`) runs lint, type checks, `npm test`, 
 | `CRON_SECRET` | Lets Vercel Cron call `/api/cron/daily` (04:00 UTC, see `vercel.json`) | the route answers 404 |
 | `NEXT_PUBLIC_SENTRY_DSN` | Error reports to Sentry | nothing is sent |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | "Continue with Google" sign-in (OAuth client from Google Cloud; redirect URI is `<your host>/api/auth/google/callback`) | Google sign-in errors out |
+| `GOOGLE_PICKER_API_KEY` | "Choose from Google Drive" on the upload page: a browser API key limited to the Google Picker API and Google Drive API (and to your sites' addresses). The same Google Cloud project also needs those two APIs switched on and the `drive.file` scope on its consent screen | no Drive button |
 | `POLAR_ACCESS_TOKEN`, `POLAR_WEBHOOK_SECRET`, `POLAR_PRODUCT_MONTHLY`, `POLAR_PRODUCT_YEARLY` | Folio Pro subscriptions through Polar: an organization token (scopes `checkouts:write`, `customer_sessions:write`, `subscriptions:write`), the webhook signing secret, and the two product ids | checkout is closed ("Paid plans aren't open yet") |
 | `POLAR_SERVER` | `sandbox` (fake payments) or `production` | `sandbox` |
 

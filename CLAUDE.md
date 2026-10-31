@@ -68,6 +68,7 @@ So server actions (`app/actions/*`) and route handlers are called directly as fu
 **Site design.** A `SiteDesign` (`lib/design.ts`, a zod schema) describes the whole site: theme, colors, fonts, pages, and each page's sections. The editor saves to `draftDesign` (keeping 20 earlier drafts for undo in `designHistory`), and publishing copies it to `design`. `app/sites/[subdomain]/renderer.tsx` picks a theme component from `themes/`. All themes read the same content, so switching themes loses nothing. README.md lists the steps for adding a theme.
 
 **Photos.** Files larger than 20 MB are compressed in the browser first (`lib/compress-image.ts`).
+- "Choose from Google Drive" (`lib/google-drive.ts`) is browser-only: Google's picker plus a `drive.file` token (only the picked files), then the browser downloads each file from the Drive API and `PhotoUploader` uploads it like any other. The server never talks to Google Drive. Shown only when `driveConfig()` finds `GOOGLE_CLIENT_ID` and `GOOGLE_PICKER_API_KEY`; the content policy adds Google's hosts only then.
 - On upload, the original is saved as `<id>.orig.<ext>`. It is never served and is only included in the account export.
 - `lib/images.ts` (sharp) makes WebP copies at 640, 1280 and 2048px with EXIF and GPS removed. `photoSource` builds the `srcset` from them.
 - All file access goes through the `storage` object in `lib/uploads.ts`.
@@ -103,6 +104,7 @@ So server actions (`app/actions/*`) and route handlers are called directly as fu
 | `CRON_SECRET` | Lets Vercel Cron call `/api/cron/daily` (`vercel.json`, 04:00 UTC): retries deleted accounts' file cleanup, removes unfinished uploads and orphaned web copies older than a day, sends one draft-site reminder | The route answers 404 |
 | `POLAR_ACCESS_TOKEN`, `POLAR_WEBHOOK_SECRET`, `POLAR_PRODUCT_MONTHLY`, `POLAR_PRODUCT_YEARLY`, `POLAR_SERVER` | Folio Pro subscriptions through Polar (`lib/billing.ts`, webhook at `/api/webhooks/billing`); `POLAR_SERVER` is `sandbox` (default) or `production` | Checkout is closed |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | "Continue with Google" sign-in (`lib/google.ts`, `app/api/auth/google/*`, `app/(auth)/signup/google`) | Google sign-in throws "is not set" |
+| `GOOGLE_PICKER_API_KEY` | Browser API key (Picker API + Drive API) for "Choose from Google Drive" on the upload page (`lib/google-drive.ts`); also needs `GOOGLE_CLIENT_ID` and the `drive.file` scope on the consent screen | No Drive button |
 | `NEXT_PUBLIC_SENTRY_DSN` | Error reports to Sentry (`lib/sentry.ts`, `instrumentation.ts`, `instrumentation-client.ts`, `app/global-error.tsx`) | Nothing is sent |
 
 `NEW_SITES_START_PUBLISHED` in `lib/site.ts` decides whether new sites start live or as drafts.
