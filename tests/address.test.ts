@@ -3,7 +3,7 @@ import { beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
 import { signup } from "../app/actions/auth.ts";
 import { changeAddress } from "../app/actions/site.ts";
-import { addReport, findUserById, findUserBySubdomain, reportsForSite, updateUser } from "../lib/db.ts";
+import { addReport, adminActionsFor, findUserById, findUserBySubdomain, reportsForSite, updateUser } from "../lib/db.ts";
 import { formOf, fromIp, makeUser, resetRequest, signInAs } from "./helpers.ts";
 
 beforeEach(resetRequest);
@@ -53,6 +53,33 @@ test("an old address is held from everyone else for a year, but its owner can mo
   assert.equal((await findUserById(davi.id))!.subdomain, old);
   await signInAs(mallory);
   assert.match((await moveTo(`${old}-new`)).error!, /held for a year/, "the address they left is held now");
+});
+
+test("an admin can move to a held address by ticking the override, and it's logged; nobody else can", async (t) => {
+  const davi = await makeUser("Davi");
+  const old = davi.subdomain;
+  await signInAs(davi);
+  await moveTo(`${old}-new`);
+
+  const mallory = await makeUser("Mallory");
+  await signInAs(mallory);
+  const refused = await changeAddress({}, formOf({ subdomain: old, override: "on" }));
+  assert.match(refused.error!, /held for a year/, "the override does nothing for a photographer");
+  assert.equal(refused.held, undefined, "and isn't offered");
+
+  const admin = await makeUser("Admin");
+  process.env.ADMIN_EMAILS = admin.email;
+  t.after(() => delete process.env.ADMIN_EMAILS);
+  await signInAs(admin);
+  const offered = await moveTo(old);
+  assert.match(offered.error!, /held for a year/);
+  assert.equal(offered.held, true);
+
+  assert.ok((await changeAddress({}, formOf({ subdomain: old, override: "on" }))).ok);
+  assert.equal((await findUserById(admin.id))!.subdomain, old);
+  const log = await adminActionsFor(admin.id);
+  assert.equal(log[0].action, "address-hold-overridden");
+  assert.equal(log[0].adminEmail, admin.email);
 });
 
 test("reports about a site follow it to its new address", async () => {
