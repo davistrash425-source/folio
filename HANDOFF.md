@@ -1,10 +1,10 @@
 # Handoff
+**Status: complete**
 
-## New-user polish (Nov 1, 2026): built, not committed (branch `new-user-polish`)
+## New-user polish (Nov 1, 2026): live (PR #30, merged into main)
 - **Goal:** owner's notes: Google button below the fold on /signup; Free users can preview greyed-out Pro themes; design page collapsed except Theme with a Save button that opens the next; make the design tab easier.
 - **Done:** Google button + "or sign up with email" divider at the top of signup and login (`app/ui/google-button.tsx` `OrDivider`, `app/ui/signup-form.tsx`, `app/(auth)/login/page.tsx`; auth layout spacing tightened). Design editor is 5 numbered steps (`Step` in `app/dashboard/design/ui.tsx`, replaced `Group`): Choose a theme, Colors and layout (Classic look/colors/fonts + gallery style, or the theme's settings), Pages, Captions and albums, About you. One open at a time; closed ones show a summary; "Save and continue" saves now and opens the next. Pro themes on Free: greyed with a Pro badge; click → popup → "Preview" shows it only in the preview frame (`previewTheme` in `app/dashboard/design-editor.tsx`, never saved) with a "Get Folio Pro / Stop preview" bar. `tests/e2e/header-photo.spec.ts` opens the Pages step first. tsc, lint, 525 tests, build pass; checked in Chrome on a local Free account (`preview-tester-1101@example.com`, local data only).
-- **Not run:** `npm run test:e2e` (a dev server was already running on :3000); CI will run it.
-- **Next:** owner to look, then commit/PR.
+- CI (incl. browser tests) passed on the PR.
 
 ## Header photo on the Pro themes (Nov 1, 2026): live (PR #29)
 - **Goal:** owner: "for the pro themes, there is no option to add a header photo, add that".
