@@ -5,7 +5,7 @@ import { useEffect, useEffectEvent, useMemo, useRef, useState, useTransition } f
 import { discardDraftDesign, publishDesign, saveDraftDesign, undoDesign, type DesignResult } from "@/app/actions/design";
 import { Button } from "@/app/ui/form";
 import { ConfirmButton } from "@/app/ui/confirm";
-import { PAGE_TEMPLATES, LOOKS, applyLook, applyTheme, designSchema, makeHomePage, newPage, newSection, sameDesign, uniqueSlug, type PageTemplate, type Section, type SectionType, type SiteDesign, type SitePage } from "@/lib/design";
+import { HEADER_PHOTO_THEMES, PAGE_TEMPLATES, LOOKS, applyLook, applyTheme, designSchema, makeHomePage, newPage, newSection, sameDesign, uniqueSlug, type PageTemplate, type Section, type SectionType, type SiteDesign, type SitePage } from "@/lib/design";
 import { THEME_INFO } from "@/lib/themes";
 import { DevicePreview, DeviceButtons, type Device } from "./device-preview";
 import { countChanges } from "./design/changes";
@@ -348,7 +348,7 @@ export function DesignEditor(props: {
               suggestSlug={(title) => uniqueSlug(title, [...design.pages.filter((p) => p.id !== page.id).map((p) => p.slug), ...albumSlugs])}
               albumSlugs={albumSlugs}
             />
-            {design.theme === "classic" && (
+            {HEADER_PHOTO_THEMES.includes(design.theme) && (
               <PageHeaderPhoto
                 page={page}
                 photos={props.photos}
@@ -368,6 +368,7 @@ export function DesignEditor(props: {
                     photos={props.photos}
                     albums={props.albums}
                     classic={design.theme === "classic"}
+                    headerPhoto={HEADER_PHOTO_THEMES.includes(design.theme)}
                     defaults={{
                       heading: page.slug === "" ? props.profile.name : page.title,
                       subheading: page.slug === "" ? props.profile.location : "",

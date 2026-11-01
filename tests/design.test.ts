@@ -2,7 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   CLASSIC_LOOKS,
+  HEADER_PHOTO_THEMES,
   LOOKS,
+  PRO_THEMES,
   THEMES,
   albumAsPage,
   applyLook,
@@ -23,7 +25,7 @@ import {
 } from "../lib/design.ts";
 import { TEMPLATES } from "../lib/templates.ts";
 import type { SiteData } from "../lib/site-data.ts";
-import { aboutText, heroText } from "../app/sites/[subdomain]/themes/shared.ts";
+import { aboutText, heroCover, heroText } from "../app/sites/[subdomain]/themes/shared.ts";
 
 let n = 0;
 const makeId = () => `t${++n}`;
@@ -252,4 +254,18 @@ test("uniqueSlug avoids taken and reserved addresses", () => {
   assert.equal(uniqueSlug("About", ["about", "about-2"]), "about-3");
   assert.equal(uniqueSlug("API", []), "api-2");
   assert.equal(uniqueSlug("!!!", []), "page");
+});
+
+test("Classic and every Pro theme offer a header photo: the chosen one, or else the page's first photo", () => {
+  for (const theme of ["classic", ...PRO_THEMES] as const) assert.ok(HEADER_PHOTO_THEMES.includes(theme), theme);
+  assert.ok(!HEADER_PHOTO_THEMES.includes("filmstrip"), "the free creative themes keep a text header");
+
+  const d = presetDesign("tag");
+  const home = d.pages[0];
+  const hero = home.sections.find((s) => s.type === "hero") as HeroSection;
+  const photos = [{ id: "p1" }, { id: "p2" }];
+  const site = { photos, albums: [], design: d } as unknown as SiteData;
+  assert.equal(heroCover(site, home, { ...hero, style: "title" }), undefined, "no photo when the header is set to text");
+  assert.equal(heroCover(site, home, { ...hero, style: "cover", coverPhotoId: "p2" })?.id, "p2");
+  assert.equal(heroCover(site, home, { ...hero, style: "cover", coverPhotoId: "gone" })?.id, "p1", "a deleted photo falls back");
 });

@@ -10,7 +10,8 @@ import { contactHref, copyrightLine, siteHref } from "@/lib/site-data";
 import { ContactForm } from "../contact-form";
 import { Lightbox } from "../lightbox";
 import { jost, martianMono } from "./fonts";
-import { aboutText, captionText, currentPage, heroText, navItems, pageGalleries, socialLinks, type GalleryBlock, visibleSections, type ThemeProps } from "./shared";
+import { aboutText, captionText, currentPage, heroCover, heroText, navItems, pageGalleries, socialLinks, type GalleryBlock, visibleSections, type ThemeProps } from "./shared";
+import type { PhotoSource } from "@/lib/uploads";
 import { ReportLink } from "./report-link";
 
 // Tiles per row on large screens; phones always show two.
@@ -37,6 +38,7 @@ export function MosaicTheme({ site }: ThemeProps) {
   const opener = page.slug === "" && sections[0]?.type === "hero" ? sections[0] : null;
   const tagline = opener ? heroText(site, page, opener).subheading : profile.location;
   const body = opener ? sections.slice(1) : sections;
+  const openerCover = opener ? heroCover(site, page, opener) : undefined;
 
   const vars = {
     "--bg": "#ffffff",
@@ -74,6 +76,7 @@ export function MosaicTheme({ site }: ThemeProps) {
       <Lightbox photos={galleries.all} captions={galleries.captions} inquireHref={contactHref(site)}>
         <main className="flex-1">
           {sections.length === 0 && <p className="px-4 py-24 text-center text-[var(--muted)] md:px-9">This page is empty.</p>}
+          {openerCover && <CoverPhoto photo={openerCover} />}
           {body.map((section) => (
             <Block key={section.id} section={section} page={page} site={site} block={galleries.blocks.get(section.id)} columns={COLUMNS[columns]} />
           ))}
@@ -87,6 +90,11 @@ export function MosaicTheme({ site }: ThemeProps) {
   );
 }
 
+// A header photo: edge to edge, like the tiles below it.
+function CoverPhoto({ photo }: { photo: PhotoSource }) {
+  return <img src={photo.src} srcSet={photo.srcSet} sizes="100vw" alt={photo.alt} className="block h-[62svh] min-h-80 w-full object-cover md:h-[78svh]" />;
+}
+
 function Block({ section, page, site, block, columns }: ThemeProps & {
   section: Section;
   page: SitePage;
@@ -97,11 +105,15 @@ function Block({ section, page, site, block, columns }: ThemeProps & {
   switch (section.type) {
     case "hero": {
       const { heading, subheading } = heroText(site, page, section);
+      const cover = heroCover(site, page, section);
       return (
-        <section className="px-4 pb-8 pt-6 md:px-9 md:pb-10 md:pt-8">
-          <h1 className={`${MARK} break-words text-3xl leading-none md:text-5xl`}>{heading}</h1>
-          {subheading && <p className="mt-2 text-sm uppercase tracking-[0.03em] text-[var(--muted)] md:text-base">{subheading}</p>}
-        </section>
+        <>
+          <section className="px-4 pb-8 pt-6 md:px-9 md:pb-10 md:pt-8">
+            <h1 className={`${MARK} break-words text-3xl leading-none md:text-5xl`}>{heading}</h1>
+            {subheading && <p className="mt-2 text-sm uppercase tracking-[0.03em] text-[var(--muted)] md:text-base">{subheading}</p>}
+          </section>
+          {cover && <CoverPhoto photo={cover} />}
+        </>
       );
     }
     case "gallery":

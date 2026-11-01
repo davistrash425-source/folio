@@ -82,13 +82,14 @@ export function PageSettings({ page, isHome, onChange, onDelete, onMakeHome, sug
   );
 }
 
-export function SectionCard({ section, index, count, photos, albums, classic, defaults, onChange, onMove, onRemove }: {
+export function SectionCard({ section, index, count, photos, albums, classic, headerPhoto, defaults, onChange, onMove, onRemove }: {
   section: Section;
   index: number;
   count: number;
   photos: EditorPhoto[];
   albums: EditorAlbum[];
   classic: boolean; // Classic's header styles and gallery layouts apply
+  headerPhoto: boolean; // the theme can show a photo in a header
   defaults: SectionDefaults;
   onChange: (next: Section) => void;
   onMove: (to: number) => void;
@@ -118,7 +119,7 @@ export function SectionCard({ section, index, count, photos, albums, classic, de
       </div>
       {open && (
         <div className="space-y-4 border-t border-rule px-3 py-3">
-          <SectionSettings section={section} photos={photos} albums={albums} classic={classic} defaults={defaults} onChange={onChange} />
+          <SectionSettings section={section} photos={photos} albums={albums} classic={classic} headerPhoto={headerPhoto} defaults={defaults} onChange={onChange} />
         </div>
       )}
     </li>
@@ -143,11 +144,12 @@ export function sectionSummary(section: Section, albums: EditorAlbum[]) {
   }
 }
 
-export function SectionSettings({ section, photos, albums, classic, defaults, onChange }: {
+export function SectionSettings({ section, photos, albums, classic, headerPhoto, defaults, onChange }: {
   section: Section;
   photos: EditorPhoto[];
   albums: EditorAlbum[];
   classic: boolean;
+  headerPhoto: boolean;
   defaults: SectionDefaults;
   onChange: (next: Section) => void;
 }) {
@@ -193,7 +195,7 @@ export function SectionSettings({ section, photos, albums, classic, defaults, on
           <p className="text-xs text-ink-soft">Leave a box empty to use the grey text shown in it.</p>
         </>
       );
-      if (!classic) return textFields;
+      if (!headerPhoto) return textFields;
       return (
         <>
           {textFields}

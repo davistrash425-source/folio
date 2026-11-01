@@ -5,12 +5,12 @@
 // color, used sparingly: the outlined name and the current menu item.
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
-import { galleryPhotos, visibleAlbums, type GallerySection, type HeroSection, type Section, type SitePage } from "@/lib/design";
+import { visibleAlbums, type HeroSection, type Section, type SitePage } from "@/lib/design";
 import { contactHref, copyrightLine, siteHref } from "@/lib/site-data";
 import { ContactForm } from "../contact-form";
 import { Lightbox } from "../lightbox";
 import { anton, spaceGrotesk, spaceMono } from "./fonts";
-import { aboutText, captionText, currentPage, heroText, navItems, pad, pageGalleries, socialLinks, type GalleryBlock, visibleSections, type ThemeProps } from "./shared";
+import { aboutText, captionText, currentPage, heroCover, heroText, navItems, pad, pageGalleries, socialLinks, type GalleryBlock, visibleSections, type ThemeProps } from "./shared";
 import { ReportLink } from "./report-link";
 
 const META = "font-tag-mono text-[0.7rem] uppercase tracking-[0.12em] text-[var(--muted)]";
@@ -215,13 +215,9 @@ function Block({ section, page, site, block, total, grain }: ThemeProps & {
 
 function Hero({ site, page, section, total, grain }: ThemeProps & { page: SitePage; section: HeroSection; total: number; grain: boolean }) {
   const { heading, subheading } = heroText(site, page, section);
-  const firstGallery = page.sections.find((s): s is GallerySection => s.type === "gallery" && s.visible);
-  const cover =
-    site.photos.find((p) => p.id === section.coverPhotoId) ??
-    (firstGallery ? galleryPhotos(firstGallery, site.photos, site.albums)[0] : undefined) ??
-    site.photos[0];
+  const cover = heroCover(site, page, section);
 
-  if (section.style === "cover" && cover) {
+  if (cover) {
     return (
       <section className="relative flex h-[88svh] min-h-[28rem] items-center justify-center overflow-hidden">
         <img src={cover.src} srcSet={cover.srcSet} sizes="100vw" alt={cover.alt} className="absolute inset-0 h-full w-full object-cover brightness-50 contrast-[1.2] grayscale" />

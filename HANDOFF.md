@@ -1,5 +1,10 @@
 # Handoff
 
+## Current task (Nov 1, 2026): header photo on the Pro themes — branch `pro-header-photo` (from main)
+- **Goal:** owner: "for the pro themes, there is no option to add a header photo, add that".
+- **Done:** `HEADER_PHOTO_THEMES` (`lib/design.ts`: Classic + every Pro theme) gates `PageHeaderPhoto` (`app/dashboard/design-editor.tsx`) and the header section settings (`headerPhoto` prop, `app/dashboard/design/sections.tsx`). Shared `heroCover` in `themes/shared.ts` (Tag, Studio use it). New layouts: Contact Sheet = framed "Enlargement" under the title; Monograph = frontispiece above the title; Mosaic = edge-to-edge photo under the wordmark. Test in `tests/design.test.ts`. Checked in the browser on local example sites (local data only).
+- **Next:** commit, push, open PR, squash-merge when CI is green (owner gave full PR authority).
+
 ## Status (Oct 31, 2026): no open PRs
 Everything is merged into `main` and deployed: #25 (bug-check fixes), #26 (Google Drive upload), #27 (header-photo browser test), #28 (three new Pro themes), plus the logo and two CI fixes. The owner asked for PRs to be managed end to end: bring the branch up to date with main, resolve conflicts, push, squash-merge once CI is green.
 
