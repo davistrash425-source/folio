@@ -6,7 +6,7 @@ import { deleteAccount, logout, signup } from "../app/actions/auth.ts";
 import { createSite, switchSite } from "../app/actions/sites.ts";
 import { requireAdmin } from "../lib/admin.ts";
 import { currentAdmin, currentUser } from "../lib/auth.ts";
-import { findUserById, findUserBySubdomain, managedSites } from "../lib/db.ts";
+import { adminActionsFor, deleteUsers, findUserById, findUserBySubdomain, managedSites } from "../lib/db.ts";
 import { siteData } from "../lib/public-site.ts";
 import { formOf, fromIp, makeUser, redirectedTo, resetRequest, signInAs, signOut } from "./helpers.ts";
 import { NotFoundError } from "./stubs/next-navigation.ts";
@@ -135,6 +135,29 @@ test("deleting an extra site takes the admin back to their own site and keeps it
   assert.match((await signup({}, formOf(fields))).error!, /held for a year/);
   await signInAs(admin);
   assert.equal(await redirectedTo(createSite({}, formOf({ name: "Again", subdomain: extra.subdomain, terms: "on" }))), "/dashboard/manage/upload");
+});
+
+test("an admin can take a held address for a new site by ticking the override, and it's logged", async () => {
+  const admin = await signedInAdmin();
+  const alice = await makeUser("Alice");
+  const held = alice.subdomain;
+  await deleteUsers([alice.id]);
+
+  const refused = await createSite({}, formOf({ name: "Mine", subdomain: held }));
+  assert.match(refused.error!, /held for a year/);
+  assert.equal(refused.held, true, "the form offers the override");
+  assert.equal(await findUserBySubdomain(held), null);
+
+  assert.equal(await redirectedTo(createSite({}, formOf({ name: "Mine", subdomain: held, override: "on" }))), "/dashboard/manage/upload");
+  const site = (await findUserBySubdomain(held))!;
+  assert.equal(site.managedBy, admin.id);
+  const log = await adminActionsFor(site.id);
+  assert.equal(log[0].action, "address-hold-overridden");
+  assert.equal(log[0].adminEmail, admin.email);
+
+  await switchSite(admin.id).catch(() => {});
+  assert.equal(await redirectedTo(createSite({}, formOf({ name: "X", subdomain: "never-held", override: "on" }))), "/dashboard/manage/upload");
+  assert.equal((await adminActionsFor((await findUserBySubdomain("never-held"))!.id)).length, 0, "no log when nothing was held");
 });
 
 test("deleting an admin's account deletes their extra sites too", async () => {

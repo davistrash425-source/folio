@@ -271,6 +271,17 @@ export function NewSiteForm({ domain }: { domain: string }) {
       <p className="text-sm text-ink-soft">
         The new site starts with no photos and the standard design. Messages from its contact form go to your email.
       </p>
+      {state.held && (
+        <label className="flex items-start gap-2 border border-rule p-3 text-sm">
+          <input type="checkbox" name="override" className="mt-1" />
+          <span>
+            <span className="font-medium">Use this address anyway.</span>{" "}
+            <span className="text-ink-soft">
+              Admin override: only if the site it was held for won’t be confused with this one. It’s recorded in the admin log.
+            </span>
+          </span>
+        </label>
+      )}
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={pending}>{pending ? "Creating…" : "Create site"}</Button>
         <Message error={state.error} />

@@ -6,11 +6,11 @@ import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 import { currentAdmin, requireUser } from "@/lib/auth";
-import { createUser, findUserById, findUserBySubdomain, subdomainOnHold, updateUser } from "@/lib/db";
+import { createUser, findUserById, findUserBySubdomain, logAdminAction, subdomainOnHold, updateUser } from "@/lib/db";
 import { clearManager, createSession, setManager } from "@/lib/session";
 import { ADDRESS_HOLD_MONTHS, validateSubdomain } from "@/lib/site";
 
-export type SiteFormState = { error?: string; fields?: Record<string, string> };
+export type SiteFormState = { error?: string; fields?: Record<string, string>; held?: boolean };
 
 // The admin behind this login. Signed-out visitors go to the login page;
 // anyone else is told the action doesn't exist.
@@ -33,8 +33,13 @@ export async function createSite(_prev: SiteFormState, formData: FormData): Prom
   if (!name) return { error: "Please enter a name for the site.", fields };
   const invalid = validateSubdomain(subdomain);
   if (invalid) return { error: invalid, fields };
-  if (await subdomainOnHold(subdomain, ADDRESS_HOLD_MONTHS, admin.id)) {
-    return { error: "That address belonged to another site recently, so it’s held for a year. Try another.", fields };
+  // A held address can still be taken by ticking the override, which only
+  // shows after this error. It's logged, since the hold is there to stop
+  // someone posing as the site that had it.
+  const held = await subdomainOnHold(subdomain, ADDRESS_HOLD_MONTHS, admin.id);
+  const override = held && formData.get("override") === "on";
+  if (held && !override) {
+    return { error: "That address belonged to another site recently, so it’s held for a year. Try another.", fields, held: true };
   }
   if (await findUserBySubdomain(subdomain)) return taken;
 
@@ -58,6 +63,15 @@ export async function createSite(_prev: SiteFormState, formData: FormData): Prom
     u.emailVerified = true;
     u.profile.contactEmail = admin.profile.contactEmail || admin.email;
   });
+  if (override) {
+    await logAdminAction({
+      adminEmail: admin.email,
+      userId: siteId,
+      subdomain,
+      action: "address-hold-overridden",
+      detail: `Took ${subdomain} for a new site while it was held.`,
+    });
+  }
   await createSession(siteId);
   await setManager(admin.id);
   revalidatePath("/dashboard", "layout");
