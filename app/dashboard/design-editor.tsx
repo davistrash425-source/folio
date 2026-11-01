@@ -5,13 +5,14 @@ import { useEffect, useEffectEvent, useMemo, useRef, useState, useTransition } f
 import { discardDraftDesign, publishDesign, saveDraftDesign, undoDesign, type DesignResult } from "@/app/actions/design";
 import { Button } from "@/app/ui/form";
 import { ConfirmButton } from "@/app/ui/confirm";
-import { HEADER_PHOTO_THEMES, PAGE_TEMPLATES, LOOKS, applyLook, applyTheme, designSchema, makeHomePage, newPage, newSection, sameDesign, uniqueSlug, type PageTemplate, type Section, type SectionType, type SiteDesign, type SitePage } from "@/lib/design";
+import { HEADER_PHOTO_THEMES, PAGE_TEMPLATES, LOOKS, applyLook, applyTheme, designSchema, makeHomePage, newPage, newSection, sameDesign, uniqueSlug, type PageTemplate, type Section, type SectionType, type SiteDesign, type SitePage, type ThemeId } from "@/lib/design";
 import { THEME_INFO } from "@/lib/themes";
+import Link from "next/link";
 import { DevicePreview, DeviceButtons, type Device } from "./device-preview";
 import { countChanges } from "./design/changes";
 import { ProfileForm } from "./profile-form";
 import type { User } from "@/lib/db";
-import { swap, Group, AddMenu, Choice, IconButton, ToolbarButton } from "./design/ui";
+import { swap, Step, AddMenu, Choice, IconButton, ToolbarButton } from "./design/ui";
 import { PhotoPicker, AlbumPicker } from "./design/pickers";
 import { ThemePicker, ThemeSettings, ThemeCard } from "./design/themes";
 import { PageSettings, SectionCard, PageHeaderPhoto } from "./design/sections";
@@ -48,6 +49,10 @@ export function DesignEditor(props: {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const [showPreview, setShowPreview] = useState(true); // below the large breakpoint
+  // The open step (1–5), or none. A new visit starts on the theme.
+  const [step, setStep] = useState<number | null>(1);
+  // A Pro theme a Free account is trying out: shown in the preview only, never saved.
+  const [previewTheme, setPreviewTheme] = useState<ThemeId | null>(null);
   const lastSent = useRef<SiteDesign | null>(null);
   const toSave = useRef<SiteDesign | null>(null); // for the save when leaving
 
@@ -71,7 +76,7 @@ export function DesignEditor(props: {
 
   // Saves the draft in the background. What's on screen is left alone, so
   // typing carries on while it saves.
-  const autosave = useEffectEvent((next: SiteDesign) => {
+  function saveDraft(next: SiteDesign) {
     if (lastSent.current && sameDesign(next, lastSent.current)) return;
     lastSent.current = next;
     setSaving(true);
@@ -93,7 +98,8 @@ export function DesignEditor(props: {
         lastSent.current = null; // try again on the next edit
       },
     );
-  });
+  }
+  const autosave = useEffectEvent(saveDraft);
 
   useEffect(() => {
     toSave.current = unsaved && !problem ? design : null;
@@ -144,6 +150,35 @@ export function DesignEditor(props: {
     setPageId(created.id);
   }
 
+  // Opening a step closes the others; its button saves now and opens the next.
+  function stepProps(n: number) {
+    return {
+      number: n,
+      open: step === n,
+      onToggle: () => setStep((s) => (s === n ? null : n)),
+      onNext: () => {
+        if (unsaved && !problem) saveDraft(design);
+        const next = n < 5 ? n + 1 : null;
+        setStep(next);
+        if (next) setTimeout(() => document.getElementById(`design-step-${next}`)?.parentElement?.scrollIntoView({ behavior: "smooth", block: "start" }));
+      },
+    };
+  }
+
+  function startPreview(theme: ThemeId) {
+    setPreviewTheme(theme);
+    setShowPreview(true);
+  }
+
+  const previewDesign = previewTheme ? applyTheme(design, previewTheme) : design;
+  const styleSummary =
+    design.theme === "classic"
+      ? `${FONT_LABELS[design.fonts]} fonts · ${GALLERY_LABELS[design.gallery.layout]} gallery`
+      : `${THEME_INFO[design.theme].name} settings`;
+  const captionSummary = `Captions: ${{ none: "off", chosen: "chosen photos", all: "all photos" }[design.captions.show]} · ${
+    design.albums.show === "all" ? "all albums" : `${design.albums.albumIds.length} album${design.albums.albumIds.length === 1 ? "" : "s"}`
+  }`;
+
   // At least one: the count is rough, and "unpublished" is exact.
   const changeTotal = Math.max(1, changes);
   const changeCount = `${changeTotal} unpublished change${changeTotal === 1 ? "" : "s"}`;
@@ -191,10 +226,30 @@ export function DesignEditor(props: {
       <div className="grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)] xl:grid-cols-[26rem_minmax(0,1fr)]">
         {/* Room below for the pinned preview on smaller screens. */}
         <div className={`space-y-4 ${showPreview ? "max-lg:pb-[48vh]" : ""}`}>
+          <p className="text-sm text-ink-soft">
+            Work through the steps below. Everything saves as a draft as you go; visitors see the changes only after you press Publish.
+          </p>
           {SHOW_AI_BOX && <AiPlaceholder />}
-          <Group title="Theme">
-            <ThemePicker theme={design.theme} photos={props.photos} isPro={props.isPro} onPick={(theme) => setDesign((d) => applyTheme(d, theme))} />
-            <p className="text-sm text-ink-soft">{THEME_INFO[design.theme].description}</p>
+          <Step {...stepProps(1)} title="Choose a theme" summary={THEME_INFO[design.theme].name}>
+            <ThemePicker
+              theme={design.theme}
+              photos={props.photos}
+              isPro={props.isPro}
+              previewing={previewTheme}
+              onPreview={startPreview}
+              onPick={(theme) => {
+                setPreviewTheme(null);
+                setDesign((d) => applyTheme(d, theme));
+              }}
+            />
+            {previewTheme ? (
+              <ProPreviewNotice theme={previewTheme} onStop={() => setPreviewTheme(null)} />
+            ) : (
+              <p className="text-sm text-ink-soft">{THEME_INFO[design.theme].description}</p>
+            )}
+          </Step>
+
+          <Step {...stepProps(2)} title="Colors and layout" summary={styleSummary}>
             {design.theme === "classic" ? (
               <>
                 <p className="label text-ink-soft">Look</p>
@@ -255,10 +310,9 @@ export function DesignEditor(props: {
                 <ThemeSettings design={design} onChange={update} isPro={props.isPro} />
               </>
             )}
-          </Group>
-
           {design.theme === "classic" && (
-          <Group title="Gallery style">
+          <div className="space-y-5 border-t border-rule pt-4">
+            <p className="font-display text-lg">Gallery style</p>
             <p className="text-xs text-ink-soft">Used by every gallery and album page, unless a gallery picks its own layout.</p>
             <Choice
               label="Layout"
@@ -301,11 +355,11 @@ export function DesignEditor(props: {
               ]}
               onChange={(cropping) => update({ gallery: { ...design.gallery, cropping } })}
             />
-          </Group>
+          </div>
           )}
+          </Step>
 
-
-          <Group title="Pages">
+          <Step {...stepProps(3)} title="Pages" summary={design.pages.map((p) => p.title || "Untitled").join(", ")}>
             <ul className="space-y-1">
               {design.pages.map((p, i) => (
                 <li
@@ -333,9 +387,8 @@ export function DesignEditor(props: {
               disabled={design.pages.length >= 20}
             />
             <p className="text-xs text-ink-soft">The first page is your home page; open another page to make it the home page instead. Menu order follows this list.</p>
-          </Group>
-
-          <Group title={`Page: ${page.title || "Untitled"}`} key={page.id}>
+          <div key={page.id} className="space-y-5 border-t border-rule pt-4">
+            <p className="font-display text-lg">Editing: {page.title || "Untitled"}</p>
             <PageSettings
               page={page}
               isHome={page.id === design.pages[0].id}
@@ -387,9 +440,11 @@ export function DesignEditor(props: {
               onAdd={(type) => setSections([...page.sections, newSection(type, makeId)])}
               disabled={page.sections.length >= 30}
             />
-          </Group>
+          </div>
+          </Step>
 
-          <Group title="Captions">
+          <Step {...stepProps(4)} title="Captions and albums" summary={captionSummary}>
+            <p className="font-display text-lg">Captions</p>
             {design.theme === "index" && (
               <p className="text-xs text-ink-soft">Index always lists each photo’s description and location in its rows. This setting controls the captions in the full-screen viewer.</p>
             )}
@@ -422,9 +477,8 @@ export function DesignEditor(props: {
                 Include the photo’s location
               </label>
             )}
-          </Group>
-
-          <Group title="Albums">
+            <div className="space-y-5 border-t border-rule pt-4">
+            <p className="font-display text-lg">Albums</p>
             <Choice
               label="Albums on your site"
               value={design.albums.show}
@@ -446,15 +500,21 @@ export function DesignEditor(props: {
               List albums in the site menu
             </label>
             <p className="text-xs text-ink-soft">Each album has its own page. Link to them with an “Album links” section, or show one album with a Gallery section.</p>
-          </Group>
+            </div>
+          </Step>
 
           {/* Saved on its own (not part of the draft design), so it shows on the live site once saved. */}
-          <Group title="About you">
+          <Step {...stepProps(5)} title="About you" summary={props.profile.name} nextLabel="Done">
             <p className="text-sm text-ink-soft">
               Your name, bio and contact details. Saving here updates your site straight away; it isn’t part of the draft below.
             </p>
             <ProfileForm profile={props.fullProfile} compact />
-          </Group>
+          </Step>
+          {step === null && (
+            <p className="border-l-2 border-accent bg-card px-4 py-3 text-sm text-ink-soft">
+              {unpublished ? "All set. Check the preview, then press Publish at the top to put your changes live." : "Everything is live. Open any step to change it."}
+            </p>
+          )}
         </div>
 
         {/* Beside the controls on large screens; pinned to the bottom below that, and can be hidden. */}
@@ -466,7 +526,7 @@ export function DesignEditor(props: {
           <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 lg:mb-3">
             <p className="text-sm text-ink-soft">
               Preview: <span className="font-medium text-ink">{page.title}</span>
-              {unpublished ? " (draft)" : ""}
+              {previewTheme ? ` in ${THEME_INFO[previewTheme].name} (Pro preview)` : unpublished ? " (draft)" : ""}
             </p>
             <div className="flex items-center gap-3">
               <DeviceButtons device={device} onChange={setDevice} />
@@ -475,10 +535,15 @@ export function DesignEditor(props: {
               </button>
             </div>
           </div>
+          {previewTheme && (
+            <div className="mb-2">
+              <ProPreviewNotice theme={previewTheme} onStop={() => setPreviewTheme(null)} />
+            </div>
+          )}
           <DevicePreview
             src="/site-preview"
             device={device}
-            design={design}
+            design={previewDesign}
             path={page.slug}
             className="max-lg:min-h-0 max-lg:flex-1 lg:h-[70vh] lg:min-h-[28rem]"
           />
@@ -493,6 +558,27 @@ export function DesignEditor(props: {
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+const FONT_LABELS: Record<SiteDesign["fonts"], string> = { sans: "Sans-serif", serif: "Serif", mixed: "Serif heading", mono: "Mono" };
+const GALLERY_LABELS: Record<SiteDesign["gallery"]["layout"], string> = { grid: "Grid", masonry: "Masonry", column: "Single-column", editorial: "Editorial" };
+
+// Shown while a Free account previews a Pro theme: what it is, how to keep it,
+// and how to go back.
+function ProPreviewNotice({ theme, onStop }: { theme: ThemeId; onStop: () => void }) {
+  return (
+    <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-2 border border-ink bg-card px-3 py-2 text-sm">
+      <span className="flex-1">
+        Previewing <span className="font-medium">{THEME_INFO[theme].name}</span>, a Folio Pro theme. It isn’t saved to your site.
+      </span>
+      <Link href="/dashboard/manage/billing" className="h-8 bg-ink px-3 text-xs font-medium leading-8 text-paper hover:bg-accent">
+        Get Folio Pro
+      </Link>
+      <button type="button" onClick={onStop} className="h-8 px-2 text-xs text-ink-soft underline hover:text-ink">
+        Stop preview
+      </button>
     </div>
   );
 }

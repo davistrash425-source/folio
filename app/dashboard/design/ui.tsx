@@ -10,16 +10,59 @@ export function swap<T>(list: T[], a: number, b: number) {
   return next;
 }
 
-export function Group({ title, children }: { title: string; children: ReactNode }) {
+// One numbered step of the Web design editor. Only one is open at a time;
+// a closed step shows a one-line summary of what's chosen in it. The button
+// at the bottom closes this step and opens the next. Closed steps stay in
+// the page (hidden), so anything half-typed in them is kept.
+export function Step({ number, title, summary, open, onToggle, nextLabel, onNext, children }: {
+  number: number;
+  title: string;
+  summary?: ReactNode;
+  open: boolean;
+  onToggle: () => void;
+  nextLabel?: string;
+  onNext?: () => void;
+  children: ReactNode;
+}) {
+  const id = `design-step-${number}`;
   return (
-    <details open className="group border-t border-ink">
-      <summary className="flex cursor-pointer list-none items-baseline justify-between py-3">
-        <span className="font-display text-2xl">{title}</span>
-        <span className="label text-ink-faint group-open:hidden">Show</span>
-        <span className="label hidden text-ink-faint group-open:inline">Hide</span>
-      </summary>
-      <div className="space-y-5 pb-8">{children}</div>
-    </details>
+    <section className={`scroll-mt-40 border bg-paper transition-colors ${open ? "border-ink" : "border-rule hover:border-ink"}`}>
+      <h2>
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={open}
+          aria-controls={id}
+          className="flex w-full items-center gap-3 px-4 py-3 text-left"
+        >
+          <span
+            aria-hidden="true"
+            className={`flex size-7 shrink-0 items-center justify-center rounded-full text-sm font-medium ${open ? "bg-ink text-paper" : "border border-rule text-ink-soft"}`}
+          >
+            {number}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-display text-xl leading-tight">{title}</span>
+            {!open && summary && <span className="block truncate text-xs text-ink-soft">{summary}</span>}
+          </span>
+          <span aria-hidden="true" className={`text-ink-faint transition-transform ${open ? "rotate-180" : ""}`}>⌄</span>
+        </button>
+      </h2>
+      <div id={id} hidden={!open} className="space-y-5 border-t border-rule px-4 pb-5 pt-4">
+        {children}
+        {onNext && (
+          <div className="flex justify-end border-t border-rule pt-4">
+            <button
+              type="button"
+              onClick={onNext}
+              className="h-9 bg-ink px-4 text-sm font-medium text-paper hover:bg-accent"
+            >
+              {nextLabel ?? "Save and continue"}
+            </button>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 

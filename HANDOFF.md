@@ -1,9 +1,15 @@
 # Handoff
 
-## Current task (Nov 1, 2026): header photo on the Pro themes — branch `pro-header-photo` (from main)
+## New-user polish (Nov 1, 2026): built, not committed (branch `new-user-polish`)
+- **Goal:** owner's notes: Google button below the fold on /signup; Free users can preview greyed-out Pro themes; design page collapsed except Theme with a Save button that opens the next; make the design tab easier.
+- **Done:** Google button + "or sign up with email" divider at the top of signup and login (`app/ui/google-button.tsx` `OrDivider`, `app/ui/signup-form.tsx`, `app/(auth)/login/page.tsx`; auth layout spacing tightened). Design editor is 5 numbered steps (`Step` in `app/dashboard/design/ui.tsx`, replaced `Group`): Choose a theme, Colors and layout (Classic look/colors/fonts + gallery style, or the theme's settings), Pages, Captions and albums, About you. One open at a time; closed ones show a summary; "Save and continue" saves now and opens the next. Pro themes on Free: greyed with a Pro badge; click → popup → "Preview" shows it only in the preview frame (`previewTheme` in `app/dashboard/design-editor.tsx`, never saved) with a "Get Folio Pro / Stop preview" bar. `tests/e2e/header-photo.spec.ts` opens the Pages step first. tsc, lint, 525 tests, build pass; checked in Chrome on a local Free account (`preview-tester-1101@example.com`, local data only).
+- **Not run:** `npm run test:e2e` (a dev server was already running on :3000); CI will run it.
+- **Next:** owner to look, then commit/PR.
+
+## Header photo on the Pro themes (Nov 1, 2026): live (PR #29)
 - **Goal:** owner: "for the pro themes, there is no option to add a header photo, add that".
 - **Done:** `HEADER_PHOTO_THEMES` (`lib/design.ts`: Classic + every Pro theme) gates `PageHeaderPhoto` (`app/dashboard/design-editor.tsx`) and the header section settings (`headerPhoto` prop, `app/dashboard/design/sections.tsx`). Shared `heroCover` in `themes/shared.ts` (Tag, Studio use it). New layouts: Contact Sheet = framed "Enlargement" under the title; Monograph = frontispiece above the title; Mosaic = edge-to-edge photo under the wordmark. Test in `tests/design.test.ts`. Checked in the browser on local example sites (local data only).
-- **Next:** commit, push, open PR, squash-merge when CI is green (owner gave full PR authority).
+- Merged and deployed to production Nov 1. Local `main` had a stale copy of the logo commit; kept as branch `backup-local-main-c60f239` (safe to delete).
 
 ## Status (Oct 31, 2026): no open PRs
 Everything is merged into `main` and deployed: #25 (bug-check fixes), #26 (Google Drive upload), #27 (header-photo browser test), #28 (three new Pro themes), plus the logo and two CI fixes. The owner asked for PRs to be managed end to end: bring the branch up to date with main, resolve conflicts, push, squash-merge once CI is green.

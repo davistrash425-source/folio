@@ -5,7 +5,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { signup } from "@/app/actions/auth";
 import { ROOT_DOMAIN } from "@/lib/site";
 import { Button, Message } from "@/app/ui/form";
-import { GoogleButton } from "@/app/ui/google-button";
+import { GoogleButton, OrDivider } from "@/app/ui/google-button";
 import { Turnstile } from "@/app/ui/turnstile";
 import { useAddressCheck, type AddressStatus } from "@/app/ui/use-address-check";
 
@@ -42,6 +42,8 @@ export function SignupForm({ initialSubdomain }: { initialSubdomain: string }) {
   return (
     <div className="space-y-4">
       <h1 className="font-display text-3xl">Create your site</h1>
+      <GoogleButton />
+      <OrDivider>or sign up with email</OrDivider>
       <form action={action} noValidate className="space-y-4">
         <label className="block">
           <span className="label text-ink-soft">Your name</span>
@@ -126,12 +128,6 @@ export function SignupForm({ initialSubdomain }: { initialSubdomain: string }) {
           {pending ? "Creating…" : "Create account"}
         </Button>
       </form>
-      <div className="flex items-center gap-3 text-xs text-ink-faint">
-        <span className="h-px flex-1 bg-rule" />
-        or
-        <span className="h-px flex-1 bg-rule" />
-      </div>
-      <GoogleButton />
       <p className="text-center text-sm text-ink-soft">
         Already have an account? <Link href="/login" className="underline">Log in</Link>
       </p>

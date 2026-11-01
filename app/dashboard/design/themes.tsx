@@ -5,37 +5,77 @@ import {
   BOOK_PAPERS, CLASSIC_LOOKS, EXHIBITION_FRAMES, FILM_BORDERS, FILM_FRAME_SIZES, FILM_STOCKS, INDEX_SORTS, LABEL_FONTS, PRINT_SIZES,
   MOSAIC_COLUMNS, PRO_THEMES, ROW_SIZES, SHEET_COLUMNS, SHEET_PAPERS, THEMES, TITLE_CASES, WALLS, type SiteDesign, type LookId, type ThemeId,
 } from "@/lib/design";
+import { useState } from "react";
 import { TEMPLATES } from "@/lib/templates";
 import { THEME_INFO } from "@/lib/themes";
 import { Choice } from "./ui";
 import { type EditorPhoto } from "./types";
 
 // Every theme (four free plus the Pro-only ones), each drawn as a miniature of
-// its layout using the photographer's own photos.
-export function ThemePicker({ theme, photos, onPick, isPro }: { theme: ThemeId; photos: EditorPhoto[]; onPick: (theme: ThemeId) => void; isPro: boolean }) {
+// its layout using the photographer's own photos. On Free, the Pro themes are
+// greyed out; clicking one offers a preview, which only changes what the
+// preview frame shows (`onPreview`) and is never saved.
+export function ThemePicker({ theme, photos, onPick, isPro, previewing, onPreview }: {
+  theme: ThemeId;
+  photos: EditorPhoto[];
+  onPick: (theme: ThemeId) => void;
+  isPro: boolean;
+  previewing: ThemeId | null;
+  onPreview: (theme: ThemeId) => void;
+}) {
+  const [offer, setOffer] = useState<ThemeId | null>(null);
   return (
     <div className="grid grid-cols-2 gap-3">
-      {THEMES.map((id) => (
-        <button
-          key={id}
-          type="button"
-          aria-pressed={theme === id}
-          disabled={!isPro && PRO_THEMES.includes(id)}
-          onClick={() => onPick(id)}
-          className={`border p-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${theme === id ? "border-ink ring-1 ring-ink" : "border-rule hover:border-ink"}`}
-        >
-          <ThemeArt theme={id} photos={photos} />
-          <span className="mt-2 block font-display text-xl leading-none">{THEME_INFO[id].name}</span>
-          <span className="label mt-1 block text-ink-faint">{THEME_INFO[id].tagline}</span>
-          <span className="mt-1.5 block text-xs text-ink-soft">
-            {id === "classic"
-              ? "You choose the layout, colors and fonts."
-              : PRO_THEMES.includes(id)
-                ? isPro ? "Folio Pro theme. Sets its own layout and colors." : "Folio Pro: upgrade to use this theme."
-                : "Sets its own layout and colors. More settings come with Pro."}
-          </span>
-        </button>
-      ))}
+      {THEMES.map((id) => {
+        const locked = !isPro && PRO_THEMES.includes(id);
+        const active = previewing ? previewing === id : theme === id;
+        return (
+          <div key={id} className="relative">
+            <button
+              type="button"
+              aria-pressed={active}
+              aria-haspopup={locked ? "dialog" : undefined}
+              onClick={() => (locked ? setOffer(offer === id ? null : id) : (setOffer(null), onPick(id)))}
+              className={`h-full w-full border p-2 text-left transition-colors ${active ? "border-ink ring-1 ring-ink" : "border-rule hover:border-ink"} ${locked && previewing !== id ? "opacity-60 grayscale hover:opacity-90" : ""}`}
+            >
+              <ThemeArt theme={id} photos={photos} />
+              <span className="mt-2 flex items-baseline gap-2">
+                <span className="font-display text-xl leading-none">{THEME_INFO[id].name}</span>
+                {PRO_THEMES.includes(id) && <span className="label rounded-sm bg-ink px-1 py-px text-[10px] text-paper">Pro</span>}
+              </span>
+              <span className="label mt-1 block text-ink-faint">
+                {previewing === id ? "Previewing" : theme === id ? "Your theme" : THEME_INFO[id].tagline}
+              </span>
+            </button>
+            {offer === id && (
+              <div
+                role="dialog"
+                aria-label={`${THEME_INFO[id].name} is a Folio Pro theme`}
+                className="absolute inset-x-0 top-full z-20 mt-1 space-y-2 border border-ink bg-paper p-3 text-sm shadow-lg"
+              >
+                <p>
+                  <span className="font-medium">{THEME_INFO[id].name}</span> is for Folio Pro. You can still preview it on your own site.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOffer(null);
+                      onPreview(id);
+                    }}
+                    className="h-8 bg-ink px-3 text-xs font-medium text-paper hover:bg-accent"
+                  >
+                    Preview →
+                  </button>
+                  <button type="button" onClick={() => setOffer(null)} className="h-8 px-2 text-xs text-ink-soft hover:text-ink">
+                    Close
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
