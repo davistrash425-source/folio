@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, IBM_Plex_Mono, IBM_Plex_Sans, Newsreader } from "next/font/google";
 import "./globals.css";
+import { FolioAnalytics } from "./ui/folio-analytics";
 import { KeepFieldInView } from "./ui/keep-field-in-view";
 
 const geistSans = Geist({
@@ -47,6 +48,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         {children}
         <KeepFieldInView />
+        <FolioAnalytics />
       </body>
     </html>
   );
