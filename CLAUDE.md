@@ -105,6 +105,7 @@ So server actions (`app/actions/*`) and route handlers are called directly as fu
 | `POLAR_ACCESS_TOKEN`, `POLAR_WEBHOOK_SECRET`, `POLAR_PRODUCT_MONTHLY`, `POLAR_PRODUCT_YEARLY`, `POLAR_SERVER` | Folio Pro subscriptions through Polar (`lib/billing.ts`, webhook at `/api/webhooks/billing`); `POLAR_SERVER` is `sandbox` (default) or `production` | Checkout is closed |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | "Continue with Google" sign-in (`lib/google.ts`, `app/api/auth/google/*`, `app/(auth)/signup/google`) | Google sign-in throws "is not set" |
 | `GOOGLE_PICKER_API_KEY` | Browser API key (Picker API + Drive API) for "Choose from Google Drive" on the upload page (`lib/google-drive.ts`); also needs `GOOGLE_CLIENT_ID` and the `drive.file` scope on the consent screen | No Drive button |
+| `MAINTENANCE_MODE` | `1` takes everything offline (`lib/maintenance.ts`): every page of the app and of every site answers 503 with a "back soon" page (`proxy.ts`), except `/terms`, `/privacy`, `/copyright` and the `/report` forms on the app host (`openDuringMaintenance`) and `/_photos` stops loading (`next.config.ts`); `/api` (billing webhooks, cron) keeps working. Takes effect on the next deploy | Normal |
 | `NEXT_PUBLIC_SENTRY_DSN` | Error reports to Sentry (`lib/sentry.ts`, `instrumentation.ts`, `instrumentation-client.ts`, `app/global-error.tsx`) | Nothing is sent |
 
 `NEW_SITES_START_PUBLISHED` in `lib/site.ts` decides whether new sites start live or as drafts.

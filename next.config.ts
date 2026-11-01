@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { securityHeaders } from "./lib/security-headers";
+import { maintenanceOn } from "./lib/maintenance";
 
 const uploadsViaServer = !process.env.R2_ACCOUNT_ID;
 
@@ -21,6 +22,8 @@ const nextConfig: NextConfig = {
   // Photos are requested from the page's own host and fetched from the public
   // bucket by the server (see photoUrl in lib/uploads.ts).
   async rewrites() {
+    // In maintenance mode (lib/maintenance.ts) photos stop loading too.
+    if (maintenanceOn()) return [];
     const bucket = process.env.R2_PUBLIC_URL?.replace(/\/+$/, "");
     return bucket ? [{ source: "/_photos/:path*", destination: `${bucket}/:path*` }] : [];
   },
