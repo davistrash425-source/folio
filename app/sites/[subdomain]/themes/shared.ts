@@ -46,6 +46,18 @@ export function heroText(site: SiteData, page: SitePage, section: HeroSection) {
   };
 }
 
+// A header's photo when it's set to show one: the chosen photo, or else the
+// first photo of the page's first gallery, or the site's first photo.
+export function heroCover(site: SiteData, page: SitePage, section: HeroSection): PhotoSource | undefined {
+  if (section.style !== "cover") return undefined;
+  const firstGallery = page.sections.find((s) => s.type === "gallery" && s.visible);
+  return (
+    site.photos.find((p) => p.id === section.coverPhotoId) ??
+    (firstGallery?.type === "gallery" ? galleryPhotos(firstGallery, site.photos, site.albums)[0] : undefined) ??
+    site.photos[0]
+  );
+}
+
 // An About section's text: its own, or else the bio from the Account page.
 export function aboutText(site: SiteData, section: AboutSection) {
   return section.body || site.profile.bio;

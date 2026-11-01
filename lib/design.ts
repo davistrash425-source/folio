@@ -40,6 +40,9 @@ export const THEMES = ["classic", "exhibition", "index", "filmstrip", "contactsh
 // Themes only Pro accounts can use. A Free account's design falls back to
 // Classic (withoutProSettings).
 export const PRO_THEMES: readonly (typeof THEMES)[number][] = ["contactsheet", "monograph", "tag", "mosaic", "studio"];
+// Themes that can show a photo in a page header (a header section with style
+// "cover"); the others always show the header as text.
+export const HEADER_PHOTO_THEMES: readonly (typeof THEMES)[number][] = ["classic", ...PRO_THEMES];
 export const SHEET_PAPERS = ["light", "dark"] as const;
 export const SHEET_COLUMNS = [4, 6, 8] as const;
 export const MOSAIC_COLUMNS = [3, 4, 5] as const;

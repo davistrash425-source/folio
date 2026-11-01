@@ -9,7 +9,7 @@ import { contactHref, copyrightLine, siteHref } from "@/lib/site-data";
 import { ContactForm } from "../contact-form";
 import { Lightbox } from "../lightbox";
 import { archivo, shareTech } from "./fonts";
-import { aboutText, captionText, currentPage, heroText, navItems, pad, pageGalleries, socialLinks, type GalleryBlock, visibleSections, type ThemeProps } from "./shared";
+import { aboutText, captionText, currentPage, heroCover, heroText, navItems, pad, pageGalleries, socialLinks, type GalleryBlock, visibleSections, type ThemeProps } from "./shared";
 import { ReportLink } from "./report-link";
 
 const PAPERS = {
@@ -100,11 +100,19 @@ function Block({ section, page, site, block, total, columns }: ThemeProps & {
   switch (section.type) {
     case "hero": {
       const { heading, subheading } = heroText(site, page, section);
+      const cover = heroCover(site, page, section);
       return (
         <section className="pb-6 pt-8 md:pb-10 md:pt-12">
           <p className={`${EDGE} text-[var(--accent)]`}>Proof sheet · {total || site.photos.length} exposures</p>
           <h1 className="font-idx mt-3 break-words text-[clamp(2.5rem,9vw,7rem)] font-extrabold uppercase leading-[0.9] tracking-[-0.03em]">{heading}</h1>
           {subheading && <p className={`${EDGE} mt-3 text-[var(--muted)]`}>{subheading}</p>}
+          {cover && (
+            // The header photo as an enlargement pinned to the sheet.
+            <figure className="mt-6 bg-[var(--frame)] p-2 md:mt-8 md:p-3">
+              <img src={cover.src} srcSet={cover.srcSet} sizes="(min-width: 1280px) 1250px, 100vw" alt={cover.alt} className="max-h-[75svh] w-full object-cover" />
+              <figcaption aria-hidden="true" className={`${EDGE} mt-2 text-[#d8d4c8]`}>Enlargement</figcaption>
+            </figure>
+          )}
         </section>
       );
     }

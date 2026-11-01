@@ -5,12 +5,12 @@
 // a dark contact panel. One accent color for buttons and small marks.
 import Link from "next/link";
 import type { CSSProperties } from "react";
-import { galleryPhotos, visibleAlbums, type GallerySection, type HeroSection, type Section, type SitePage } from "@/lib/design";
+import { visibleAlbums, type HeroSection, type Section, type SitePage } from "@/lib/design";
 import { contactHref, copyrightLine, siteHref } from "@/lib/site-data";
 import { ContactForm } from "../contact-form";
 import { Lightbox } from "../lightbox";
 import { instrumentSans, instrumentSerif } from "./fonts";
-import { aboutText, captionText, currentPage, heroText, navItems, pad, pageGalleries, socialLinks, type GalleryBlock, visibleSections, type ThemeProps } from "./shared";
+import { aboutText, captionText, currentPage, heroCover, heroText, navItems, pad, pageGalleries, socialLinks, type GalleryBlock, visibleSections, type ThemeProps } from "./shared";
 import { ReportLink } from "./report-link";
 
 const LABEL = "text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]";
@@ -234,11 +234,7 @@ function Block({ section, page, site, block, inquire, isWork }: ThemeProps & {
 
 function Hero({ site, page, section, inquire }: ThemeProps & { page: SitePage; section: HeroSection; inquire: string | null }) {
   const { heading, subheading } = heroText(site, page, section);
-  const firstGallery = page.sections.find((s): s is GallerySection => s.type === "gallery" && s.visible);
-  const cover =
-    site.photos.find((p) => p.id === section.coverPhotoId) ??
-    (firstGallery ? galleryPhotos(firstGallery, site.photos, site.albums)[0] : undefined) ??
-    site.photos[0];
+  const cover = heroCover(site, page, section);
   const hasWork = page.sections.some((s) => (s.type === "gallery" || s.type === "albums") && s.visible);
 
   const text = (
@@ -254,7 +250,7 @@ function Hero({ site, page, section, inquire }: ThemeProps & { page: SitePage; s
     </div>
   );
 
-  if (section.style === "cover" && cover) {
+  if (cover) {
     return (
       <section className="flex flex-col gap-10 px-4 pb-10 pt-10 md:px-14 md:pt-16 lg:flex-row lg:items-stretch lg:gap-14">
         <div className="flex min-w-0 flex-1 flex-col justify-center">{text}</div>

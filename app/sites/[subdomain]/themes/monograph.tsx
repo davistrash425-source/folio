@@ -9,7 +9,7 @@ import { contactHref, copyrightLine, siteHref } from "@/lib/site-data";
 import { ContactForm } from "../contact-form";
 import { Lightbox } from "../lightbox";
 import { cormorant, jost } from "./fonts";
-import { aboutText, captionText, currentPage, heroText, navItems, pad, pageGalleries, socialLinks, type GalleryBlock, visibleSections, type ThemeProps } from "./shared";
+import { aboutText, captionText, currentPage, heroCover, heroText, navItems, pad, pageGalleries, socialLinks, type GalleryBlock, visibleSections, type ThemeProps } from "./shared";
 import { ReportLink } from "./report-link";
 
 const PAPERS = {
@@ -89,8 +89,13 @@ function Pages({ section, page, site, block, total, pageNumbers }: ThemeProps & 
   switch (section.type) {
     case "hero": {
       const { heading, subheading } = heroText(site, page, section);
+      const cover = heroCover(site, page, section);
       return (
         <section className="flex min-h-[70svh] flex-col items-center justify-center px-6 py-20 text-center">
+          {cover && (
+            // The header photo as the book's frontispiece, above the title.
+            <img src={cover.src} srcSet={cover.srcSet} sizes="(min-width: 768px) 70vw, 100vw" alt={cover.alt} className="mb-14 max-h-[72svh] w-auto max-w-full object-contain md:max-w-[70vw]" />
+          )}
           <p className={`${SMALL} mb-8 text-[var(--muted)]`}>{page.slug === "" ? "A book of photographs" : "Chapter"}</p>
           <h1 className="max-w-4xl break-words text-6xl italic leading-[0.95] md:text-8xl">{heading}</h1>
           {subheading && <p className={`${SMALL} mt-8 text-[var(--muted)]`}>{subheading}</p>}
