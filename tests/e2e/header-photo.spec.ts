@@ -27,6 +27,8 @@ test("choosing a header photo shows it in the editor's preview", async ({ page }
   const preview = page.frameLocator('iframe[title="Site preview"]');
   await expect(page.getByText("Loading preview…")).toBeHidden({ timeout: 30_000 });
 
+  // Only the theme step is open at first.
+  await page.getByRole("button", { name: /^Pages/, expanded: false }).click();
   await page.getByRole("button", { name: "Full-width photo" }).first().click();
   const picker = page.getByRole("button", { name: "Automatic (first photo on the page)" }).locator("..");
   const choices = picker.locator("ul button");
