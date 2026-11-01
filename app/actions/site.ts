@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { randomUUID } from "crypto";
 import { z } from "zod";
-import { changeSubdomain, findUserBySubdomain, subdomainOnHold, updateUser, type Inquiry, type Photo, type User } from "@/lib/db";
-import { impersonationBlock, requireUser } from "@/lib/auth";
+import { changeSubdomain, findUserBySubdomain, logAdminAction, subdomainOnHold, updateUser, type Inquiry, type Photo, type User } from "@/lib/db";
+import { currentAdmin, impersonationBlock, requireUser } from "@/lib/auth";
 import { uploadBlock } from "@/lib/plans";
 import { draftDesign, publishedDesign } from "@/lib/public-site";
 import { sendEmail } from "@/lib/email";
@@ -336,8 +336,11 @@ export async function saveAiTraining(_prev: ActionState, formData: FormData): Pr
 
 const ADDRESS_TAKEN = "That address is taken — try another.";
 
+// `held` tells the form to offer an admin the override for a held address.
+export type AddressState = ActionState & { held?: boolean };
+
 // Moves the site to name.<root domain>, if the name is free.
-export async function changeAddress(_prev: ActionState, formData: FormData): Promise<ActionState> {
+export async function changeAddress(_prev: AddressState, formData: FormData): Promise<AddressState> {
   const user = await requireUser();
   const blocked = await impersonationBlock();
   if (blocked) return { error: blocked };
@@ -346,8 +349,17 @@ export async function changeAddress(_prev: ActionState, formData: FormData): Pro
   if (user.suspended) return { error: "A suspended site can’t change its address." };
   const invalid = validateSubdomain(subdomain);
   if (invalid) return { error: invalid };
-  if (await subdomainOnHold(subdomain, ADDRESS_HOLD_MONTHS, user.id)) {
-    return { error: "That address belonged to another site recently, so it’s held for a year. Try another." };
+  // A full admin (on their own account or one of their extra sites) can take
+  // a held address by ticking the override, as on the New site page. It's
+  // logged, since the hold is there to stop someone posing as the old site.
+  const held = await subdomainOnHold(subdomain, ADDRESS_HOLD_MONTHS, user.id);
+  const admin = held ? await currentAdmin() : null;
+  const override = Boolean(admin) && formData.get("override") === "on";
+  if (held && !override) {
+    return {
+      error: "That address belonged to another site recently, so it’s held for a year. Try another.",
+      ...(admin ? { held: true } : {}),
+    };
   }
   if (await findUserBySubdomain(subdomain)) return { error: ADDRESS_TAKEN };
   // Every move holds the old address for a year, so don't allow many.
@@ -359,6 +371,15 @@ export async function changeAddress(_prev: ActionState, formData: FormData): Pro
   } catch (err) {
     if ((err as Error).message === "SUBDOMAIN_TAKEN") return { error: ADDRESS_TAKEN };
     throw err;
+  }
+  if (override) {
+    await logAdminAction({
+      adminEmail: admin!.email,
+      userId: user.id,
+      subdomain,
+      action: "address-hold-overridden",
+      detail: `Moved the site from ${user.subdomain} to ${subdomain} while ${subdomain} was held.`,
+    });
   }
   return done(`Your site is now at ${siteUrl(subdomain).replace(/^https?:\/\//, "")}.`);
 }

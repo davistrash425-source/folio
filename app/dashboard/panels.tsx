@@ -186,6 +186,21 @@ function AddressInput({ defaultValue, domain }: { defaultValue: string; domain: 
   );
 }
 
+// Shown to an admin after a "held" error: lets them take the address anyway.
+function HoldOverride() {
+  return (
+    <label className="flex items-start gap-2 border border-rule p-3 text-sm">
+      <input type="checkbox" name="override" className="mt-1" />
+      <span>
+        <span className="font-medium">Use this address anyway.</span>{" "}
+        <span className="text-ink-soft">
+          Admin override: only if the site it was held for won’t be confused with this one. It’s recorded in the admin log.
+        </span>
+      </span>
+    </label>
+  );
+}
+
 export function AddressForm({ subdomain, domain }: { subdomain: string; domain: string }) {
   const [state, action, pending] = useActionState(keepFields(changeAddress), {});
   const formRef = useRef<HTMLFormElement>(null);
@@ -217,6 +232,7 @@ export function AddressForm({ subdomain, domain }: { subdomain: string; domain: 
         Your site moves to the new address straight away, and the old one stops working, so update any links you’ve
         shared. Nobody else can take your old address for a year, and you can move back to it.
       </p>
+      {state.held && <HoldOverride />}
       <div className="flex items-center gap-3">
         <button type="submit" disabled={pending} className={secondaryButtonClass}>
           {pending ? "Saving…" : "Change address…"}
@@ -271,17 +287,7 @@ export function NewSiteForm({ domain }: { domain: string }) {
       <p className="text-sm text-ink-soft">
         The new site starts with no photos and the standard design. Messages from its contact form go to your email.
       </p>
-      {state.held && (
-        <label className="flex items-start gap-2 border border-rule p-3 text-sm">
-          <input type="checkbox" name="override" className="mt-1" />
-          <span>
-            <span className="font-medium">Use this address anyway.</span>{" "}
-            <span className="text-ink-soft">
-              Admin override: only if the site it was held for won’t be confused with this one. It’s recorded in the admin log.
-            </span>
-          </span>
-        </label>
-      )}
+      {state.held && <HoldOverride />}
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={pending}>{pending ? "Creating…" : "Create site"}</Button>
         <Message error={state.error} />
