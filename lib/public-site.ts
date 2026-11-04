@@ -4,6 +4,7 @@ import { readDesign, withoutProSettings, type SiteDesign } from "./design";
 import { couldBeSubdomain, isLive } from "./site";
 import { resolvePath, type SiteData } from "./site-data";
 import { photoSource } from "./uploads";
+import { sitePhotos } from "./site-photos";
 
 export type { SiteAlbum, SiteData } from "./site-data";
 
@@ -25,17 +26,19 @@ export function draftDesign(user: User) {
 // Builds what the renderer draws. Returns null when the page shouldn't be
 // shown: a site that isn't live viewed publicly, or an address with no page
 // or album. The preview shows the draft design; the live site the published
-// one. Photos Folio has taken down are left out of both.
+// one. Photos Folio has taken down, photos the photographer hid and photos
+// only in a client gallery are left out of both (lib/site-photos.ts).
 export function siteData(user: User, opts: { path?: string; preview?: boolean } = {}): SiteData | null {
   if (!opts.preview && !isLive(user)) return null;
-  const photos = user.photos.filter((p) => !p.removed);
+  const design = opts.preview ? draftDesign(user) : publishedDesign(user);
+  const photos = sitePhotos(user, design);
   const shown = new Set(photos.map((p) => p.id));
   const site: SiteData = {
     subdomain: user.subdomain,
     // The contact email starts as the login email, so it stays off the site
     // (and out of the page data) until the photographer chooses to show it.
     profile: user.profile.showEmail ? user.profile : { ...user.profile, contactEmail: "" },
-    design: opts.preview ? draftDesign(user) : publishedDesign(user),
+    design,
     photos: photos.map((p) => photoSource(user.id, p)),
     albums: (user.albums ?? []).map((a) => ({
       id: a.id,

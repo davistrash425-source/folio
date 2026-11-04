@@ -1,7 +1,7 @@
 // What a verified Polar webhook does to an account. Kept out of the route so
 // tests can call it directly.
 import { findUserById, updateUser } from "./db";
-import { grantsPro } from "./billing";
+import { billingConfigured, grantsPro, revokeSubscription } from "./billing";
 import { sendEmail } from "./email";
 import { SUPPORT_EMAIL } from "./site";
 
@@ -17,10 +17,20 @@ type Subscription = {
   customer?: { external_id?: string | null };
 };
 
-export type PolarEvent = { type?: string; data?: Subscription };
+// The parts of a Polar order Folio reads (order.refunded / order.updated).
+type Order = {
+  id?: string;
+  status?: string; // paid, refunded, partially_refunded, ...
+  subscription_id?: string | null;
+  metadata?: Record<string, unknown>;
+  customer?: { external_id?: string | null };
+};
+
+export type PolarEvent = { type?: string; data?: Subscription & Order };
 
 // Returns a short word for logs and tests: what happened to the event.
 export async function applyBillingEvent(eventId: string, event: PolarEvent) {
+  if (event.type === "order.refunded" || event.type === "order.updated") return applyRefund(eventId, event.data);
   if (!event.type?.startsWith("subscription.")) return "ignored";
   const sub = event.data;
   if (!sub?.id || !sub.status) return "ignored";
@@ -54,7 +64,8 @@ export async function applyBillingEvent(eventId: string, event: PolarEvent) {
       const activeIds = new Set<string>(
         last?.activeSubscriptionIds ?? (last && grantsPro(last.status) ? [last.subscriptionId] : []),
       );
-      if (grantsPro(status)) activeIds.add(sub.id!);
+      const refunded = new Set(last?.refundedSubscriptionIds ?? []);
+      if (grantsPro(status) && !refunded.has(sub.id!)) activeIds.add(sub.id!);
       else activeIds.delete(sub.id!);
 
       u.billing = {
@@ -66,6 +77,7 @@ export async function applyBillingEvent(eventId: string, event: PolarEvent) {
         lastEventId: eventId,
         updatedAt: modifiedAt ?? last?.updatedAt, // never forget the newest time seen
         activeSubscriptionIds: [...activeIds],
+        refundedSubscriptionIds: last?.refundedSubscriptionIds,
       };
       // An admin's manual choice stands. Otherwise the subscriptions decide:
       // the account is Pro while any one of them grants it.
@@ -80,16 +92,68 @@ export async function applyBillingEvent(eventId: string, event: PolarEvent) {
     throw err;
   }
 
-  if (downgraded) {
-    const user = await findUserById(userId);
-    if (user) {
-      await sendEmail({
-        to: user.email,
-        replyTo: SUPPORT_EMAIL,
-        subject: "Your Folio Pro plan has ended",
-        text: `Hi ${user.profile.name},\n\nYour Folio Pro subscription has ended, so your account is back on the Free plan. Nothing was deleted: your photos and site stay as they are. Pro-only features (client galleries, special themes, uploads beyond 150 photos) are paused until you subscribe again from Account → Plan.\n\nQuestions? Reply to this email.\n\nFolio`,
-      }).catch((err) => console.error("Downgrade email failed", err));
+  if (downgraded) await sendDowngradeEmail(userId);
+  return outcome;
+}
+
+// A payment refunded in full ends Pro right away (owner's decision, Nov 4,
+// 2026): Polar's own refund only stops renewal, so Folio ends the subscription
+// in Polar and drops the account to Free now. Nothing is deleted, as with any
+// downgrade. A partial refund changes nothing.
+async function applyRefund(eventId: string, order: Order | undefined) {
+  if (order?.status !== "refunded" || !order.subscription_id) return "ignored";
+  const subscriptionId = order.subscription_id;
+  const userId = String(order.customer?.external_id ?? order.metadata?.userId ?? "");
+  const user = userId ? await findUserById(userId) : undefined;
+  if (!user) return "unknown account";
+  if (user.billing?.refundedSubscriptionIds?.includes(subscriptionId)) return "duplicate";
+
+  // End it in Polar first, so the customer isn't charged again. Already
+  // ended counts as done. If Polar can't, throw: the webhook answers 500 and
+  // Polar retries later.
+  if (billingConfigured()) {
+    try {
+      await revokeSubscription(subscriptionId);
+    } catch (err) {
+      const { status, message } = err as Error & { status?: number };
+      if (!(status === 404 || /already (canceled|cancelled|revoked)/i.test(message))) throw err;
     }
   }
-  return outcome;
+
+  let downgraded = false;
+  await updateUser(userId, (u) => {
+    if (!u.billing) return; // no subscription on record: nothing grants Pro
+    const refunded = new Set(u.billing.refundedSubscriptionIds ?? []);
+    refunded.add(subscriptionId);
+    const activeIds = new Set(
+      u.billing.activeSubscriptionIds ?? (grantsPro(u.billing.status) ? [u.billing.subscriptionId] : []),
+    );
+    activeIds.delete(subscriptionId);
+    u.billing = { ...u.billing, lastEventId: eventId, activeSubscriptionIds: [...activeIds], refundedSubscriptionIds: [...refunded] };
+    if (u.billing.subscriptionId === subscriptionId) u.billing.status = "revoked";
+    if (u.planSource === "manual") return;
+    const pro = activeIds.size > 0;
+    downgraded = u.plan === "pro" && !pro;
+    u.plan = pro ? "pro" : "free";
+    u.planSource = "billing";
+  });
+  if (downgraded) await sendDowngradeEmail(userId);
+  return "refunded";
+}
+
+async function sendDowngradeEmail(userId: string) {
+  const user = await findUserById(userId);
+  if (!user) return;
+  await sendEmail({
+    to: user.email,
+    replyTo: SUPPORT_EMAIL,
+    subject: "Your Folio Pro plan has ended",
+    text: `Hi ${user.profile.name},
+
+Your Folio Pro subscription has ended, so your account is back on the Free plan. Nothing was deleted: your photos and site stay as they are. Pro-only features (client galleries, special themes, uploads beyond 150 photos) are paused until you subscribe again from Account → Plan.
+
+Questions? Reply to this email.
+
+Folio`,
+  }).catch((err) => console.error("Downgrade email failed", err));
 }

@@ -36,7 +36,7 @@ The working list for picking up Folio one task per session. Step-by-step instruc
 - [x] 9. Choose a payment provider. DECIDED Oct 26, 2026: Polar (merchant of record, pays out to Israel). Sandbox billing is merged to `main` (PR #20 and the downgrade follow-up) and was tested end to end (Oct 26, 2026: buy, cancel, uncancel and end all worked on a Vercel preview; see HANDOFF.md). Production switched on Oct 30, 2026: Polar org `folio-camera` approved, products Monthly `369d04ad-…` and Yearly `f5226918-…`, webhook API version 2026-10, `POLAR_*` in Vercel Production; a real $12 purchase showed Folio Pro and was refunded. Vercel Pro done Oct 30, 2026. Original note: Stripe may not accept Israeli businesses, so Paddle or Lemon Squeezy may fit better. Vercel's free tier also forbids commercial use.
 - [x] 10. Decide the "Made with Folio" footer on client galleries. (decided Oct 25, 2026: Free only, removed on Pro; `showFolioBadge` in `lib/plans.ts`. Free cannot make galleries today, so it rarely shows.)
 - [x] 11. Launch the Free plan, then Pro. (done Oct 30, 2026: owner moved to Vercel Pro and fully launched Folio Pro.)
-- [ ] 12. Google Drive uploads: Google Cloud setup and `GOOGLE_PICKER_API_KEY` in Vercel done Oct 31, 2026; button is live. Left: have the lawyer add Drive wording to the Privacy page, and try one real Drive upload. (added Oct 31, 2026)
+- [ ] 12. Google Drive uploads: Google Cloud setup and `GOOGLE_PICKER_API_KEY` in Vercel done Oct 31, 2026; button is live; a real Drive upload on www.folio.cam worked (Nov 4, 2026). Left: have the lawyer add Drive wording to the Privacy page. (added Oct 31, 2026)
 
 ## Code review follow-ups (Oct 28 and Oct 30, 2026)
 
@@ -44,7 +44,7 @@ From `docs/CODE-REVIEW-2026-10-28.md` and the Oct 30 bug check, `docs/CODE-REVIE
 
 - [x] Merge and deploy the review-fixes PR (PR #24, live since Oct 28)
 - [x] ZIP64 for the account export (it broke above 4 GiB; Pro allows 50 GB). Done Oct 30, on branch `bug-check-fixes`
-- [x] Purge web copies when a photo is taken down, and sweep orphaned web copies daily. Done Oct 30, on branch `bug-check-fixes`. Owner: set `CLOUDFLARE_PURGE_TOKEN` and `CLOUDFLARE_PURGE_ZONE_ID` in Vercel, or the purge does nothing
+- [x] Purge web copies when a photo is taken down, and sweep orphaned web copies daily. Done Oct 30, on branch `bug-check-fixes`. `CLOUDFLARE_PURGE_TOKEN` and `CLOUDFLARE_PURGE_ZONE_ID` (zone foliocdn.com) set in Vercel Production Nov 4, 2026; active from the next deploy
 - [x] `lib/pg.ts`: add a pool `error` listener. Done Oct 30, on branch `bug-check-fixes`
 - [x] `impersonationBlock()` on the remaining photographer actions (`site.ts`, `galleries.ts`). Done Oct 30, on branch `bug-check-fixes`
 - [x] Client galleries respect "site offline" (`isLive`); `emailGalleryLink` needs a live Pro site. Done Oct 30, on branch `bug-check-fixes`
@@ -53,10 +53,10 @@ From `docs/CODE-REVIEW-2026-10-28.md` and the Oct 30 bug check, `docs/CODE-REVIE
 - [x] Design editor stuck on "Saving..." (`sameDesign` key order), and a change lost after Undo (`lastSent`). Done Oct 30, on branch `bug-check-fixes`
 - [x] Oct 30 bug check: failed form saves keep what was typed; the email confirmation link needs a click (mail scanners used it up); bulk delete can't hit photos hidden by a filter; deleted photos leave client galleries; started uploads count toward storage; gallery password hashes left out of the export; and more (full list in `docs/CODE-REVIEW-2026-10-30.md`). Done Oct 30, on branch `bug-check-fixes`
 - [x] Admin "let payments decide" button: an account an admin ever set with `setPlan` stayed `planSource: "manual"` forever, so a later purchase was recorded but never granted Pro (seen Oct 30, 2026 on the first real purchase). Done Oct 30 (live in d686f65): `letPaymentsDecide` in `app/actions/admin.ts`, button on the admin site page's Plan card
-- [ ] Decide what a refund does: refunding in Polar only cancels at period end, so the account keeps Pro until then (Polar's dashboard has no "revoke now" once cancelled)
+- [x] Decide what a refund does. DECIDED Nov 4, 2026: a full refund ends Pro right away. `order.refunded` (added to the Polar webhook Nov 4) → `applyRefund` in `lib/billing-webhook.ts` revokes the subscription in Polar and moves the account to Free with the usual email; partial refunds change nothing; hand-set plans stay
 - [x] Neutral reset responses (same answer and timing, a pending link is kept), timeouts on outbound calls, CSP `form-action 'self'`. Done Oct 30, on branch `bug-check-fixes`
 - [ ] Still open: sign-up says "account already exists", and `script-src` keeps `'unsafe-inline'` (a nonce needs fully dynamic rendering, which partial prerendering rules out)
-- [ ] Owner decision: should photos uploaded only for a client gallery appear on the public "all photos" page? (a per-photo hide flag would fix it)
+- [x] Owner decision: should photos uploaded only for a client gallery appear on the public "all photos" page? DECIDED Nov 4, 2026: no. A photo in a client gallery and in no album, not picked in the design, stays off the site (`lib/site-photos.ts`); plus a per-photo "Hide from my public site" toggle (`Photo.hiddenFromSite`)
 
 ## Everything checklist, by phase
 

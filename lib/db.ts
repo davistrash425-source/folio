@@ -43,6 +43,9 @@ export type Photo = {
   // off the site and its web copies are deleted, but the private original is
   // kept so it can be put back.
   removed?: { at: string; reportId?: string; note?: string };
+  // The photographer chose to keep it off their public site (lib/site-photos.ts).
+  // It can still be used in client galleries.
+  hiddenFromSite?: boolean;
 };
 
 export type Album = {
@@ -126,6 +129,10 @@ export type User = {
     // Every subscription that still grants Pro, so deleting the account ends
     // them all. Missing on accounts whose single subscription predates this.
     activeSubscriptionIds?: string[];
+    // Subscriptions whose payment was refunded in full. They ended Pro right
+    // away (lib/billing-webhook.ts) and never grant it again, even if a late
+    // event still calls them active.
+    refundedSubscriptionIds?: string[];
   };
   emailVerified?: boolean;
   // Missing means the site asks AI companies' crawlers not to collect it for
