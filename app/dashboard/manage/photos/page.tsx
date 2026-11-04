@@ -2,6 +2,8 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { requireUser } from "@/lib/auth";
 import { photoSource } from "@/lib/uploads";
+import { publishedDesign } from "@/lib/public-site";
+import { galleryOnlyPhotoIds } from "@/lib/site-photos";
 import { PhotoLibrary } from "../../editor";
 import { Loading, PageHeader } from "../section";
 
@@ -30,6 +32,7 @@ async function Library({ searchParams }: { searchParams: PageProps<"/dashboard/m
   const user = await requireUser();
   const { filter } = await searchParams;
   const albums = user.albums ?? [];
+  const galleryOnly = galleryOnlyPhotoIds(user, publishedDesign(user));
   const photos = user.photos.map((p) => {
     const src = photoSource(user.id, p);
     return {
@@ -41,6 +44,8 @@ async function Library({ searchParams }: { searchParams: PageProps<"/dashboard/m
       alt: p.alt ?? "",
       albumIds: albums.filter((a) => a.photoIds.includes(p.id)).map((a) => a.id),
       removed: Boolean(p.removed),
+      hiddenFromSite: Boolean(p.hiddenFromSite),
+      galleryOnly: galleryOnly.has(p.id),
     };
   });
   return (

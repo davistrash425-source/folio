@@ -8,6 +8,7 @@ import { changeSubdomain, findUserBySubdomain, logAdminAction, subdomainOnHold, 
 import { currentAdmin, impersonationBlock, requireUser } from "@/lib/auth";
 import { uploadBlock } from "@/lib/plans";
 import { draftDesign, publishedDesign } from "@/lib/public-site";
+import { sitePhotos } from "@/lib/site-photos";
 import { sendEmail } from "@/lib/email";
 import { cleanSocial, cleanWebsite } from "@/lib/social";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
@@ -139,6 +140,7 @@ const photoDetailsSchema = z.object({
   location: z.string().max(5000),
   alt: z.string().max(5000),
   albumIds: z.array(z.string().max(100)).max(1000),
+  hiddenFromSite: z.boolean().optional(),
 });
 
 // Saves a new photo order. The first photo is the cover image.
@@ -160,7 +162,7 @@ export async function reorderPhotos(rawIds: string[]) {
 // Saves the details edited in the All photos drawer.
 export async function updatePhoto(
   photoId: string,
-  rawDetails: { description: string; location: string; alt: string; albumIds: string[] },
+  rawDetails: { description: string; location: string; alt: string; albumIds: string[]; hiddenFromSite?: boolean },
 ): Promise<ActionState> {
   const userId = await currentUserId();
   const parsed = photoDetailsSchema.safeParse(rawDetails);
@@ -172,6 +174,8 @@ export async function updatePhoto(
     photo.description = details.description.trim().slice(0, 500);
     photo.location = details.location.trim().slice(0, 120);
     photo.alt = details.alt.trim().slice(0, 300);
+    if (details.hiddenFromSite) photo.hiddenFromSite = true;
+    else if (details.hiddenFromSite === false) delete photo.hiddenFromSite;
     for (const album of u.albums ?? []) {
       const inAlbum = album.photoIds.includes(photoId);
       const wanted = details.albumIds.includes(album.id);
@@ -510,7 +514,7 @@ export async function sendInquiry(
   // From a photo's "Inquire" button. Kept only if it's one of this site's
   // photos visitors can see; anything else is dropped, not an error.
   const photoId = str("photoId", 64);
-  const photo = photoId ? owner.photos.find((p) => p.id === photoId && !p.removed) : undefined;
+  const photo = photoId ? sitePhotos(owner, publishedDesign(owner)).find((p) => p.id === photoId) : undefined;
 
   await updateUser(owner.id, (u) => {
     u.inquiries ??= [];

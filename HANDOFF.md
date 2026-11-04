@@ -1,5 +1,21 @@
 # Handoff
-**Status: complete**
+
+## Finishing the owner to-do list (Nov 4, 2026): in progress (worktree branch `claude/project-status-50d31e`)
+- **Goal:** owner wants the rest of this session spent completing: lawyer changes to legal pages, Cloudflare purge env vars, a real Google Drive upload test, the Nov 30 downgrade check, and the two backlog decisions.
+- **Decisions (owner, Nov 4):** a full refund in Polar ends Pro right away (drop to Free; nothing deleted). Photos that are in a client gallery and not placed on the public site are left out of the public "all photos" page, plus a per-photo "Hide from site" toggle. Lawyer wants changes and to see the pages again, so `LEGAL_DRAFT` stays true.
+- **Done (not committed):**
+  - Refunds: `order.refunded`/`order.updated` with status `refunded` → `applyRefund` in `lib/billing-webhook.ts` revokes the subscription in Polar and drops to Free now (+ downgrade email); `User.billing.refundedSubscriptionIds` stops late events re-granting Pro. Partial refunds ignored; manual plans kept. 6 tests in `tests/billing.test.ts`.
+  - Gallery-only photos: `lib/site-photos.ts` (`sitePhotos`, `galleryOnlyPhotoIds`); used by `siteData` (`lib/public-site.ts`) and the inquiry form (`app/actions/site.ts`). `Photo.hiddenFromSite` + "Hide from my public site" checkbox in `app/dashboard/photo-drawer.tsx`; library labels "Hidden from site" / "Client gallery only". Tests: `tests/site-photos.test.ts`.
+  - Vercel Production: `CLOUDFLARE_PURGE_ZONE_ID` = foliocdn.com zone `4c1c39dd2d668f04733f957ff1f7316b` (added Nov 4).
+  - tsc, lint, 552 tests and `npm run build` pass (ran `npm ci` in the worktree: Turbopack needs local node_modules).
+  - Polar webhook endpoint now also sends `order.refunded` (ticked and saved Nov 4, owner OK'd).
+  - Nov 30 check is moot: the Oct 30 test account was deleted Nov 1 (its subscription revoked then; webhook 200). davistrash425@gmail.com is now a new account `davif123`, Pro set by hand. No real downgrade has been seen in production yet; tests cover it. (A scheduled task for it was created then deleted.)
+  - Owner set `CLOUDFLARE_PURGE_TOKEN` in Vercel Production (Nov 4); active from the next deploy. Owner tried a real Google Drive upload on www.folio.cam: works.
+  - Backlog updated in `docs/BACKLOG.md` and the Claude Doc (Drive, purge, refund, gallery-photo items).
+- **In progress / next:** PR for this branch; squash-merge once CI is green (deploys the code + activates the purge token). Then the lawyer changes once the owner pastes the notes.
+- **Gotcha:** fresh worktree needs `npx next typegen` before `tsc`.
+- **Open questions:** owner still to paste the lawyer's meeting notes.
+
 
 ## New-user polish (Nov 1, 2026): live (PR #30, merged into main)
 - **Goal:** owner's notes: Google button below the fold on /signup; Free users can preview greyed-out Pro themes; design page collapsed except Theme with a Save button that opens the next; make the design tab easier.

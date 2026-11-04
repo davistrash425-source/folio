@@ -362,3 +362,69 @@ test("deleting an account whose only subscription already ended doesn't need Pol
   assert.equal(sent.length, 0, "nothing to end");
   assert.equal(await findUserById(u.id), null);
 });
+
+function refund(userId: string, status = "refunded", subscriptionId = "sub-1", type = "order.refunded") {
+  return JSON.stringify({ type, data: { id: "order-1", status, subscription_id: subscriptionId, customer: { external_id: userId } } });
+}
+
+test("a full refund ends the subscription in Polar and drops the account to Free right away, with an email", async (t) => {
+  const u = await makeUser("Refunded");
+  await webhook(signed(event(u.id, "active"), "e1"));
+  await webhook(signed(event(u.id, "active", { cancel_at_period_end: true, modified_at: "2026-11-02T00:00:00Z" }), "e2"));
+  const polar = fakePolar(t);
+  const sent = captureEmails(t);
+  await webhook(signed(refund(u.id), "e3"));
+  assert.deepEqual(polar.map((r) => `${r.method} ${r.url}`), ["DELETE https://sandbox-api.polar.sh/v1/subscriptions/sub-1"]);
+  const after = (await findUserById(u.id))!;
+  assert.equal(after.plan, "free");
+  assert.deepEqual(after.billing?.activeSubscriptionIds, []);
+  assert.match(sent.join("\n"), /Pro plan has ended/);
+});
+
+test("a partial refund changes nothing", async (t) => {
+  const u = await makeUser("Partial");
+  await webhook(signed(event(u.id, "active"), "e1"));
+  const polar = fakePolar(t);
+  await webhook(signed(refund(u.id, "partially_refunded", "sub-1", "order.updated"), "e2"));
+  assert.equal(polar.length, 0);
+  assert.equal((await findUserById(u.id))!.plan, "pro");
+});
+
+test("a late event calling a refunded subscription active can't bring Pro back", async (t) => {
+  const u = await makeUser("Late");
+  await webhook(signed(event(u.id, "active"), "e1"));
+  fakePolar(t);
+  await webhook(signed(refund(u.id), "e2"));
+  await webhook(signed(event(u.id, "active", { modified_at: "2026-11-03T00:00:00Z" }), "e3"));
+  assert.equal((await findUserById(u.id))!.plan, "free");
+});
+
+test("refunding one of two subscriptions keeps Pro from the other", async (t) => {
+  const u = await makeUser("TwoSubs");
+  await webhook(signed(event(u.id, "active"), "e1"));
+  await webhook(signed(event(u.id, "active", { id: "sub-2", modified_at: "2026-11-02T00:00:00Z" }), "e2"));
+  fakePolar(t);
+  await webhook(signed(refund(u.id, "refunded", "sub-1"), "e3"));
+  const after = (await findUserById(u.id))!;
+  assert.equal(after.plan, "pro");
+  assert.deepEqual(after.billing?.activeSubscriptionIds, ["sub-2"]);
+});
+
+test("if Polar can't end a refunded subscription, the webhook fails so Polar retries, and the plan is unchanged", async (t) => {
+  const u = await makeUser("Retry");
+  await webhook(signed(event(u.id, "active"), "e1"));
+  fakePolar(t, () => ({ detail: "boom" }), 500);
+  await assert.rejects(webhook(signed(refund(u.id), "e2")));
+  assert.equal((await findUserById(u.id))!.plan, "pro");
+});
+
+test("a refund on an account an admin set to Pro by hand ends the subscription but keeps the plan", async (t) => {
+  const u = await makeUser("Manual");
+  await webhook(signed(event(u.id, "active"), "e1"));
+  await updateUser(u.id, (x) => { x.planSource = "manual"; });
+  fakePolar(t);
+  await webhook(signed(refund(u.id), "e2"));
+  const after = (await findUserById(u.id))!;
+  assert.equal(after.plan, "pro");
+  assert.deepEqual(after.billing?.refundedSubscriptionIds, ["sub-1"]);
+});

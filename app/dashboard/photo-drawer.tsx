@@ -53,10 +53,14 @@ export function PhotoDrawer({ photo, albums, onClose, onPrev, onNext, onSaveFail
   );
 }
 
-type PhotoFields = { description: string; location: string; alt: string; albumIds: string[] };
+type PhotoFields = { description: string; location: string; alt: string; albumIds: string[]; hiddenFromSite: boolean };
 
 const sameFields = (a: PhotoFields, b: PhotoFields) =>
-  a.description === b.description && a.location === b.location && a.alt === b.alt && a.albumIds.join() === b.albumIds.join();
+  a.description === b.description &&
+  a.location === b.location &&
+  a.alt === b.alt &&
+  a.albumIds.join() === b.albumIds.join() &&
+  a.hiddenFromSite === b.hiddenFromSite;
 
 // Changes save themselves a moment after you stop typing, and straight away
 // when you move to another photo or close the drawer.
@@ -73,6 +77,7 @@ function PhotoDetails({ photo, albums, onDeleted, onSaveFailed }: {
     location: photo.location,
     alt: photo.alt,
     albumIds: photo.albumIds,
+    hiddenFromSite: Boolean(photo.hiddenFromSite),
   });
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [deleteError, setDeleteError] = useState<string>();
@@ -184,6 +189,19 @@ function PhotoDetails({ photo, albums, onDeleted, onSaveFailed }: {
               </ul>
             )}
           </fieldset>
+          <div>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={fields.hiddenFromSite} onChange={(e) => change({ hiddenFromSite: e.target.checked })} />
+              Hide from my public site
+            </label>
+            <p className="mt-1 text-sm text-ink-soft">
+              {fields.hiddenFromSite
+                ? "Visitors won’t see it anywhere on your site. You can still add it to client galleries."
+                : photo.galleryOnly
+                  ? "It’s only in a client gallery, so it stays off your public site until you add it to an album or pick it in your design."
+                  : "Shown on your site wherever your design includes it."}
+            </p>
+          </div>
           <div className="mt-auto flex flex-wrap items-center gap-3 border-t border-rule pt-4">
             <p className="text-sm text-ink-soft" aria-live="polite">
               {status === "saving" ? (

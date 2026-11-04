@@ -21,6 +21,8 @@ export type LibraryPhoto = {
   alt: string; // as entered; empty means "use the description"
   albumIds: string[];
   removed?: boolean; // taken down by Folio: off the site, and its web copies are gone
+  hiddenFromSite?: boolean; // the photographer chose "Hide from my site"
+  galleryOnly?: boolean; // only in a client gallery, so it stays off the site (lib/site-photos.ts)
 };
 
 type Filter = "all" | "no-album" | "no-description";
@@ -325,6 +327,9 @@ export function PhotoLibrary({
                     <span className="truncate">{photo.description || <span className="text-ink-faint">No description</span>}</span>
                   </p>
                   {photo.location && <p className="truncate pl-7 text-ink-soft">{photo.location}</p>}
+                  {!photo.removed && (photo.hiddenFromSite || photo.galleryOnly) && (
+                    <p className="label pl-7 text-ink-faint">{photo.hiddenFromSite ? "Hidden from site" : "Client gallery only"}</p>
+                  )}
                 </div>
                 {canReorder && (
                   <div className="absolute right-1 top-1 flex gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
