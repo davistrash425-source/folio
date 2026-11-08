@@ -65,6 +65,13 @@ export function agentsPaused() {
   return process.env.AGENTS_PAUSED === "1";
 }
 
+// Whether an admin has switched the agents on for this account, whatever is
+// happening now. A pause or suspension stops the AI (agentsAllowed), but mail
+// and site messages must still be saved and shown, so those use this.
+export function agentsEnrolled(user: Pick<User, "agents">) {
+  return user.agents?.enabled === true;
+}
+
 // Whether this account may use the agents. Off unless a Folio admin turned it
 // on (setAgentsAccess in app/actions/admin.ts); a suspended account never can.
 export function agentsAllowed(user: Pick<User, "agents" | "suspended">) {

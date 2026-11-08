@@ -6,24 +6,27 @@ import { draftDesign, publishedDesign } from "@/lib/public-site";
 import { contactHref } from "@/lib/site-data";
 import { isLive, siteUrl } from "@/lib/site";
 import type { User } from "@/lib/db";
+import { agentsEnrolled } from "@/lib/plans";
 import { Inbox } from "../../panels";
 import { Loading, PageHeader } from "../section";
+import { AgentInbox } from "./agent-inbox";
 
 export const metadata = { title: "Messages — Folio" };
 
-export default function MessagesPage() {
+export default function MessagesPage({ searchParams }: PageProps<"/dashboard/manage/messages">) {
   return (
     <>
-      <PageHeader title="Messages" subtitle="Inquiries sent through the contact form on your site." />
+      <PageHeader title="Messages" subtitle="What people send you through your site." />
       <Suspense fallback={<Loading />}>
-        <Messages />
+        <Messages searchParams={searchParams} />
       </Suspense>
     </>
   );
 }
 
-async function Messages() {
+async function Messages({ searchParams }: { searchParams: PageProps<"/dashboard/manage/messages">["searchParams"] }) {
   const user = await requireUser();
+  if (agentsEnrolled(user)) return <AgentInbox user={user} searchParams={await searchParams} />;
   const inquiries = user.inquiries ?? [];
   const asked = new Set(inquiries.map((q) => q.photoId));
   const photos = Object.fromEntries(

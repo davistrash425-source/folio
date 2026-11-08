@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { requireUser } from "@/lib/auth";
-import { listApprovals } from "@/lib/db";
-import { agentsAllowed } from "@/lib/plans";
+import { listApprovals, unreadMessageCount } from "@/lib/db";
+import { agentsAllowed, agentsEnrolled } from "@/lib/plans";
 import { isPublished, SUPPORT_EMAIL } from "@/lib/site";
 import { completedSteps } from "@/lib/steps";
 import { SideNav, SideNavView } from "../nav";
@@ -30,7 +30,8 @@ async function SideNavWithCounts() {
   const user = await requireUser();
   // Only asked for when the agents are on, so other accounts see no change.
   const agents = agentsAllowed(user) ? { pending: (await listApprovals(user.id, "pending")).length } : undefined;
-  return <SideNav unread={(user.inquiries ?? []).filter((i) => !i.read).length} done={completedSteps(user)} agents={agents} />;
+  const unread = agentsEnrolled(user) ? await unreadMessageCount(user.id) : (user.inquiries ?? []).filter((i) => !i.read).length;
+  return <SideNav unread={unread} done={completedSteps(user)} agents={agents} />;
 }
 
 async function AccountNotices() {

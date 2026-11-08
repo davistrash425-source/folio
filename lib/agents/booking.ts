@@ -96,7 +96,7 @@ export async function draftConfirmation(user: User, booking: Booking) {
       await finishAgentTask(user.id, task.id, { status: "done", result: { text } });
       await addAgentChatMessage({
         userId: user.id,
-        role: "assistant",
+        role: "briefing",
         text: `Draft confirmation for ${who} (not sent):\n\n${text}`,
         taskId: task.id,
       });

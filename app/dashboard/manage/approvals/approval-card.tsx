@@ -10,19 +10,19 @@ export function ApprovalCard({
   kind,
   summary,
   detail,
-  noteText,
+  editableText,
   createdAt,
 }: {
   id: string;
   kind: string;
   summary: string;
   detail: string;
-  noteText: string; // the words the Edit box starts with
+  editableText: string; // the words the Edit box starts with (a note's text, or an email's body)
   createdAt: string;
 }) {
   const [pending, start] = useTransition();
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(noteText);
+  const [draft, setDraft] = useState(editableText);
   const [result, setResult] = useState<{ ok?: string; error?: string }>({});
 
   const run = (action: () => Promise<{ ok?: string; error?: string }>) =>
@@ -40,7 +40,7 @@ export function ApprovalCard({
       </p>
       <p className="label text-ink-faint">{new Date(createdAt).toLocaleString()}</p>
       {editing ? (
-        <textarea value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={2000} rows={5} className={inputClass} aria-label="Edit the note" />
+        <textarea value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={20000} rows={kind === "send_email_reply" ? 12 : 5} className={inputClass} aria-label={kind === "send_email_reply" ? "Edit the email" : "Edit the note"} />
       ) : (
         <p className="whitespace-pre-wrap font-medium">If you approve: {detail}</p>
       )}
@@ -62,7 +62,7 @@ export function ApprovalCard({
             <SecondaryButton disabled={pending} onClick={() => run(() => reject(id))}>
               Reject
             </SecondaryButton>
-            {kind === "save_note" && (
+            {(kind === "save_note" || kind === "send_email_reply") && (
               <SecondaryButton disabled={pending} onClick={() => setEditing(true)}>
                 Edit
               </SecondaryButton>

@@ -1,5 +1,6 @@
 // One place that decides whether a site address is free to take. Used by the
 // live check while people type (app/api/address) and by the sign-up forms.
+import { mailboxBlock } from "./mailboxes";
 import { findUserBySubdomain, subdomainOnHold } from "./db";
 import { ADDRESS_HOLD_MONTHS, SUPPORT_EMAIL, validateSubdomain } from "./site";
 
@@ -13,6 +14,8 @@ export async function addressStatus(subdomain: string): Promise<AddressStatus> {
   const value = subdomain.trim().toLowerCase();
   const invalid = validateSubdomain(value);
   if (invalid) return { status: "invalid", message: invalid };
+  const mailHeld = await mailboxBlock(value);
+  if (mailHeld) return { status: "invalid", message: mailHeld };
   if (await subdomainOnHold(value, ADDRESS_HOLD_MONTHS)) {
     return {
       status: "held",

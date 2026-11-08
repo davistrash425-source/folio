@@ -13,6 +13,8 @@
     "backfill-photos": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/backfill-photos.ts",
     "import-json": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/import-json.ts",
     "homepage-photos": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/homepage-photos.ts",
+    "audit-mail-names": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./tests/setup.ts scripts/audit-mail-names.ts",
+    "model-test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./tests/setup.ts scripts/model-test.ts",
     "seed-examples": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./tests/setup.ts scripts/seed-examples.ts"
   },
   "dependencies": {

@@ -66,6 +66,16 @@ const SCHEMA = `
   -- The account that moved away from the address (null for closed accounts),
   -- which may move back to it.
   alter table released_subdomains add column if not exists user_id text;
+  -- Real mail addresses (lib/mailboxes.ts): name@MAIL_DOMAIN. A row is never
+  -- deleted, so a used name is never given to anyone else: a new owner would
+  -- receive the old owner's mail. user_id is null once the account is deleted.
+  create table if not exists mailboxes (
+    local_part text primary key,
+    user_id text,
+    created_at timestamptz not null default now(),
+    retired_at timestamptz
+  );
+  create index if not exists mailboxes_user on mailboxes (user_id);
   -- Accounts whose files still have to be deleted from storage. A row is added
   -- when the account is deleted and removed once the files are gone; the daily
   -- job (app/api/cron/daily) retries the ones left over.
@@ -151,6 +161,36 @@ const SCHEMA = `
     updated_at timestamptz not null default now()
   );
   create index if not exists bookings_user_start on bookings (user_id, starts_at);
+  -- Incoming and outgoing messages for accounts with the agents on (lib/db.ts).
+  -- Additive only.
+  create table if not exists messages (
+    id text primary key,
+    user_id text not null,
+    channel text not null, -- site_form | email
+    direction text not null, -- in | out
+    thread_key text not null,
+    provider_id text,
+    from_name text not null default '',
+    from_address text not null default '',
+    to_address text not null default '',
+    subject text not null default '',
+    body text not null default '',
+    asked_date text not null default '',
+    sender_check text, -- pass | fail | unknown, from the email's DMARC result
+    rfc_message_id text, -- the sender's Message-ID header; written by a stranger, used only for reply threading
+    photo_id text,
+    read boolean not null default false,
+    label text, -- URGENT | REPLY SOON | LIKELY SCAM
+    kind text, -- booking_request | pricing | reschedule | licensing_press | scam | other
+    summary text,
+    suggested_action text,
+    processed_at timestamptz,
+    replied_at timestamptz,
+    created_at timestamptz not null default now()
+  );
+  create index if not exists messages_user_created on messages (user_id, created_at desc);
+  create index if not exists messages_user_thread on messages (user_id, thread_key, created_at);
+  create unique index if not exists messages_provider on messages (channel, provider_id) where provider_id is not null;
 `;
 
 async function connectPostgres(url: string): Promise<Database> {

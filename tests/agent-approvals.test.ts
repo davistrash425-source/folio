@@ -201,6 +201,10 @@ test("only the approval gate can change an approval or reach an executor", () =>
   assert.deepEqual(usersOf(/\brunApproved\b/), ["lib/agents/approvals.ts"]);
 });
 
+test("only an executor can send mail as a photographer", () => {
+  assert.deepEqual(usersOf(/sendAsPhotographer/), ["lib/agents/executors.ts", "lib/channels/mail.ts"]);
+});
+
 test("nothing under lib/agents except the gate can approve", () => {
   const files = sourceFiles("lib/agents")
     .map((file) => file.split(path.sep).join("/"))

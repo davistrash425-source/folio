@@ -172,7 +172,7 @@ test("confirming a request needs a click, then confirms it and saves a draft in 
   assert.equal((await findBooking(u.id, request.id))?.status, "confirmed");
   const chat = await listAgentChat(u.id);
   assert.equal(chat.length, 1);
-  assert.equal(chat[0].role, "assistant");
+  assert.equal(chat[0].role, "briefing", "it names a client, so it isn't replayed to the manager");
   assert.equal(chat[0].text, "Draft confirmation for Maya portraits (not sent):\n\nHi Maya, you are booked in!");
 });
 

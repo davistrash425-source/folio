@@ -27,9 +27,24 @@ export function siteSubdomain(host: string) {
   return subdomain && subdomain !== "www" && !subdomain.includes(".") ? subdomain : null;
 }
 
+// Role names no account may have, as a site address or as a mailbox
+// (lib/mailboxes.ts): mail to these must reach Folio, or people would trust
+// them. They are in RESERVED_SUBDOMAINS too, so every path that validates a
+// subdomain refuses them.
+export const RESERVED_LOCAL_PARTS: ReadonlySet<string> = new Set([
+  "abuse", "admin", "administrator", "billing", "contact", "hello", "help", "hostmaster", "info",
+  "legal", "mailer-daemon", "no-reply", "noreply", "notify", "postmaster", "privacy", "root",
+  "sales", "security", "support", "team", "webmaster", "www",
+  "dmca", "copyright", "compliance", "bounce", "bounces", "daemon", "ftp", "mail", "mailer",
+  "nobody", "office", "owner", "press", "reply", "reports", "returns", "service", "services",
+  "spam", "staff", "system", "users", "usenet", "uucp", "news", "accounts", "account", "agents",
+  "agent", "folio", "orders", "payments", "refunds", "feedback", "jobs", "careers", "hr", "ops",
+  "dev", "devops", "it", "bot", "robot", "robots", "api", "auth", "oauth", "do-not-reply", "donotreply",
+]);
+
 // Addresses nobody can sign up for: Folio's own (now or later), and names
 // that would look official on a photographer's site.
-export const RESERVED_SUBDOMAINS = new Set([
+export const RESERVED_SUBDOMAINS = new Set<string>([
   "www", "app", "api", "admin", "dashboard", "login", "signup", "mail",
   "help", "support", "blog", "static", "assets", "cdn",
   "folio", "about", "contact", "account", "accounts", "auth", "billing", "pay", "payments",
@@ -37,6 +52,7 @@ export const RESERVED_SUBDOMAINS = new Set([
   "security", "status", "news", "press", "docs", "dev", "staging", "test", "beta", "demo",
   "email", "smtp", "imap", "webmail", "postmaster", "hostmaster", "webmaster", "noreply", "no-reply",
   "media", "images", "img", "photos", "uploads", "files", "official", "team", "staff",
+  ...RESERVED_LOCAL_PARTS,
 ]);
 
 // How long a closed account's address stays unavailable, so nobody can take

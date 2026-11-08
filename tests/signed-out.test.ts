@@ -10,6 +10,7 @@ import * as bookingActions from "../app/actions/bookings.ts";
 import * as bookingRequestActions from "../app/actions/booking-request.ts";
 import * as businessActions from "../app/actions/business.ts";
 import * as designActions from "../app/actions/design.ts";
+import * as messageActions from "../app/actions/messages.ts";
 import * as siteActions from "../app/actions/site.ts";
 import * as sitesActions from "../app/actions/sites.ts";
 import { proposeAction } from "../lib/agents/approvals.ts";
@@ -59,6 +60,10 @@ const needSignIn: Record<string, () => Promise<unknown>> = {
   confirmBookingAction: () => bookingActions.confirmBookingAction("some-id"),
   cancelBookingAction: () => bookingActions.cancelBookingAction("some-id"),
   moveBookingAction: () => bookingActions.moveBookingAction("some-id", formOf({ date: "2030-01-01", startTime: "10:00", endTime: "11:00" })),
+  draftReplyAction: () => messageActions.draftReplyAction("some-id"),
+  setMessageReadAction: () => messageActions.setMessageReadAction("some-id", true),
+  deleteMessageAction: () => messageActions.deleteMessageAction("some-id"),
+  markNotScamAction: () => messageActions.markNotScamAction("some-id"),
   setTimeZone: () => bookingActions.setTimeZone({}, formOf({ timeZone: "Europe/Paris" })),
 };
 
@@ -79,6 +84,7 @@ test("every server action is listed here as needing a login or as open to everyo
     ...Object.keys(businessActions),
     ...Object.keys(bookingActions),
     ...Object.keys(bookingRequestActions),
+    ...Object.keys(messageActions),
   ];
   assert.deepEqual(exported.sort(), [...Object.keys(needSignIn), ...open, ...noRedirect].sort());
 });

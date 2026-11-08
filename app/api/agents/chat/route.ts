@@ -48,13 +48,13 @@ export async function POST(req: Request) {
 
   // Read before this message is saved, so a reply landing from another tab
   // can't leave the history ending on an assistant turn.
-  const past = (await listAgentChat(user.id, HISTORY - 1)).filter((m) => m.text.trim());
+  const past = (await listAgentChat(user.id, HISTORY - 1)).filter((m) => m.text.trim() && m.role !== "briefing");
   await addAgentChatMessage({ userId: user.id, role: "user", text });
   // Each message carries its own date, never `system` and never only the newest
   // one: replayed turns stay byte-for-byte the same, so the prompt cache works.
   const dated = (at: string, words: string) => `(Sent ${at.slice(0, 10)})\n\n${words}`;
   const history = [
-    ...past.map((m) => ({ role: m.role, content: m.role === "user" ? dated(m.createdAt, m.text) : m.text })),
+    ...past.map((m) => ({ role: m.role as "user" | "assistant", content: m.role === "user" ? dated(m.createdAt, m.text) : m.text })),
     { role: "user" as const, content: dated(new Date().toISOString(), text) },
   ];
   while (history[0].role !== "user") history.shift();

@@ -8,6 +8,7 @@ import { notFound, redirect } from "next/navigation";
 import { currentAdmin, requireUser } from "@/lib/auth";
 import { createUser, findUserById, findUserBySubdomain, logAdminAction, subdomainOnHold, updateUser } from "@/lib/db";
 import { clearManager, createSession, setManager } from "@/lib/session";
+import { mailboxBlock } from "@/lib/mailboxes";
 import { ADDRESS_HOLD_MONTHS, validateSubdomain } from "@/lib/site";
 
 export type SiteFormState = { error?: string; fields?: Record<string, string>; held?: boolean };
@@ -33,6 +34,9 @@ export async function createSite(_prev: SiteFormState, formData: FormData): Prom
   if (!name) return { error: "Please enter a name for the site.", fields };
   const invalid = validateSubdomain(subdomain);
   if (invalid) return { error: invalid, fields };
+  // Not overridable (unlike a held address): see mailboxBlock.
+  const mailHeld = await mailboxBlock(subdomain);
+  if (mailHeld) return { error: mailHeld, fields };
   // A held address can still be taken by ticking the override, which only
   // shows after this error. It's logged, since the hold is there to stop
   // someone posing as the site that had it.

@@ -1,9 +1,18 @@
 # Handoff
 
-## Folio AGENTS phase 2 build (Nov 8, 2026): Status: complete, not committed (branch `claude/folio-agents-phase-2`, built on phase 1's commit 72577f7; neither pushed)
+## Folio AGENTS phase 3 build (Nov 8, 2026): Status: code complete, committed (branch `claude/folio-agents-phase-3`, on top of cd795bd; not pushed)
+- **Goal:** owner said "continue to phase 3" (packages 3.1 to 3.14 of https://claude.ai/artifact/Jraesxn3c3ZSzJoB6Xaaet).
+- **Result:** 3.1-3.13 built; tsc, eslint, 956 tests and the build pass. Inbox checked in Chrome on the local test account. Off for every account until an admin switches it on; all mail is inert until `MAIL_DOMAIN` is set.
+- **Waiting on owner:** `ANTHROPIC_API_KEY` (package 0.6); decision 3, then the runbook `docs/MAIL-MOVE-RUNBOOK.md` (DNS not touched); approve spend for `npm run model-test -- --spend=<dollars>` (3.12, built but never run); lawyer sign-off before the beta (3.14), including agent data in the Privacy page.
+- **Never exercised live:** Anthropic API and Resend's receiving API. Shapes come from their docs. Unverified: `received_for`, `authentication`, one webhook per message or per recipient.
+- **Review (3.13):** Fable out of credits, so a fresh Opus session did it. No critical findings. All three highs fixed (linear `htmlToText`; a pause or suspension no longer loses mail, via `agentsEnrolled`; queue serves the longest-unserved account first). Most mediums fixed (per-sender and per-account caps, reader input capped at 8000 chars, envelope recipients beat headers, one row per owner, strict `parseAddress`, forward limits, own-domain spoof check, stranger-influenced text stored as role `briefing` and never replayed to the manager, Not a scam button, runbook corrections).
+- **Left for later:** Inbox paging (shows newest 200); failed readings aren't retried; more than 20 attachments on a forward are dropped; one reader budget is shared with chat (the 8000-char cap and sender limits reduce this).
+- **Decisions / gotchas:** agents-off accounts are untouched; inquiries copy into `messages` when an admin switches agents on, so there's no production migration script (differs from plan 3.2). Dedupe on Resend's id per mailbox, never the sender-written Message-ID.
+
+## Folio AGENTS phase 2 build (Nov 8, 2026): Status: complete, committed as cd795bd (branch `claude/folio-agents-phase-2`; not pushed)
 - **Goal:** owner said "commit, phase 2": packages 2.1 to 2.7 of https://claude.ai/artifact/Jraesxn3c3ZSzJoB6Xaaet.
 - **Done (uncommitted):** bookings table and `lib/bookings.ts`; Calendar page; public "Book a date" section in all nine themes; `submitBookingRequest` (per-IP and per-site limits); `lib/agents/booking.ts` tools and Haiku draft; booking executors with `ExecutorRefused`. tsc, eslint, 802 tests and the build pass. Checked by hand in Chrome on the local test account (`agents-check@example.com`, git-ignored data/): the Maya move is refused naming the wedding, a taken date is refused without naming anyone, a free date goes through.
-- **Next:** owner decides whether to commit phase 2. Phase 3 needs decision 3 (real name@folio.cam addresses) before package 3.4.
+- **Next:** phase 3. It needs decision 3 (real name@folio.cam addresses) before package 3.4.
 - **Not done:** no Playwright test for booking: it would need a way to switch agents on inside the test server. Nothing has run against the live Anthropic API yet: that needs owner's package 0.6 (the key).
 - **Decisions / gotchas:** the second enum at `lib/design.ts:545` is the old V1 reader, leave it. Manager calls `bookingTools` directly (no queue); actions are built from the booking row so the model can't misdescribe them; Haiku only words a confirmation draft, saved in the agent chat, never sent. The `updatedAt` staleness check isn't under the lock, but status and clashes are re-checked under it. Fable is out of credits.
 

@@ -180,6 +180,8 @@ export type User = {
   business?: { rates: string; tone: string; rules: string; updatedAt: string };
   // IANA time zone name, e.g. "America/New_York". Missing means UTC until the photographer sets it.
   timeZone?: string;
+  // The local date (YYYY-MM-DD, in timeZone) of the last morning summary put in the Agent chat (lib/agents/morning.ts).
+  morningSummaryDate?: string;
 };
 
 // One-time links for password resets and email verification. Only a hash of
@@ -264,6 +266,8 @@ export async function createUser(input: {
     ...(input.termsAcceptedAt ? { termsAcceptedAt: new Date().toISOString() } : {}),
   };
   const db = await database();
+  // A name that is anyone's mailbox (even a deleted account's) is never reissued.
+  if (await mailboxTaken(subdomain)) throw new Error("SUBDOMAIN_TAKEN");
   try {
     await db.query("insert into users (id, email, subdomain, data) values ($1, $2, $3, $4)", [
       user.id,
@@ -332,9 +336,12 @@ export async function deleteUsers(ids: string[]) {
       if (rows[0]) {
         // The agents' records go with the account (a legal hold, which skips
         // this block, keeps them).
-        for (const table of ["agent_tasks", "approvals", "agent_runs", "agent_chat", "bookings"]) {
+        for (const table of ["agent_tasks", "approvals", "agent_runs", "agent_chat", "bookings", "messages"]) {
           await query(`delete from ${table} where user_id = $1`, [id]);
         }
+        // The mailbox row stays forever, so its name is never given to
+        // anyone else (a new owner would receive the old owner's mail).
+        await query("update mailboxes set user_id = null, retired_at = now() where user_id = $1", [id]);
         await query("insert into storage_cleanup (user_id) values ($1) on conflict do nothing", [id]);
         await query(
           "insert into released_subdomains (subdomain, user_id) values ($1, $2) on conflict (subdomain) do update set released_at = now(), user_id = $2",
@@ -394,6 +401,10 @@ export async function changeSubdomain(id: string, subdomain: string) {
       if (!user) throw new Error("USER_NOT_FOUND");
       const old = user.subdomain;
       if (old === next) return old;
+      // A name that is someone else's mailbox is never reissued.
+      if ((await query("select 1 from mailboxes where local_part = $1 and user_id is distinct from $2", [next, id])).rows.length) {
+        throw new Error("SUBDOMAIN_TAKEN");
+      }
       user.subdomain = next;
       await save(query, user);
       await query("delete from released_subdomains where subdomain = $1", [next]);
@@ -419,6 +430,18 @@ export async function managedSites(adminId: string) {
   const { rows } = await db.query<{ data: User }>(
     "select data from users where data->>'managedBy' = $1 order by subdomain",
     [adminId],
+  );
+  return rows.map((r) => r.data);
+}
+
+// Every account with the agents switched on. Deliberately not scoped to one
+// user: the morning summary (lib/agents/morning.ts) runs from a cron job, not a
+// request, and has to visit each photographer. Callers must still check
+// agentsAllowed (paused, suspended) and then act on one account at a time.
+export async function listAgentAccounts() {
+  const db = await database();
+  const { rows } = await db.query<{ data: User }>(
+    "select data from users where data->'agents'->>'enabled' = 'true' order by id",
   );
   return rows.map((r) => r.data);
 }
@@ -451,6 +474,54 @@ export async function subdomainOnHold(subdomain: string, months: number, forUser
     `select 1 from released_subdomains where subdomain = $1 and released_at > now() - make_interval(months => $2)
      and (user_id is null or user_id is distinct from $3)`,
     [subdomain.toLowerCase(), months, forUserId ?? null],
+  );
+  return rows.length > 0;
+}
+
+// Gives the account the mailbox `localPart` (name@MAIL_DOMAIN). True only if
+// the account owns it now: it just claimed it, or already did. Never takes a
+// name from another account, or one left by a deleted account.
+export async function claimMailbox(userId: string, localPart: string) {
+  const db = await database();
+  await db.query("insert into mailboxes (local_part, user_id) values ($1, $2) on conflict do nothing", [
+    localPart.toLowerCase(),
+    userId,
+  ]);
+  const { rows } = await db.query("select 1 from mailboxes where local_part = $1 and user_id = $2", [
+    localPart.toLowerCase(),
+    userId,
+  ]);
+  return rows.length > 0;
+}
+
+// Deliberately not scoped to an account: it routes incoming mail, where the
+// only thing known is the address the message was sent to.
+export async function findMailbox(localPart: string) {
+  const db = await database();
+  const { rows } = await db.query<{ local_part: string; user_id: string | null; created_at: string; retired_at: string | null }>(
+    "select local_part, user_id, created_at, retired_at from mailboxes where local_part = $1",
+    [localPart.toLowerCase()],
+  );
+  return rows[0] ?? null;
+}
+
+// The account's mailboxes, newest first.
+export async function mailboxesOf(userId: string) {
+  const db = await database();
+  const { rows } = await db.query<{ local_part: string; created_at: string }>(
+    "select local_part, created_at from mailboxes where user_id = $1 order by created_at desc, local_part",
+    [userId],
+  );
+  return rows.map((r) => ({ localPart: r.local_part, createdAt: r.created_at }));
+}
+
+// Whether anyone but `exceptUserId` has the name, a deleted account (null
+// user id) included.
+export async function mailboxTaken(localPart: string, exceptUserId?: string) {
+  const db = await database();
+  const { rows } = await db.query(
+    "select 1 from mailboxes where local_part = $1 and ($2::text is null or user_id is distinct from $2)",
+    [localPart.toLowerCase(), exceptUserId ?? null],
   );
   return rows.length > 0;
 }
@@ -1048,15 +1119,27 @@ export async function stopAgentTask(userId: string, id: string) {
 // `skip locked` means two workers never take the same row.
 export async function claimNextAgentTask() {
   const db = await database();
-  const { rows } = await db.query<AgentTaskRow>(
-    `update agent_tasks set status = 'running', claimed_at = now(), attempts = attempts + 1
-     where id = (
-       select id from agent_tasks
-       where status = 'queued' and (claimed_at is null or claimed_at <= now())
-       order by created_at, id limit 1 for update skip locked
+  // Whichever account was served longest ago goes next, so one flooded inbox
+  // can't hold up everyone else. Morning summaries go first.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { rows } = await db.query<AgentTaskRow>(
+      `update agent_tasks set status = 'running', claimed_at = now(), attempts = attempts + 1
+     where status = 'queued' and id = (
+       select w.id from agent_tasks w
+       left join lateral (
+         select max(d.claimed_at) as served from agent_tasks d where d.user_id = w.user_id and d.status <> 'queued'
+       ) last on true
+       where w.status = 'queued' and (w.claimed_at is null or w.claimed_at <= now())
+       order by (w.agent = 'agent_02_morning') desc, last.served nulls first, w.created_at, w.id limit 1
      ) returning *`,
-  );
-  return rows[0] ? toAgentTask(rows[0]) : null;
+    );
+    if (rows[0]) return toAgentTask(rows[0]);
+    // None taken: either the queue is empty, or another worker just took the
+    // one chosen. A quick second look tells which.
+    const { rows: left } = await db.query("select 1 from agent_tasks where status = 'queued' and (claimed_at is null or claimed_at <= now()) limit 1");
+    if (!left.length) return null;
+  }
+  return null;
 }
 
 // Takes one named queued task for a caller that runs it right away (chat).
@@ -1236,7 +1319,7 @@ export async function setApprovalOutcome(userId: string, id: string, outcome: "d
 export async function deleteOrphanedAgentRows() {
   const db = await database();
   let removed = 0;
-  for (const table of ["agent_tasks", "approvals", "agent_runs", "agent_chat", "bookings"]) {
+  for (const table of ["agent_tasks", "approvals", "agent_runs", "agent_chat", "bookings", "messages"]) {
     const { rows } = await db.query(`delete from ${table} t where not exists (select 1 from users u where u.id = t.user_id) returning 1`);
     removed += rows.length;
   }
@@ -1334,7 +1417,10 @@ export async function agentCostSince(userId: string, since: Date) {
 export type AgentChatMessage = {
   id: string;
   userId: string;
-  role: "user" | "assistant";
+  // A briefing holds text a stranger influenced (the morning summary, a draft
+  // addressed to a client). It's shown to the photographer but never replayed
+  // to the manager as if the manager had said it.
+  role: "user" | "assistant" | "briefing";
   text: string;
   taskId: string | null;
   createdAt: string;
@@ -1622,4 +1708,229 @@ export async function cancelBooking(userId: string, id: string): Promise<Booking
     );
     return { ok: true, booking: toBooking(rows[0]) };
   });
+}
+
+// ── Messages (accounts with the agents on) ─────────────────────────────
+
+export type MessageChannel = "site_form" | "email";
+export type MessageLabel = "URGENT" | "REPLY SOON" | "LIKELY SCAM";
+export type MessageKind = "booking_request" | "pricing" | "reschedule" | "licensing_press" | "scam" | "other";
+
+export type Message = {
+  id: string;
+  userId: string;
+  channel: MessageChannel;
+  direction: "in" | "out";
+  threadKey: string;
+  providerId: string | null;
+  fromName: string;
+  fromAddress: string;
+  toAddress: string;
+  subject: string;
+  body: string;
+  askedDate: string;
+  senderCheck: "pass" | "fail" | "unknown" | null;
+  // The sender's own Message-ID header: sender-controlled, only used to thread a reply.
+  rfcMessageId: string | null;
+  photoId: string | null;
+  read: boolean;
+  label: MessageLabel | null;
+  kind: MessageKind | null;
+  summary: string | null;
+  suggestedAction: string | null;
+  processedAt: string | null;
+  repliedAt: string | null;
+  createdAt: string;
+};
+
+type MessageRow = {
+  id: string;
+  user_id: string;
+  channel: MessageChannel;
+  direction: "in" | "out";
+  thread_key: string;
+  provider_id: string | null;
+  from_name: string;
+  from_address: string;
+  to_address: string;
+  subject: string;
+  body: string;
+  asked_date: string;
+  sender_check: Message["senderCheck"];
+  rfc_message_id: string | null;
+  photo_id: string | null;
+  read: boolean;
+  label: MessageLabel | null;
+  kind: MessageKind | null;
+  summary: string | null;
+  suggested_action: string | null;
+  processed_at: Date | string | null;
+  replied_at: Date | string | null;
+  created_at: Date | string;
+};
+
+const toMessage = (r: MessageRow): Message => ({
+  id: r.id,
+  userId: r.user_id,
+  channel: r.channel,
+  direction: r.direction,
+  threadKey: r.thread_key,
+  providerId: r.provider_id,
+  fromName: r.from_name,
+  fromAddress: r.from_address,
+  toAddress: r.to_address,
+  subject: r.subject,
+  body: r.body,
+  askedDate: r.asked_date,
+  senderCheck: r.sender_check ?? null,
+  rfcMessageId: r.rfc_message_id ?? null,
+  photoId: r.photo_id,
+  read: r.read,
+  label: r.label,
+  kind: r.kind,
+  summary: r.summary,
+  suggestedAction: r.suggested_action,
+  processedAt: r.processed_at ? new Date(r.processed_at).toISOString() : null,
+  repliedAt: r.replied_at ? new Date(r.replied_at).toISOString() : null,
+  createdAt: new Date(r.created_at).toISOString(),
+});
+
+export type MessageInput = {
+  userId: string;
+  channel: MessageChannel;
+  direction: "in" | "out";
+  threadKey: string;
+  providerId?: string | null;
+  fromName?: string;
+  fromAddress?: string;
+  toAddress?: string;
+  subject?: string;
+  body?: string;
+  askedDate?: string;
+  senderCheck?: Message["senderCheck"];
+  rfcMessageId?: string | null;
+  photoId?: string | null;
+  createdAt?: Date | string;
+  read?: boolean;
+};
+
+// The same delivery arriving twice (a webhook retry) is saved once: the second
+// call returns the first row with created false.
+export async function saveMessage(input: MessageInput): Promise<{ message: Message; created: boolean }> {
+  const db = await database();
+  const providerId = input.providerId ?? null;
+  const { rows } = await db.query<MessageRow>(
+    `insert into messages (id, user_id, channel, direction, thread_key, provider_id, from_name, from_address,
+       to_address, subject, body, asked_date, photo_id, read, created_at, sender_check, rfc_message_id)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, coalesce($15::timestamptz, now()), $16, $17)
+     on conflict (channel, provider_id) where provider_id is not null do nothing
+     returning *`,
+    [
+      randomUUID(),
+      input.userId,
+      input.channel,
+      input.direction,
+      input.threadKey,
+      providerId,
+      input.fromName ?? "",
+      input.fromAddress ?? "",
+      input.toAddress ?? "",
+      input.subject ?? "",
+      input.body ?? "",
+      input.askedDate ?? "",
+      input.photoId ?? null,
+      input.read ?? false,
+      input.createdAt ? new Date(input.createdAt).toISOString() : null,
+      input.senderCheck ?? null,
+      input.rfcMessageId ?? null,
+    ],
+  );
+  if (rows[0]) return { message: toMessage(rows[0]), created: true };
+  // Not scoped to an account on purpose: a provider id is unique across all
+  // accounts, and the row that already holds it is the one to return. This is
+  // the only read here that skips user_id. Callers pass only ids they built
+  // themselves or took from the mail provider, never ones a visitor chose.
+  const existing = await db.query<MessageRow>("select * from messages where channel = $1 and provider_id = $2", [
+    input.channel,
+    providerId,
+  ]);
+  return { message: toMessage(existing.rows[0]), created: false };
+}
+
+export async function findMessage(userId: string, id: string) {
+  const db = await database();
+  const { rows } = await db.query<MessageRow>("select * from messages where id = $1 and user_id = $2", [id, userId]);
+  return rows[0] ? toMessage(rows[0]) : null;
+}
+
+export async function listMessages(userId: string, options: { limit?: number; label?: MessageLabel } = {}) {
+  const db = await database();
+  const { rows } = await db.query<MessageRow>(
+    `select * from messages where user_id = $1 and ($3::text is null or label = $3)
+     order by created_at desc, id limit $2`,
+    [userId, options.limit ?? 100, options.label ?? null],
+  );
+  return rows.map(toMessage);
+}
+
+// Messages that came in (not our replies) after a time, oldest first.
+export async function listMessagesSince(userId: string, since: Date) {
+  const db = await database();
+  const { rows } = await db.query<MessageRow>(
+    "select * from messages where user_id = $1 and direction = 'in' and created_at > $2 order by created_at, id",
+    [userId, since.toISOString()],
+  );
+  return rows.map(toMessage);
+}
+
+export async function listThread(userId: string, threadKey: string) {
+  const db = await database();
+  const { rows } = await db.query<MessageRow>(
+    "select * from messages where user_id = $1 and thread_key = $2 order by created_at, id",
+    [userId, threadKey],
+  );
+  return rows.map(toMessage);
+}
+
+export async function listAllMessages(userId: string) {
+  const db = await database();
+  const { rows } = await db.query<MessageRow>("select * from messages where user_id = $1 order by created_at, id", [userId]);
+  return rows.map(toMessage);
+}
+
+export async function setMessageRead(userId: string, id: string, read: boolean) {
+  const db = await database();
+  await db.query("update messages set read = $3 where id = $1 and user_id = $2", [id, userId, read]);
+}
+
+export async function deleteMessage(userId: string, id: string) {
+  const db = await database();
+  await db.query("delete from messages where id = $1 and user_id = $2", [id, userId]);
+}
+
+export async function unreadMessageCount(userId: string) {
+  const db = await database();
+  const { rows } = await db.query<{ n: string | number }>(
+    "select count(*) as n from messages where user_id = $1 and direction = 'in' and not read",
+    [userId],
+  );
+  return Number(rows[0].n);
+}
+
+export async function recordMessageReading(
+  userId: string,
+  id: string,
+  reading: { label: MessageLabel | null; kind: MessageKind | null; summary: string | null; suggestedAction: string | null },
+) {
+  const db = await database();
+  await db.query(
+    `update messages set label = $3, kind = $4, summary = $5, suggested_action = $6, processed_at = now()
+     where id = $1 and user_id = $2`,
+    [id, userId, reading.label, reading.kind, reading.summary, reading.suggestedAction],
+  );
+}
+
+export async function markMessageReplied(userId: string, id: string) {
+  const db = await database();
+  await db.query("update messages set replied_at = now() where id = $1 and user_id = $2", [id, userId]);
 }

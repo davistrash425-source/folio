@@ -14,7 +14,8 @@ export async function sendEmail(input: Email) {
     ...input,
     to: oneLine(input.to),
     subject: oneLine(input.subject),
-    replyTo: input.replyTo === undefined ? undefined : oneLine(input.replyTo),
+    // EMAIL_REPLY_TO: where answers go when EMAIL_FROM's domain takes no mail.
+    replyTo: (input.replyTo ?? process.env.EMAIL_REPLY_TO) === undefined ? undefined : oneLine((input.replyTo ?? process.env.EMAIL_REPLY_TO)!),
   };
 
   const apiKey = process.env.RESEND_API_KEY;

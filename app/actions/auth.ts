@@ -15,6 +15,7 @@ import {
   isLegacyPasswordHash,
   verifyPassword,
 } from "@/lib/session";
+import { mailboxBlock } from "@/lib/mailboxes";
 import { ADDRESS_HOLD_MONTHS, NEW_SITES_START_PUBLISHED, SUPPORT_EMAIL, appUrl, validateSubdomain } from "@/lib/site";
 import { removeAccountFiles } from "@/lib/cleanup";
 import { createToken, redeemToken } from "@/lib/tokens";
@@ -50,6 +51,8 @@ export async function signup(_prev: FormState, formData: FormData): Promise<Form
   if (password.length < 8) return { error: "Password must be at least 8 characters.", fields, field: "password" };
   const subError = validateSubdomain(subdomain);
   if (subError) return { error: subError, fields, field: "subdomain" };
+  const mailHeld = await mailboxBlock(subdomain);
+  if (mailHeld) return { error: mailHeld, fields, field: "subdomain" };
   if (await subdomainOnHold(subdomain, ADDRESS_HOLD_MONTHS)) {
     return {
       error: `That address belonged to a site that closed recently, so it's held for a year. Try another, or write to ${SUPPORT_EMAIL} if it was yours.`,
@@ -100,6 +103,8 @@ export async function completeGoogleSignup(_prev: FormState, formData: FormData)
   if (!formData.get("terms")) return { error: TERMS_REQUIRED, fields };
   const subError = validateSubdomain(subdomain);
   if (subError) return { error: subError, fields, field: "subdomain" };
+  const mailHeld = await mailboxBlock(subdomain);
+  if (mailHeld) return { error: mailHeld, fields, field: "subdomain" };
   if (await subdomainOnHold(subdomain, ADDRESS_HOLD_MONTHS)) {
     return {
       error: `That address belonged to a site that closed recently, so it's held for a year. Try another, or write to ${SUPPORT_EMAIL} if it was yours.`,

@@ -21,6 +21,7 @@ import {
 } from "../app/actions/site.ts";
 import { discardDraftDesign, publishDesign, saveDraftDesign, undoDesign } from "../app/actions/design.ts";
 import { approve, reject, reviseNote, stopTask } from "../app/actions/agents.ts";
+import { deleteMessageAction, draftReplyAction, setMessageReadAction } from "../app/actions/messages.ts";
 import { cancelBookingAction, confirmBookingAction, moveBookingAction } from "../app/actions/bookings.ts";
 import { proposeAction } from "../lib/agents/approvals.ts";
 import {
@@ -30,10 +31,13 @@ import {
   findAgentTask,
   findApproval,
   findBooking,
+  findMessage,
+  listApprovals,
   findUserById,
   listAllBookings,
   updateUser,
 } from "../lib/db.ts";
+import { saveIncomingMessage } from "../lib/messages.ts";
 import { galleryPhotos, presetDesign, visibleAlbums, type GallerySection } from "../lib/design.ts";
 import { loadSite, siteData } from "../lib/public-site.ts";
 import {
@@ -191,6 +195,25 @@ test("Bob can't confirm, move or cancel Alice's bookings", async () => {
 
   assert.deepEqual(await Promise.all(ids.map((id) => findBooking(w.alice.id, id))), before, "Alice's bookings changed");
   assert.deepEqual(await listAllBookings(w.bob.id), [], "Bob has bookings");
+});
+
+test("Bob can't draft a reply to, mark or delete Alice's messages", async () => {
+  const w = await world();
+  for (const id of [w.alice.id, w.bob.id]) {
+    await updateUser(id, (u) => {
+      u.agents = { enabled: true, at: new Date().toISOString(), by: "test" };
+    });
+  }
+  const { message } = await saveIncomingMessage({ userId: w.alice.id, channel: "email", providerId: "own-1", fromAddress: "client@example.com", subject: "Hi", body: "Hello", queueReading: false });
+  const before = await findMessage(w.alice.id, message.id);
+
+  assert.ok((await draftReplyAction(message.id)).error);
+  assert.ok((await setMessageReadAction(message.id, true)).error);
+  assert.ok((await deleteMessageAction(message.id)).error);
+
+  assert.deepEqual(await findMessage(w.alice.id, message.id), before, "Alice's message changed");
+  assert.deepEqual(await listApprovals(w.bob.id), [], "Bob got a draft");
+  assert.deepEqual(await listApprovals(w.alice.id), [], "Alice got a draft");
 });
 
 // ── Pointing Bob's own things at Alice's ────────────────────────────────

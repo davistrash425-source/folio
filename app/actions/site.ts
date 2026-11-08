@@ -6,13 +6,15 @@ import { randomUUID } from "crypto";
 import { z } from "zod";
 import { changeSubdomain, findUserBySubdomain, logAdminAction, subdomainOnHold, updateUser, type Inquiry, type Photo, type User } from "@/lib/db";
 import { currentAdmin, impersonationBlock, requireUser } from "@/lib/auth";
-import { uploadBlock } from "@/lib/plans";
+import { agentsAllowed, agentsEnrolled, uploadBlock } from "@/lib/plans";
 import { draftDesign, publishedDesign } from "@/lib/public-site";
 import { sitePhotos } from "@/lib/site-photos";
 import { sendEmail } from "@/lib/email";
 import { cleanSocial, cleanWebsite } from "@/lib/social";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { NOT_HUMAN, TURNSTILE_FIELD, verifyTurnstile } from "@/lib/turnstile";
+import { ensureMailbox, mailboxBlock } from "@/lib/mailboxes";
+import { saveIncomingMessage } from "@/lib/messages";
 import { ADDRESS_HOLD_MONTHS, appUrl, isLive, siteUrl, slugify, validateSlug, validateSubdomain } from "@/lib/site";
 import {
   MAX_PHOTOS,
@@ -353,6 +355,9 @@ export async function changeAddress(_prev: AddressState, formData: FormData): Pr
   if (user.suspended) return { error: "A suspended site can’t change its address." };
   const invalid = validateSubdomain(subdomain);
   if (invalid) return { error: invalid };
+  // Not overridable (unlike a held address): see mailboxBlock.
+  const mailHeld = await mailboxBlock(subdomain, user.id);
+  if (mailHeld) return { error: mailHeld };
   // A full admin (on their own account or one of their extra sites) can take
   // a held address by ticking the override, as on the New site page. It's
   // logged, since the hold is there to stop someone posing as the old site.
@@ -376,6 +381,9 @@ export async function changeAddress(_prev: AddressState, formData: FormData): Pr
     if ((err as Error).message === "SUBDOMAIN_TAKEN") return { error: ADDRESS_TAKEN };
     throw err;
   }
+  // The old mailbox row stays (the old address keeps reaching this account and
+  // is never reissued); the new name gets one too.
+  if (agentsAllowed(user)) await ensureMailbox({ id: user.id, subdomain });
   if (override) {
     await logAdminAction({
       adminEmail: admin!.email,
@@ -516,20 +524,36 @@ export async function sendInquiry(
   const photoId = str("photoId", 64);
   const photo = photoId ? sitePhotos(owner, publishedDesign(owner)).find((p) => p.id === photoId) : undefined;
 
-  await updateUser(owner.id, (u) => {
-    u.inquiries ??= [];
-    u.inquiries.unshift({
-      id: randomUUID(),
-      name,
-      email,
-      date,
-      message,
-      createdAt: new Date().toISOString(),
-      read: false,
-      ...(photo ? { photoId: photo.id } : {}),
+  if (agentsEnrolled(owner)) {
+    // The agents' message store instead of User.inquiries. Enrolled, not
+    // allowed: during a pause the message is still saved, just not read by AI.
+    await saveIncomingMessage({
+      userId: owner.id,
+      channel: "site_form",
+      fromName: name,
+      fromAddress: email,
+      subject: "Message from your site",
+      body: message,
+      askedDate: date,
+      photoId: photo?.id ?? null,
+      queueReading: agentsAllowed(owner),
     });
-    u.inquiries = keepNewestInquiries(u.inquiries);
-  }, { publicChange: false });
+  } else {
+    await updateUser(owner.id, (u) => {
+      u.inquiries ??= [];
+      u.inquiries.unshift({
+        id: randomUUID(),
+        name,
+        email,
+        date,
+        message,
+        createdAt: new Date().toISOString(),
+        read: false,
+        ...(photo ? { photoId: photo.id } : {}),
+      });
+      u.inquiries = keepNewestInquiries(u.inquiries);
+    }, { publicChange: false });
+  }
 
   try {
     await sendEmail({

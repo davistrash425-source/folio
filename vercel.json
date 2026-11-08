@@ -1,6 +1,7 @@
 {
   "crons": [
     { "path": "/api/cron/daily", "schedule": "0 4 * * *" },
-    { "path": "/api/cron/agents", "schedule": "*/10 * * * *" }
+    { "path": "/api/cron/agents", "schedule": "*/10 * * * *" },
+    { "path": "/api/cron/agents/morning", "schedule": "0 * * * *" }
   ]
 }

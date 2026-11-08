@@ -4,8 +4,9 @@
 import { z } from "zod";
 import { claimNextAgentTask, finishAgentTask, findUserById, recoverStuckAgentTasks, requeueAgentTask, type AgentTask } from "../db";
 import { agentsAllowed } from "../plans";
+import { handlerFor } from "./handlers";
 import { agentFor } from "./registry";
-import { runAgent, type AgentDefinition } from "./runner";
+import { runAgent, type AgentDefinition, type RunOutcome } from "./runner";
 
 const STUCK_AFTER_MS = 10 * 60_000;
 // A task may start a model call for this long. With the loop's own limit and a
@@ -15,6 +16,16 @@ const MAX_ATTEMPTS = 3;
 const taskInput = z.object({ prompt: z.string() });
 
 export type WorkerCounts = { recovered: number; done: number; failed: number; requeued: number; stopped: number };
+
+// For work that must still reach the photographer when the model part ends
+// without an answer (the morning summary). Its own failure changes nothing.
+async function deliverAnyway(handler: ReturnType<typeof handlerFor>, task: AgentTask, outcome: RunOutcome) {
+  try {
+    await handler?.failed?.(task, outcome);
+  } catch (err) {
+    console.error("Agent fallback failed", task.agent, (err as Error).name);
+  }
+}
 
 async function runTask(task: AgentTask, agents: (name: string) => AgentDefinition | null, counts: WorkerCounts) {
   const fail = async (error: string) => {
@@ -29,12 +40,23 @@ async function runTask(task: AgentTask, agents: (name: string) => AgentDefinitio
   if ((task.input as { chat?: unknown } | null)?.chat === true) return fail("interrupted");
   const agent = agents(task.agent);
   if (!agent) return fail("unknown_agent");
-  const parsed = taskInput.safeParse(task.input);
-  if (!parsed.success) return fail("bad_input");
+  // Some agents are given ids only and build their own first turn (handlers.ts).
+  const handler = handlerFor(task.agent);
+  let turn;
+  if (handler) {
+    turn = await handler.prepare(task);
+    if (!turn) return fail("not_found");
+  } else {
+    const parsed = taskInput.safeParse(task.input);
+    if (!parsed.success) return fail("bad_input");
+    turn = [{ role: "user" as const, content: parsed.data.prompt }];
+  }
 
-  const outcome = await runAgent(agent, { userId: task.userId, taskId: task.id }, [{ role: "user", content: parsed.data.prompt }], undefined, Date.now() + TASK_DEADLINE_MS);
+  const outcome = await runAgent(agent, { userId: task.userId, taskId: task.id }, turn, undefined, Date.now() + TASK_DEADLINE_MS);
   switch (outcome.status) {
     case "done":
+      // Saves what the agent found (a reading, say) before the task is closed.
+      if (handler) await handler.done(task, outcome);
       // Does nothing if the task was stopped meanwhile; it stays stopped.
       if (await finishAgentTask(task.userId, task.id, { status: "done", result: { text: outcome.text, data: outcome.data } })) counts.done++;
       else counts.stopped++;
@@ -43,8 +65,10 @@ async function runTask(task: AgentTask, agents: (name: string) => AgentDefinitio
       counts.stopped++;
       return;
     case "refused":
+      await deliverAnyway(handler, task, outcome);
       return fail("refused");
     case "over_limit":
+      await deliverAnyway(handler, task, outcome);
       return fail(outcome.reason ?? "over_limit");
     case "failed":
       if (outcome.retryable && task.attempts < MAX_ATTEMPTS) {
@@ -52,12 +76,13 @@ async function runTask(task: AgentTask, agents: (name: string) => AgentDefinitio
         counts.requeued++;
         return;
       }
+      await deliverAnyway(handler, task, outcome);
       return fail(outcome.reason ?? "failed");
   }
 }
 
 export async function runQueuedTasks({
-  maxTasks = 5,
+  maxTasks = 10,
   maxMillis = 30_000,
   agents = agentFor,
 }: { maxTasks?: number; maxMillis?: number; agents?: (name: string) => AgentDefinition | null } = {}): Promise<WorkerCounts> {

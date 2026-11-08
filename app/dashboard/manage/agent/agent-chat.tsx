@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { stopTask } from "@/app/actions/agents";
 import { Button, SecondaryButton, inputClass } from "@/app/ui/form";
 
-type Message = { id: string; role: "user" | "assistant"; text: string };
+type Message = { id: string; role: "user" | "assistant" | "briefing"; text: string };
 
 const STEP_LABELS: Record<string, string> = {
   list_recent_tasks: "Looking at recent tasks",

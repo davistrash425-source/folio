@@ -20,6 +20,12 @@ export default function ApprovalsPage() {
   );
 }
 
+// What the Edit box starts with: a note's text, or an email's body.
+function editableTextOf(action: unknown) {
+  const a = (action ?? {}) as { text?: unknown; body?: unknown };
+  return String(a.text ?? a.body ?? "");
+}
+
 const OUTCOME = { done: "approved and done", failed: "approved, but it failed" };
 
 async function Approvals() {
@@ -32,7 +38,7 @@ async function Approvals() {
       <Card title="Waiting for you">
         {pending.length === 0 && <p className="text-sm text-ink-soft">Nothing is waiting for you.</p>}
         {pending.map((a) => (
-          <ApprovalCard key={a.id} id={a.id} kind={a.kind} summary={a.summary} detail={describeApproval(a)} noteText={String((a.action as { text?: unknown } | null)?.text ?? "")} createdAt={a.createdAt} />
+          <ApprovalCard key={a.id} id={a.id} kind={a.kind} summary={a.summary} detail={describeApproval(a)} editableText={editableTextOf(a.action)} createdAt={a.createdAt} />
         ))}
       </Card>
       <Card title="Decided">

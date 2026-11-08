@@ -22,6 +22,8 @@ import {
   type User,
 } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
+import { ensureMailbox } from "@/lib/mailboxes";
+import { copyInquiriesToMessages } from "@/lib/messages";
 import { clearImpersonation, IMPERSONATION_MINUTES, startImpersonation as beginImpersonation } from "@/lib/session";
 import { siteUrl } from "@/lib/site";
 import { removeAccountFiles } from "@/lib/cleanup";
@@ -298,9 +300,11 @@ export async function setAgentsAccess(formData: FormData) {
   const admin = await requireFullAdmin();
   const user = await accountFrom(formData);
   const enabled = str(formData, "enabled", 10) === "on";
-  await updateUser(user.id, (u) => {
+  const fresh = await updateUser(user.id, (u) => {
     u.agents = { enabled, at: new Date().toISOString(), by: admin.email };
   }); // a normal save: the site's "Book a date" section appears or goes with it
+  if (enabled) await ensureMailbox({ id: user.id, subdomain: user.subdomain });
+  if (enabled) await copyInquiriesToMessages(fresh);
   await logAdminAction({
     adminEmail: admin.email,
     userId: user.id,

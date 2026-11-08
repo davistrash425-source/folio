@@ -56,6 +56,8 @@ test("the manager has no tool that sends, posts, books or approves", () => {
       "propose_confirm_booking",
       "propose_move_booking",
       "propose_cancel_booking",
+      "list_messages",
+      "draft_reply",
     ],
   );
 });

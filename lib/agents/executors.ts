@@ -4,9 +4,25 @@
 //
 // Each kind of action has a schema, so what was proposed, stored and approved
 // is what runs. Sending, posting and booking join this list in later phases.
+import { createHash } from "crypto";
 import { z } from "zod";
 import { conflictSentence } from "../bookings";
-import { addAgentChatMessage, cancelBooking, confirmBooking, findBooking, moveBooking, type BookingResult, type User } from "../db";
+import {
+  addAgentChatMessage,
+  cancelBooking,
+  confirmBooking,
+  findBooking,
+  findMessage,
+  mailboxesOf,
+  markMessageReplied,
+  moveBooking,
+  saveMessage,
+  type BookingResult,
+  type User,
+} from "../db";
+import { sendAsPhotographer } from "../channels/mail";
+import { mailDomain } from "../mailboxes";
+import { rateLimit } from "../rate-limit";
 import { draftConfirmation } from "./booking";
 
 // A refusal whose message is safe to show the photographer as it is (it holds
@@ -54,6 +70,9 @@ function settled(result: BookingResult, user: User) {
   if (result.reason === "wrong_status") throw new ExecutorRefused("That booking can't be changed any more.");
   throw new ExecutorRefused("That booking no longer exists.");
 }
+
+const SENDS_PER_DAY = 100;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 const executors: Record<string, Executor> = {
   // Writes a note into the photographer's own agent chat. It reaches nobody
@@ -110,6 +129,76 @@ const executors: Record<string, Executor> = {
       await unchanged(user, action.bookingId, action.updatedAt);
       settled(await cancelBooking(user.id, action.bookingId), user);
       return "Booking cancelled.";
+    },
+  ),
+  // Sends one email from the photographer's own Folio address to the person who
+  // wrote. Everything is checked again here, at the moment of sending, from the
+  // database: the message, its label, who it came from and whose address it goes
+  // out from. Never retried automatically, because a retry could send twice.
+  send_email_reply: executor(
+    z
+      .object({
+        messageId: z.string().min(1).max(100),
+        fromAddress: z.string().min(3).max(320),
+        to: z.string().min(3).max(320),
+        subject: z.string().min(1).max(500),
+        body: z.string().min(1).max(20_000),
+        notChecked: z.boolean().optional(),
+      })
+      .strict(),
+    (action) => `${action.notChecked ? "This message hasn't been checked for scams yet.\n\n" : ""}Send this email from ${action.fromAddress} to ${action.to}\nSubject: ${action.subject}\n\n${action.body}`,
+    async (user, action) => {
+      const message = await findMessage(user.id, action.messageId);
+      if (!message || message.direction !== "in") throw new ExecutorRefused("That message no longer exists.");
+      if (message.label === "LIKELY SCAM") throw new ExecutorRefused("That message was marked as a likely scam, so no reply was sent.");
+      const domain = mailDomain();
+      if (!domain) throw new ExecutorRefused("Email isn't set up yet.");
+      if (!message.fromAddress.trim() || action.to.trim().toLowerCase() !== message.fromAddress.trim().toLowerCase()) {
+        throw new ExecutorRefused("That reply isn't addressed to the person who wrote, so it wasn't sent.");
+      }
+      const own = (await mailboxesOf(user.id)).map((m) => `${m.localPart}@${domain}`);
+      if (!own.includes(action.fromAddress.trim().toLowerCase())) {
+        throw new ExecutorRefused("That address isn't one of yours, so the email wasn't sent.");
+      }
+      if (!(await rateLimit(`send:${user.id}`, SENDS_PER_DAY, DAY_MS))) {
+        throw new ExecutorRefused(`You've sent ${SENDS_PER_DAY} emails in the last day, which is the limit. Try again later.`);
+      }
+      const fromName = user.profile.name;
+      try {
+        await sendAsPhotographer({
+          fromName,
+          fromAddress: action.fromAddress,
+          to: message.fromAddress,
+          subject: action.subject,
+          text: action.body,
+          inReplyTo: message.rfcMessageId,
+          // The same words to the same message within a day go out once, even if this ran twice.
+          idempotencyKey: `reply-${createHash("sha256").update(`${message.id}\n${action.body}`).digest("hex").slice(0, 48)}`,
+        });
+      } catch (err) {
+        // The name only: nothing the message said is logged.
+        console.error("Reply could not be sent", (err as Error).name);
+        throw new ExecutorRefused("That email couldn't be sent. Ask for a new draft to try again.");
+      }
+      // The email is out. A problem recording it must not look like a failed send.
+      try {
+        await saveMessage({
+          userId: user.id,
+          channel: message.channel,
+          direction: "out",
+          threadKey: message.threadKey,
+          fromName,
+          fromAddress: action.fromAddress,
+          toAddress: message.fromAddress,
+          subject: action.subject,
+          body: action.body,
+          read: true,
+        });
+        await markMessageReplied(user.id, message.id);
+      } catch (err) {
+        console.error("Sent reply could not be recorded", (err as Error).name);
+      }
+      return "Email sent.";
     },
   ),
 };

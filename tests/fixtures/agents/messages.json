@@ -1,0 +1,73 @@
+{
+  "today": "2026-11-05",
+  "expectedScheduleRisk": {
+    "messages": [
+      "message_001",
+      "message_004"
+    ],
+    "date": "2026-11-08",
+    "note": "Both involve Sunday, 2026-11-08, which is the date the photographer is shown as busy."
+  },
+  "messages": [
+    {
+      "id": "message_001",
+      "channel": "instagram_dm",
+      "time": "2026-11-05T16:42:32",
+      "body": "Hi, I'd really love to book you for a wedding this coming Sunday.",
+      "expected": {
+        "label": "URGENT",
+        "kind": "booking_request"
+      }
+    },
+    {
+      "id": "message_002",
+      "channel": "whatsapp_text",
+      "time": "2026-11-04T01:32:14",
+      "body": "Hi, sorry for the late message, are you available for a call on friday at 8am?",
+      "expected": {
+        "label": "URGENT",
+        "kind": "booking_request"
+      }
+    },
+    {
+      "id": "message_003",
+      "channel": "email",
+      "time": "2026-11-05T13:13:49",
+      "body": "Good Afternoon,\nI am reaching out regarding your policy that is going to expire tomorrow, please renew your policy or you will lose services.",
+      "expected": {
+        "label": "LIKELY SCAM",
+        "kind": "scam"
+      }
+    },
+    {
+      "id": "message_004",
+      "channel": "whatsapp_text",
+      "time": "2026-11-05T09:18:07",
+      "body": "Hey! It's Maya, we booked the family shoot for Saturday at 4pm. Something came up with my in-laws, is there any chance we could move it to Sunday morning instead? Totally understand if not!",
+      "expected": {
+        "label": "URGENT",
+        "kind": "reschedule"
+      }
+    },
+    {
+      "id": "message_005",
+      "channel": "instagram_dm",
+      "time": "2026-11-03T22:51:40",
+      "body": "love your work!! how much do you charge? we're doing something for my sister's 30th",
+      "expected": {
+        "label": "REPLY SOON",
+        "kind": "pricing"
+      }
+    },
+    {
+      "id": "message_006",
+      "channel": "email",
+      "time": "2026-11-05T11:04:26",
+      "body": "Hello,\nI'm the photo editor at Harbor & Pine Magazine. We came across your portfolio and would like to feature three of your coastal images in our January print issue and online. Could you let us know your licensing rates and whether you're open to this? Our deadline is November 14th.\nBest,\nDana Reyes",
+      "expected": {
+        "label": "URGENT",
+        "kind": "licensing_press"
+      }
+    }
+  ]
+}
