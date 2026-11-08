@@ -1,5 +1,11 @@
 # Handoff
 
+## Artifact of the Folio UI (Nov 8, 2026): Status: complete
+- **Goal:** owner wanted a clickable Claude artifact of Folio's UI matching current `main` (cf82108), no "Folio Agents" (none exist on main; the parked AI box is left out).
+- **Done:** private artifact https://claude.ai/artifact/42s7E2wVdkZhy9srYzKo6Y (landing, pricing, log in, sign up, every Manage page, Web design, Preview; sample data). Checked in Chrome at about 850px wide. Only this note changed in the repo.
+- **Gotchas:** the per-album and per-gallery pages aren't included; the photographer themes are simplified copies. Claude in Chrome can't open `file://` pages.
+- **Follow-up fix (Nov 9):** removed the outdated "which isn't open yet" from `app/dashboard/manage/galleries/page.tsx`, and from the artifact. The other "aren't open yet" messages only show when billing is off, so they stay. Owner OK'd shipping: PR from `claude/folio-website-ui-eb653c`; next step is squash-merge once CI is green (merging deploys it). tsc, lint, 552 tests and build pass locally.
+
 ## Finishing the owner to-do list (Nov 4, 2026): in progress (worktree branch `claude/project-status-50d31e`)
 - **Goal:** owner wants the rest of this session spent completing: lawyer changes to legal pages, Cloudflare purge env vars, a real Google Drive upload test, the Nov 30 downgrade check, and the two backlog decisions.
 - **Decisions (owner, Nov 4):** a full refund in Polar ends Pro right away (drop to Free; nothing deleted). Photos that are in a client gallery and not placed on the public site are left out of the public "all photos" page, plus a per-photo "Hide from site" toggle. Lawyer wants changes and to see the pages again, so `LEGAL_DRAFT` stays true.
