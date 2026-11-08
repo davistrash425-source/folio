@@ -101,6 +101,9 @@ const aboutSection = z.object({
   body: z.string().max(5000).optional().describe("Empty = the bio from the Account page"),
 });
 const contactSection = z.object({ id, type: z.literal("contact"), visible: z.boolean(), title: heading });
+// "Book a date": a request form. Only for accounts with Folio AGENTS on; the
+// site shows nothing for it otherwise (SiteData.bookingsOpen).
+const bookingSection = z.object({ id, type: z.literal("booking"), visible: z.boolean(), title: heading });
 const textSection = z.object({
   id,
   type: z.literal("text"),
@@ -116,6 +119,7 @@ const sectionSchema = z.discriminatedUnion("type", [
   aboutSection,
   textSection,
   contactSection,
+  bookingSection,
 ]);
 
 const pageSchema = z.object({

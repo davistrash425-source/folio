@@ -9,6 +9,7 @@ import { visibleAlbums, type Section, type SiteDesign, type SitePage } from "@/l
 import { contactHref, copyrightLine, siteHref } from "@/lib/site-data";
 import { readableOn, sortPhotos } from "@/lib/theme-utils";
 import type { PhotoSource } from "@/lib/uploads";
+import { BookingForm } from "../booking-form";
 import { ContactForm } from "../contact-form";
 import { Lightbox } from "../lightbox";
 import { archivo } from "./fonts";
@@ -211,6 +212,17 @@ function Block({ section, page, site, block, total }: ThemeProps & { section: Se
           </div>
         </section>
       );
+    case "booking": {
+      if (!site.bookingsOpen) return null;
+      return (
+        <section id="booking" className={`${GUTTER} pb-16 pt-12`}>
+          <h2 className={`${MONO} mb-6`}>{section.title || "Book a date"}</h2>
+          <div className="max-w-xl">
+            <BookingForm subdomain={site.subdomain} preview={site.preview} />
+          </div>
+        </section>
+      );
+    }
   }
 }
 

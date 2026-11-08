@@ -1,5 +1,5 @@
 import { currentUser, impersonationBlock } from "@/lib/auth";
-import { listAgentChat, listAgentTasks, listApprovals, type ClientGallery } from "@/lib/db";
+import { listAgentChat, listAllBookings, listAgentTasks, listApprovals, type ClientGallery } from "@/lib/db";
 import { storage } from "@/lib/uploads";
 import { zipResponse } from "@/lib/zip";
 
@@ -45,6 +45,7 @@ export async function GET() {
         ),
       ),
     }),
+    async () => ({ name: "bookings.json", data: Buffer.from(JSON.stringify(await listAllBookings(user.id), null, 2)) }),
     ...user.photos.map((p, i) => async () => {
       const ext = p.file.split(".").pop();
       const name = `photos/${String(i + 1).padStart(3, "0")}-${p.id}.${ext}`;

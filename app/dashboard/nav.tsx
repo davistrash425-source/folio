@@ -179,6 +179,7 @@ const SECONDARY = [
 const AGENT_LINKS = [
   { href: "/dashboard/manage/agent", label: "Agent" },
   { href: "/dashboard/manage/approvals", label: "Approvals" },
+  { href: "/dashboard/manage/calendar", label: "Calendar" },
   { href: "/dashboard/manage/business", label: "Your business" },
 ];
 

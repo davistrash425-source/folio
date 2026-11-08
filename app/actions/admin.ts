@@ -300,7 +300,7 @@ export async function setAgentsAccess(formData: FormData) {
   const enabled = str(formData, "enabled", 10) === "on";
   await updateUser(user.id, (u) => {
     u.agents = { enabled, at: new Date().toISOString(), by: admin.email };
-  }, { publicChange: false });
+  }); // a normal save: the site's "Book a date" section appears or goes with it
   await logAdminAction({
     adminEmail: admin.email,
     userId: user.id,

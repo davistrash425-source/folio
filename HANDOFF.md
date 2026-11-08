@@ -1,5 +1,12 @@
 # Handoff
 
+## Folio AGENTS phase 2 build (Nov 8, 2026): Status: complete, not committed (branch `claude/folio-agents-phase-2`, built on phase 1's commit 72577f7; neither pushed)
+- **Goal:** owner said "commit, phase 2": packages 2.1 to 2.7 of https://claude.ai/artifact/Jraesxn3c3ZSzJoB6Xaaet.
+- **Done (uncommitted):** bookings table and `lib/bookings.ts`; Calendar page; public "Book a date" section in all nine themes; `submitBookingRequest` (per-IP and per-site limits); `lib/agents/booking.ts` tools and Haiku draft; booking executors with `ExecutorRefused`. tsc, eslint, 802 tests and the build pass. Checked by hand in Chrome on the local test account (`agents-check@example.com`, git-ignored data/): the Maya move is refused naming the wedding, a taken date is refused without naming anyone, a free date goes through.
+- **Next:** owner decides whether to commit phase 2. Phase 3 needs decision 3 (real name@folio.cam addresses) before package 3.4.
+- **Not done:** no Playwright test for booking: it would need a way to switch agents on inside the test server. Nothing has run against the live Anthropic API yet: that needs owner's package 0.6 (the key).
+- **Decisions / gotchas:** the second enum at `lib/design.ts:545` is the old V1 reader, leave it. Manager calls `bookingTools` directly (no queue); actions are built from the booking row so the model can't misdescribe them; Haiku only words a confirmation draft, saved in the agent chat, never sent. The `updatedAt` staleness check isn't under the lock, but status and clashes are re-checked under it. Fable is out of credits.
+
 ## Folio AGENTS phase 1 build (Nov 8, 2026): Status: complete, waiting on owner (worktree branch `claude/folio-agents-build-plan-fe7acb`, nothing committed yet)
 - **Result:** packages 1.1 to 1.11 done. tsc, eslint, 695 tests and the build pass. Off for every account until an admin flips "Folio AGENTS" on the admin site page.
 - **Owner next:** (1) say whether to commit and open a PR; (2) package 0.6: create an Anthropic key with a spend limit, add `ANTHROPIC_API_KEY` to Vercel Production only. The first real chat is the first real API test; the request shape matches the docs but has never been accepted by the live API.

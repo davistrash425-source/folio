@@ -18,6 +18,7 @@ import {
 } from "@/lib/design";
 import { contactHref, copyrightLine, resolvePath, siteHref, type SiteAlbum, type SiteData } from "@/lib/site-data";
 import type { PhotoSource } from "@/lib/uploads";
+import { BookingSection } from "../booking-section";
 import { ContactForm } from "../contact-form";
 import { Lightbox } from "../lightbox";
 import { aboutText, captionText, heroText } from "./shared";
@@ -198,6 +199,8 @@ function PageSection({ section, page, site }: Props & { section: Section; page: 
       );
     case "contact":
       return <ContactSection site={site} title={section.title || "Contact"} />;
+    case "booking":
+      return <BookingSection site={site} title={section.title || "Book a date"} />;
   }
 }
 

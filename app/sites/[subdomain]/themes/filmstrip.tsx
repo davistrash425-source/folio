@@ -7,6 +7,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { visibleAlbums, type Section, type SitePage } from "@/lib/design";
 import { contactHref, copyrightLine, siteHref, type SiteData } from "@/lib/site-data";
 import type { PhotoSource } from "@/lib/uploads";
+import { BookingForm } from "../booking-form";
 import { ContactForm } from "../contact-form";
 import { Lightbox } from "../lightbox";
 import { bebas, shareTech, specialElite } from "./fonts";
@@ -237,6 +238,14 @@ function Block({ section, page, site, block, total, stock, frameNumbers }: Theme
           <ContactForm subdomain={site.subdomain} preview={site.preview} />
         </Note>
       );
+    case "booking": {
+      if (!site.bookingsOpen) return null;
+      return (
+        <Note title={section.title || "Book a date"} id="booking">
+          <BookingForm subdomain={site.subdomain} preview={site.preview} />
+        </Note>
+      );
+    }
   }
 }
 

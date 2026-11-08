@@ -1,6 +1,7 @@
 import { cacheLife, cacheTag } from "next/cache";
 import { findUserBySubdomain, type User } from "./db";
 import { readDesign, withoutProSettings, type SiteDesign } from "./design";
+import { agentsAllowed } from "./plans";
 import { couldBeSubdomain, isLive } from "./site";
 import { resolvePath, type SiteData } from "./site-data";
 import { photoSource } from "./uploads";
@@ -52,6 +53,9 @@ export function siteData(user: User, opts: { path?: string; preview?: boolean } 
     path: opts.path ?? "",
     preview: Boolean(opts.preview),
     allowAiTraining: Boolean(user.allowAiTraining),
+    // Part of the cached site: setAgentsAccess refreshes the site's tag, and
+    // AGENTS_PAUSED (read when the page is built) takes effect with a deploy.
+    bookingsOpen: agentsAllowed(user),
   };
   // The preview may be showing a page that only exists in the editor's
   // unsaved design, so it renders anyway and falls back to home.

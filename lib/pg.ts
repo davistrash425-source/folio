@@ -133,6 +133,24 @@ const SCHEMA = `
     created_at timestamptz not null default now()
   );
   create index if not exists agent_chat_user on agent_chat (user_id, created_at);
+  -- Shoots, holds and requests for dates (lib/db.ts). Additive only.
+  create table if not exists bookings (
+    id text primary key,
+    user_id text not null,
+    kind text not null default 'booking', -- booking | hold
+    status text not null default 'requested', -- requested | confirmed | moved | cancelled
+    client_name text not null default '',
+    client_email text not null default '',
+    title text not null default '',
+    notes text not null default '',
+    starts_at timestamptz not null,
+    ends_at timestamptz not null,
+    all_day boolean not null default false,
+    source text not null default 'manual', -- site | manual | agent
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+  );
+  create index if not exists bookings_user_start on bookings (user_id, starts_at);
 `;
 
 async function connectPostgres(url: string): Promise<Database> {

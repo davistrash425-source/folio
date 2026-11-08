@@ -7,6 +7,7 @@ import Link from "next/link";
 import type { CSSProperties } from "react";
 import { visibleAlbums, type Section, type SitePage } from "@/lib/design";
 import { contactHref, copyrightLine, siteHref } from "@/lib/site-data";
+import { BookingForm } from "../booking-form";
 import { ContactForm } from "../contact-form";
 import { Lightbox } from "../lightbox";
 import { jost, martianMono } from "./fonts";
@@ -212,6 +213,15 @@ function Block({ section, page, site, block, columns }: ThemeProps & {
           <ContactForm subdomain={site.subdomain} preview={site.preview} />
         </section>
       );
+    case "booking": {
+      if (!site.bookingsOpen) return null;
+      return (
+        <section id="booking" className="mx-auto w-full max-w-[74rem] px-4 py-16 md:px-9 md:py-20">
+          <h2 className={`${MARK} mb-4 text-lg md:text-[1.4rem]`}>{section.title || "Book a date"}</h2>
+          <BookingForm subdomain={site.subdomain} preview={site.preview} />
+        </section>
+      );
+    }
   }
 }
 

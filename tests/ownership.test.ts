@@ -21,8 +21,19 @@ import {
 } from "../app/actions/site.ts";
 import { discardDraftDesign, publishDesign, saveDraftDesign, undoDesign } from "../app/actions/design.ts";
 import { approve, reject, reviseNote, stopTask } from "../app/actions/agents.ts";
+import { cancelBookingAction, confirmBookingAction, moveBookingAction } from "../app/actions/bookings.ts";
 import { proposeAction } from "../lib/agents/approvals.ts";
-import { createAgentTask, findAgentTask, findApproval, findUserById, updateUser } from "../lib/db.ts";
+import {
+  addConfirmedBooking,
+  createAgentTask,
+  createBookingRequest,
+  findAgentTask,
+  findApproval,
+  findBooking,
+  findUserById,
+  listAllBookings,
+  updateUser,
+} from "../lib/db.ts";
 import { galleryPhotos, presetDesign, visibleAlbums, type GallerySection } from "../lib/design.ts";
 import { loadSite, siteData } from "../lib/public-site.ts";
 import {
@@ -135,6 +146,51 @@ test("Bob can't approve, reject, edit or stop Alice's agent requests and tasks",
   assert.equal((await findAgentTask(w.alice.id, task.id))?.status, "queued", "Alice's task was stopped");
   assert.deepEqual(await findUserById(w.alice.id), alice, "Alice's account changed");
   assert.deepEqual(await findUserById(w.bob.id), bob, "Bob's own account changed");
+});
+
+test("Bob can't confirm, move or cancel Alice's bookings", async () => {
+  const w = await world();
+  for (const id of [w.alice.id, w.bob.id]) {
+    await updateUser(id, (u) => {
+      u.agents = { enabled: true, at: new Date().toISOString(), by: "test" };
+    });
+  }
+  const fields = {
+    clientName: "Client",
+    clientEmail: "client@example.com",
+    notes: "",
+    source: "manual" as const,
+  };
+  const confirmed = await addConfirmedBooking({
+    ...fields,
+    userId: w.alice.id,
+    kind: "booking",
+    title: "Alice wedding",
+    startsAt: new Date("2030-06-01T10:00:00Z"),
+    endsAt: new Date("2030-06-01T18:00:00Z"),
+    allDay: false,
+  });
+  if (!confirmed.ok) throw new Error("setup: Alice's confirmed booking was not saved");
+  const requested = await createBookingRequest({
+    ...fields,
+    userId: w.alice.id,
+    title: "Alice request",
+    source: "site",
+    startsAt: new Date("2030-07-01T00:00:00Z"),
+    endsAt: new Date("2030-07-02T00:00:00Z"),
+    allDay: true,
+  });
+  const ids = [confirmed.booking.id, requested.id];
+  const before = await Promise.all(ids.map((id) => findBooking(w.alice.id, id)));
+
+  for (const id of ids) {
+    assert.ok((await confirmBookingAction(id)).error, "confirm was not refused");
+    assert.ok((await cancelBookingAction(id)).error, "cancel was not refused");
+    assert.ok((await moveBookingAction(id, formOf({ date: "2030-08-01", allDay: "on" }))).error, "move was not refused");
+  }
+
+  assert.deepEqual(await Promise.all(ids.map((id) => findBooking(w.alice.id, id))), before, "Alice's bookings changed");
+  assert.deepEqual(await listAllBookings(w.bob.id), [], "Bob has bookings");
 });
 
 // ── Pointing Bob's own things at Alice's ────────────────────────────────

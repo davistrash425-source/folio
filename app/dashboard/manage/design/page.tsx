@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { requireUser } from "@/lib/auth";
 import { draftDesign, publishedDesign } from "@/lib/public-site";
+import { agentsAllowed } from "@/lib/plans";
 import { photoSource } from "@/lib/uploads";
 import { DesignEditor } from "../../design-editor";
 import { Loading, PageHeader } from "../section";
@@ -28,6 +29,7 @@ async function Editor() {
       draft={draftDesign(user)}
       published={publishedDesign(user)}
       isPro={user.plan === "pro"}
+      agentsOn={agentsAllowed(user)}
       canUndo={(user.designHistory?.length ?? 0) > 0}
       photos={user.photos.filter((p) => !p.removed).map((p) => {
         const src = photoSource(user.id, p);

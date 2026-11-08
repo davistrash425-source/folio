@@ -8,6 +8,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { showsCaption, visibleAlbums, type Section, type SitePage } from "@/lib/design";
 import { contactHref, copyrightLine, siteHref, type SiteData } from "@/lib/site-data";
 import type { PhotoSource } from "@/lib/uploads";
+import { BookingForm } from "../booking-form";
 import { ContactForm } from "../contact-form";
 import { Lightbox } from "../lightbox";
 import { cormorant, jost } from "./fonts";
@@ -209,6 +210,15 @@ function Section({ section, page, site, block }: ThemeProps & { section: Section
           <ContactForm subdomain={site.subdomain} preview={site.preview} />
         </Panel>
       );
+    case "booking": {
+      if (!site.bookingsOpen) return null;
+      return (
+        <Panel className="overflow-y-auto py-10 md:w-[min(36rem,85vw)]">
+          <h2 className={`${SMALL_CAPS} mb-8 text-[var(--muted)]`}>{section.title || "Book a date"}</h2>
+          <BookingForm subdomain={site.subdomain} preview={site.preview} />
+        </Panel>
+      );
+    }
   }
 }
 

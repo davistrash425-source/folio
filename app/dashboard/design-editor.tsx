@@ -31,6 +31,7 @@ const SHOW_AI_BOX = false;
 export function DesignEditor(props: {
   draft: SiteDesign;
   isPro: boolean; // Folio Pro unlocks the extra theme settings
+  agentsOn: boolean; // Folio AGENTS is on: the "Book a date" section can be added
   published: SiteDesign;
   canUndo: boolean;
   photos: EditorPhoto[];
@@ -436,7 +437,9 @@ export function DesignEditor(props: {
             </div>
             <AddMenu
               label="Add section"
-              options={(Object.keys(SECTION_LABELS) as SectionType[]).map((t) => [t, SECTION_LABELS[t]])}
+              options={(Object.keys(SECTION_LABELS) as SectionType[])
+                .filter((t) => t !== "booking" || props.agentsOn)
+                .map((t) => [t, SECTION_LABELS[t]])}
               onAdd={(type) => setSections([...page.sections, newSection(type, makeId)])}
               disabled={page.sections.length >= 30}
             />

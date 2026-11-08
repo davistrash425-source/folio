@@ -7,6 +7,7 @@ import Link from "next/link";
 import type { CSSProperties } from "react";
 import { visibleAlbums, type HeroSection, type Section, type SitePage } from "@/lib/design";
 import { contactHref, copyrightLine, siteHref } from "@/lib/site-data";
+import { BookingForm } from "../booking-form";
 import { ContactForm } from "../contact-form";
 import { Lightbox } from "../lightbox";
 import { instrumentSans, instrumentSerif } from "./fonts";
@@ -229,6 +230,21 @@ function Block({ section, page, site, block, inquire, isWork }: ThemeProps & {
           </div>
         </section>
       );
+    case "booking": {
+      if (!site.bookingsOpen) return null;
+      return (
+        <section
+          id="booking"
+          style={{ "--bg": "#141414", "--fg": "#f6f5f2", "--muted": "#c9c6bf" } as CSSProperties}
+          className="mx-3 mb-6 rounded-xl bg-[var(--bg)] px-5 py-14 text-[var(--fg)] md:mx-6 md:px-14 md:py-24"
+        >
+          <h2 className="mb-10 break-words text-4xl font-semibold leading-none tracking-[-0.035em] md:text-6xl">
+            {section.title || "Book a date"}
+          </h2>
+          <BookingForm subdomain={site.subdomain} preview={site.preview} />
+        </section>
+      );
+    }
   }
 }
 

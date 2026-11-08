@@ -40,12 +40,23 @@ async function parentTask(userId: string) {
 test("the manager has no tool that sends, posts, books or approves", () => {
   for (const list of [{}, specialists]) {
     for (const t of managerAgent(list).tools) {
-      assert.doesNotMatch(t.name, /send|post|book|approve|reject|revise|publish/);
+      // Tools may read, or propose; none may act, so no name starts with an action word.
+      assert.doesNotMatch(t.name, /^(send|post|book|publish|approve|reject|revise|confirm|move|cancel)/);
     }
   }
   assert.deepEqual(
     managerAgent({}).tools.map((t) => t.name),
-    ["list_recent_tasks", "get_task_result", "get_business", "propose_note"],
+    [
+      "list_recent_tasks",
+      "get_task_result",
+      "get_business",
+      "propose_note",
+      "check_availability",
+      "list_bookings",
+      "propose_confirm_booking",
+      "propose_move_booking",
+      "propose_cancel_booking",
+    ],
   );
 });
 

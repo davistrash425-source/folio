@@ -22,7 +22,7 @@ import {
   type Approval,
 } from "../db";
 import { agentsAllowed } from "../plans";
-import { executorFor } from "./executors";
+import { executorFor, ExecutorRefused } from "./executors";
 
 export type ApprovalResult = { ok?: string; error?: string };
 
@@ -145,6 +145,11 @@ export async function runApproved(userId: string, id: string): Promise<ApprovalR
     await setApprovalOutcome(userId, id, "done");
     return { ok };
   } catch (err) {
+    // A refusal's message is written by our code, safe to show and not worth logging.
+    if (err instanceof ExecutorRefused) {
+      await setApprovalOutcome(userId, id, "failed").catch(() => {});
+      return { error: err.message };
+    }
     // The name only: an error's message can quote a client's words.
     console.error("Approved action failed", approval.id, approval.kind, (err as Error).name);
     await setApprovalOutcome(userId, id, "failed").catch(() => {});

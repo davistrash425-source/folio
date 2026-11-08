@@ -6,6 +6,8 @@ import assert from "node:assert/strict";
 import * as agentActions from "../app/actions/agents.ts";
 import * as billingActions from "../app/actions/billing.ts";
 import * as authActions from "../app/actions/auth.ts";
+import * as bookingActions from "../app/actions/bookings.ts";
+import * as bookingRequestActions from "../app/actions/booking-request.ts";
 import * as businessActions from "../app/actions/business.ts";
 import * as designActions from "../app/actions/design.ts";
 import * as siteActions from "../app/actions/site.ts";
@@ -53,10 +55,15 @@ const needSignIn: Record<string, () => Promise<unknown>> = {
   reviseNote: () => agentActions.reviseNote("some-id", "hacked"),
   stopTask: () => agentActions.stopTask("some-id"),
   saveBusiness: () => businessActions.saveBusiness({}, formOf({ rates: "hacked" })),
+  addBooking: () => bookingActions.addBooking({}, formOf({ title: "Hacked", date: "2030-01-01", startTime: "10:00", endTime: "11:00" })),
+  confirmBookingAction: () => bookingActions.confirmBookingAction("some-id"),
+  cancelBookingAction: () => bookingActions.cancelBookingAction("some-id"),
+  moveBookingAction: () => bookingActions.moveBookingAction("some-id", formOf({ date: "2030-01-01", startTime: "10:00", endTime: "11:00" })),
+  setTimeZone: () => bookingActions.setTimeZone({}, formOf({ timeZone: "Europe/Paris" })),
 };
 
 // Actions anyone may call: visitors leaving a message, and the sign-in forms.
-const open = ["sendInquiry", "signup", "login", "logout", "requestPasswordReset", "resetPassword", "completeGoogleSignup", "confirmEmail"];
+const open = ["sendInquiry", "signup", "login", "logout", "requestPasswordReset", "resetPassword", "completeGoogleSignup", "confirmEmail", "submitBookingRequest"];
 
 // Agent approval actions that answer { error } instead of redirecting; see the test below.
 const noRedirect = ["approve", "reject"];
@@ -70,6 +77,8 @@ test("every server action is listed here as needing a login or as open to everyo
     ...Object.keys(billingActions),
     ...Object.keys(agentActions),
     ...Object.keys(businessActions),
+    ...Object.keys(bookingActions),
+    ...Object.keys(bookingRequestActions),
   ];
   assert.deepEqual(exported.sort(), [...Object.keys(needSignIn), ...open, ...noRedirect].sort());
 });

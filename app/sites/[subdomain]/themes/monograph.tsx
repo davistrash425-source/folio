@@ -6,6 +6,7 @@ import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 import { visibleAlbums, type Section, type SitePage } from "@/lib/design";
 import { contactHref, copyrightLine, siteHref } from "@/lib/site-data";
+import { BookingForm } from "../booking-form";
 import { ContactForm } from "../contact-form";
 import { Lightbox } from "../lightbox";
 import { cormorant, jost } from "./fonts";
@@ -186,6 +187,15 @@ function Pages({ section, page, site, block, total, pageNumbers }: ThemeProps & 
           <ContactForm subdomain={site.subdomain} preview={site.preview} />
         </section>
       );
+    case "booking": {
+      if (!site.bookingsOpen) return null;
+      return (
+        <section id="booking" className="mx-auto max-w-2xl px-6 py-20">
+          <h2 className={`${SMALL} mb-8 text-[var(--muted)]`}>{section.title || "Book a date"}</h2>
+          <BookingForm subdomain={site.subdomain} preview={site.preview} />
+        </section>
+      );
+    }
   }
 }
 

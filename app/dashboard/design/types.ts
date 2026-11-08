@@ -16,6 +16,7 @@ export const SECTION_LABELS: Record<SectionType, string> = {
   about: "About (your bio)",
   text: "Text",
   contact: "Contact form",
+  booking: "Book a date",
 };
 
 export const PAGE_TEMPLATE_LABELS: Record<PageTemplate, string> = {

@@ -178,6 +178,8 @@ export type User = {
   agents?: { enabled: boolean; at: string; by: string };
   // What the agents may use in replies: rates, tone and rules. Written by the photographer on the Your business page.
   business?: { rates: string; tone: string; rules: string; updatedAt: string };
+  // IANA time zone name, e.g. "America/New_York". Missing means UTC until the photographer sets it.
+  timeZone?: string;
 };
 
 // One-time links for password resets and email verification. Only a hash of
@@ -330,7 +332,7 @@ export async function deleteUsers(ids: string[]) {
       if (rows[0]) {
         // The agents' records go with the account (a legal hold, which skips
         // this block, keeps them).
-        for (const table of ["agent_tasks", "approvals", "agent_runs", "agent_chat"]) {
+        for (const table of ["agent_tasks", "approvals", "agent_runs", "agent_chat", "bookings"]) {
           await query(`delete from ${table} where user_id = $1`, [id]);
         }
         await query("insert into storage_cleanup (user_id) values ($1) on conflict do nothing", [id]);
@@ -1234,7 +1236,7 @@ export async function setApprovalOutcome(userId: string, id: string, outcome: "d
 export async function deleteOrphanedAgentRows() {
   const db = await database();
   let removed = 0;
-  for (const table of ["agent_tasks", "approvals", "agent_runs", "agent_chat"]) {
+  for (const table of ["agent_tasks", "approvals", "agent_runs", "agent_chat", "bookings"]) {
     const { rows } = await db.query(`delete from ${table} t where not exists (select 1 from users u where u.id = t.user_id) returning 1`);
     removed += rows.length;
   }
@@ -1378,4 +1380,246 @@ export async function listAgentChat(userId: string, limit = 100) {
     [userId, limit],
   );
   return rows.map(toAgentChat);
+}
+
+// ---------------------------------------------------------------------------
+// Bookings. Availability is decided here, in SQL, never by an AI.
+
+export type BookingKind = "booking" | "hold";
+export type BookingStatus = "requested" | "confirmed" | "moved" | "cancelled";
+export type BookingSource = "site" | "manual" | "agent";
+
+export type Booking = {
+  id: string;
+  userId: string;
+  kind: BookingKind;
+  status: BookingStatus;
+  clientName: string;
+  clientEmail: string;
+  title: string;
+  notes: string;
+  startsAt: string;
+  endsAt: string;
+  allDay: boolean;
+  source: BookingSource;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type BookingRow = {
+  id: string;
+  user_id: string;
+  kind: BookingKind;
+  status: BookingStatus;
+  client_name: string;
+  client_email: string;
+  title: string;
+  notes: string;
+  starts_at: Date | string;
+  ends_at: Date | string;
+  all_day: boolean;
+  source: BookingSource;
+  created_at: Date | string;
+  updated_at: Date | string;
+};
+
+const toBooking = (r: BookingRow): Booking => ({
+  id: r.id,
+  userId: r.user_id,
+  kind: r.kind,
+  status: r.status,
+  clientName: r.client_name,
+  clientEmail: r.client_email,
+  title: r.title,
+  notes: r.notes,
+  startsAt: new Date(r.starts_at).toISOString(),
+  endsAt: new Date(r.ends_at).toISOString(),
+  allDay: r.all_day,
+  source: r.source,
+  createdAt: new Date(r.created_at).toISOString(),
+  updatedAt: new Date(r.updated_at).toISOString(),
+});
+
+export type BookingResult =
+  | { ok: true; booking: Booking }
+  | { ok: false; reason: "not_found" | "wrong_status" }
+  | { ok: false; reason: "conflict"; conflicts: Booking[] };
+
+export type BookingFields = {
+  clientName: string;
+  clientEmail: string;
+  title: string;
+  notes: string;
+  startsAt: Date;
+  endsAt: Date;
+  allDay: boolean;
+  source: BookingSource;
+};
+
+// A request doesn't occupy the date, so there is no clash check.
+export async function createBookingRequest(input: BookingFields & { userId: string }) {
+  const db = await database();
+  const { rows } = await db.query<BookingRow>(
+    `insert into bookings (id, user_id, kind, status, client_name, client_email, title, notes, starts_at, ends_at, all_day, source)
+     values ($1, $2, 'booking', 'requested', $3, $4, $5, $6, $7, $8, $9, $10) returning *`,
+    [
+      randomUUID(),
+      input.userId,
+      input.clientName,
+      input.clientEmail,
+      input.title,
+      input.notes,
+      input.startsAt,
+      input.endsAt,
+      input.allDay,
+      input.source,
+    ],
+  );
+  return toBooking(rows[0]);
+}
+
+export async function findBooking(userId: string, id: string) {
+  const db = await database();
+  const { rows } = await db.query<BookingRow>("select * from bookings where id = $1 and user_id = $2", [id, userId]);
+  return rows[0] ? toBooking(rows[0]) : null;
+}
+
+// Anything overlapping the range, cancelled included, ordered by start.
+export async function listBookings(userId: string, range: { from: Date; to: Date }) {
+  const db = await database();
+  const { rows } = await db.query<BookingRow>(
+    `select * from bookings where user_id = $1 and starts_at < $3 and ends_at > $2
+     order by starts_at, id`,
+    [userId, range.from, range.to],
+  );
+  return rows.map(toBooking);
+}
+
+export async function listAllBookings(userId: string) {
+  const db = await database();
+  const { rows } = await db.query<BookingRow>("select * from bookings where user_id = $1 order by starts_at, id", [userId]);
+  return rows.map(toBooking);
+}
+
+// Half-open ranges: a shoot ending at 14:00 doesn't clash with one starting at 14:00.
+async function overlapping(
+  query: Query,
+  userId: string,
+  statuses: BookingStatus[],
+  startsAt: Date,
+  endsAt: Date,
+  excludeId?: string,
+) {
+  const { rows } = await query<BookingRow>(
+    `select * from bookings
+     where user_id = $1 and status = any($2::text[]) and starts_at < $4 and ends_at > $3
+       and ($5::text is null or id <> $5)
+     order by starts_at, id`,
+    [userId, statuses, startsAt, endsAt, excludeId ?? null],
+  );
+  return rows.map(toBooking);
+}
+
+// Confirmed or moved bookings (and holds) that occupy any part of the range.
+export async function bookingsBlocking(userId: string, startsAt: Date, endsAt: Date, excludeId?: string) {
+  const db = await database();
+  return overlapping((text, params) => db.query(text, params), userId, ["confirmed", "moved"], startsAt, endsAt, excludeId);
+}
+
+export async function bookingRequestsOverlapping(userId: string, startsAt: Date, endsAt: Date, excludeId?: string) {
+  const db = await database();
+  return overlapping((text, params) => db.query(text, params), userId, ["requested"], startsAt, endsAt, excludeId);
+}
+
+// Locks the account row first, so the clash check and the write that follows
+// can't race with another change for the same account. Everything runs on the
+// transaction's own `query` (PGlite has one connection).
+async function bookingWrite(userId: string, fn: (query: Query) => Promise<BookingResult>) {
+  const db = await database();
+  return db.transaction(async (query) => {
+    await query("select 1 from users where id = $1 for update", [userId]);
+    return fn(query);
+  });
+}
+
+async function selectBooking(query: Query, userId: string, id: string) {
+  const { rows } = await query<BookingRow>("select * from bookings where id = $1 and user_id = $2", [id, userId]);
+  return rows[0] ? toBooking(rows[0]) : null;
+}
+
+export async function addConfirmedBooking(input: BookingFields & { userId: string; kind: BookingKind }): Promise<BookingResult> {
+  return bookingWrite(input.userId, async (query) => {
+    const conflicts = await overlapping(query, input.userId, ["confirmed", "moved"], input.startsAt, input.endsAt);
+    if (conflicts.length) return { ok: false, reason: "conflict", conflicts };
+    const { rows } = await query<BookingRow>(
+      `insert into bookings (id, user_id, kind, status, client_name, client_email, title, notes, starts_at, ends_at, all_day, source)
+       values ($1, $2, $3, 'confirmed', $4, $5, $6, $7, $8, $9, $10, $11) returning *`,
+      [
+        randomUUID(),
+        input.userId,
+        input.kind,
+        input.clientName,
+        input.clientEmail,
+        input.title,
+        input.notes,
+        input.startsAt,
+        input.endsAt,
+        input.allDay,
+        input.source,
+      ],
+    );
+    return { ok: true, booking: toBooking(rows[0]) };
+  });
+}
+
+export async function confirmBooking(userId: string, id: string): Promise<BookingResult> {
+  return bookingWrite(userId, async (query) => {
+    const current = await selectBooking(query, userId, id);
+    if (!current) return { ok: false, reason: "not_found" };
+    if (current.status !== "requested") return { ok: false, reason: "wrong_status" };
+    const conflicts = await overlapping(query, userId, ["confirmed", "moved"], new Date(current.startsAt), new Date(current.endsAt), id);
+    if (conflicts.length) return { ok: false, reason: "conflict", conflicts };
+    const { rows } = await query<BookingRow>(
+      "update bookings set status = 'confirmed', updated_at = now() where id = $1 and user_id = $2 returning *",
+      [id, userId],
+    );
+    return { ok: true, booking: toBooking(rows[0]) };
+  });
+}
+
+export async function moveBooking(
+  userId: string,
+  id: string,
+  to: { startsAt: Date; endsAt: Date; allDay: boolean },
+): Promise<BookingResult> {
+  return bookingWrite(userId, async (query) => {
+    const current = await selectBooking(query, userId, id);
+    if (!current) return { ok: false, reason: "not_found" };
+    if (current.status === "cancelled") return { ok: false, reason: "wrong_status" };
+    // A request doesn't occupy the date, so moving one needs no check.
+    if (current.status !== "requested") {
+      const conflicts = await overlapping(query, userId, ["confirmed", "moved"], to.startsAt, to.endsAt, id);
+      if (conflicts.length) return { ok: false, reason: "conflict", conflicts };
+    }
+    const status = current.status === "requested" ? "requested" : "moved";
+    const { rows } = await query<BookingRow>(
+      `update bookings set status = $3, starts_at = $4, ends_at = $5, all_day = $6, updated_at = now()
+       where id = $1 and user_id = $2 returning *`,
+      [id, userId, status, to.startsAt, to.endsAt, to.allDay],
+    );
+    return { ok: true, booking: toBooking(rows[0]) };
+  });
+}
+
+export async function cancelBooking(userId: string, id: string): Promise<BookingResult> {
+  return bookingWrite(userId, async (query) => {
+    const current = await selectBooking(query, userId, id);
+    if (!current) return { ok: false, reason: "not_found" };
+    if (current.status === "cancelled") return { ok: false, reason: "wrong_status" };
+    const { rows } = await query<BookingRow>(
+      "update bookings set status = 'cancelled', updated_at = now() where id = $1 and user_id = $2 returning *",
+      [id, userId],
+    );
+    return { ok: true, booking: toBooking(rows[0]) };
+  });
 }

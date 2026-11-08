@@ -25,6 +25,7 @@ export type SiteData = {
   path: string; // "" for home, else a page or album address
   preview: boolean; // links stay inside the dashboard preview
   allowAiTraining: boolean; // false: AI training crawlers are asked to stay away
+  bookingsOpen: boolean; // Folio AGENTS is on: a "Book a date" section shows its form
 };
 
 // The copyright line in every theme's footer: the photographer's own, or

@@ -319,6 +319,16 @@ export function SectionSettings({ section, photos, albums, classic, headerPhoto,
           <p className="text-xs text-ink-soft">Your contact details and a message form.</p>
         </>
       );
+    case "booking":
+      return (
+        <>
+          {titleInput("Book a date")}
+          <p className="text-xs text-ink-soft">
+            A form where visitors ask for a date. Requests appear in your calendar; dates you have already booked are refused.
+            Only shown while Folio AGENTS is on for your account.
+          </p>
+        </>
+      );
   }
 }
 
