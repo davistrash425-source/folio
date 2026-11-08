@@ -26,6 +26,7 @@ test("sign up, upload a photo, design the site and reach Go live", async ({ page
 
   await page.goto("/dashboard/manage/design");
   await expect(page.getByRole("button", { name: "Publish" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Design", exact: true })).toHaveAttribute("aria-current", "page");
 
   await page.goto("/dashboard/manage/publish");
   await expect(page).toHaveURL(/publish/);

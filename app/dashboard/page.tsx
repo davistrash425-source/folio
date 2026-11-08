@@ -4,7 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { entryPath } from "@/lib/steps";
 
 // The dashboard's front door: a photographer with no photos yet goes straight
-// to upload (step 1); everyone else lands on their library. Reading the
+// to upload; everyone else lands on their library. Reading the
 // session has to sit inside Suspense or the build refuses the page.
 export default function DashboardPage() {
   return (

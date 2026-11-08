@@ -82,7 +82,7 @@ GitHub Actions (`.github/workflows/ci.yml`) runs lint, type checks, `npm test`, 
 | Address availability check (sign-up) | `app/api/address`, `lib/address.ts` |
 | Public site loading and caching | `lib/public-site.ts`, site shape in `lib/site-data.ts` |
 | Social link cleanup | `lib/social.ts` |
-| Setup steps (the "go live" checklist) | `lib/steps.ts` |
+| Where /dashboard lands, and the preview button wording | `lib/steps.ts` |
 | Theme helpers | `lib/theme-utils.ts` |
 | Report reasons and DMCA notices | `lib/reports.ts` |
 | Legal pages and the DMCA agent | `lib/legal.ts` |

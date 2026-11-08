@@ -4,17 +4,14 @@ import { draftDesign, publishedDesign } from "@/lib/public-site";
 import { agentsAllowed } from "@/lib/plans";
 import { photoSource } from "@/lib/uploads";
 import { DesignEditor } from "../../design-editor";
-import { Loading, PageHeader } from "../section";
+import { Loading } from "../section";
 
 export const metadata = { title: "Web design — Folio" };
 
 export default function DesignPage() {
   return (
     <>
-      <PageHeader
-        title="Web design"
-        subtitle="Choose how your site looks and what it shows. Changes stay in a draft until you publish them."
-      />
+      <h1 className="sr-only">Web design</h1>
       <Suspense fallback={<Loading />}>
         <Editor />
       </Suspense>

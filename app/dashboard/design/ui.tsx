@@ -1,7 +1,7 @@
 "use client";
 
  
-import { useState, type ReactNode } from "react";
+import { useState, useSyncExternalStore, type KeyboardEvent, type ReactNode } from "react";
 import { chipClass } from "@/app/ui/form";
 
 export function swap<T>(list: T[], a: number, b: number) {
@@ -10,59 +10,87 @@ export function swap<T>(list: T[], a: number, b: number) {
   return next;
 }
 
-// One numbered step of the Web design editor. Only one is open at a time;
-// a closed step shows a one-line summary of what's chosen in it. The button
-// at the bottom closes this step and opens the next. Closed steps stay in
-// the page (hidden), so anything half-typed in them is kept.
-export function Step({ number, title, summary, open, onToggle, nextLabel, onNext, children }: {
-  number: number;
+export const toolTabId = (id: string) => `design-tab-${id}`;
+export const toolPanelId = (id: string) => `design-panel-${id}`;
+
+// One tool's panel in the Web design editor. Only the current one shows; the
+// others stay in the page (hidden), so anything half-typed in them is kept.
+export function ToolPanel({ id, title, current, children }: {
+  id: string;
   title: string;
-  summary?: ReactNode;
-  open: boolean;
-  onToggle: () => void;
-  nextLabel?: string;
-  onNext?: () => void;
+  current: boolean;
   children: ReactNode;
 }) {
-  const id = `design-step-${number}`;
   return (
-    <section className={`scroll-mt-40 border bg-paper transition-colors ${open ? "border-ink" : "border-rule hover:border-ink"}`}>
-      <h2>
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-expanded={open}
-          aria-controls={id}
-          className="flex w-full items-center gap-3 px-4 py-3 text-left"
-        >
-          <span
-            aria-hidden="true"
-            className={`flex size-7 shrink-0 items-center justify-center rounded-full text-sm font-medium ${open ? "bg-ink text-paper" : "border border-rule text-ink-soft"}`}
-          >
-            {number}
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block font-display text-xl leading-tight">{title}</span>
-            {!open && summary && <span className="block truncate text-xs text-ink-soft">{summary}</span>}
-          </span>
-          <span aria-hidden="true" className={`text-ink-faint transition-transform ${open ? "rotate-180" : ""}`}>⌄</span>
-        </button>
-      </h2>
-      <div id={id} hidden={!open} className="space-y-5 border-t border-rule px-4 pb-5 pt-4">
-        {children}
-        {onNext && (
-          <div className="flex justify-end border-t border-rule pt-4">
-            <button
-              type="button"
-              onClick={onNext}
-              className="h-9 bg-ink px-4 text-sm font-medium text-paper hover:bg-accent"
-            >
-              {nextLabel ?? "Save and continue"}
-            </button>
-          </div>
-        )}
-      </div>
+    <section
+      id={toolPanelId(id)}
+      role="tabpanel"
+      aria-labelledby={toolTabId(id)}
+      hidden={!current}
+      className="space-y-5 border border-ink bg-paper px-4 pb-5 pt-4"
+    >
+      <h2 className="font-display text-xl leading-tight">{title}</h2>
+      {children}
     </section>
+  );
+}
+
+// From lg up the rail is a column beside the panel, below that a row.
+const subscribeWide = (onChange: () => void) => {
+  const query = window.matchMedia("(min-width: 64rem)");
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+};
+const isWide = () => window.matchMedia("(min-width: 64rem)").matches;
+
+// The tools of the Web design editor as tabs. Arrow keys move between them.
+export function ToolRail({ tools, current, onSelect }: {
+  tools: { id: string; label: string }[];
+  current: string;
+  onSelect: (id: string) => void;
+}) {
+  const vertical = useSyncExternalStore(subscribeWide, isWide, () => false);
+  function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+    const at = tools.findIndex((t) => t.id === current);
+    let to = -1;
+    if (e.key === "ArrowDown" || e.key === "ArrowRight") to = (at + 1) % tools.length;
+    else if (e.key === "ArrowUp" || e.key === "ArrowLeft") to = (at - 1 + tools.length) % tools.length;
+    else if (e.key === "Home") to = 0;
+    else if (e.key === "End") to = tools.length - 1;
+    if (to < 0) return;
+    e.preventDefault();
+    onSelect(tools[to].id);
+    document.getElementById(toolTabId(tools[to].id))?.focus();
+  }
+  return (
+    <div
+      role="tablist"
+      aria-label="Design tools"
+      aria-orientation={vertical ? "vertical" : "horizontal"}
+      onKeyDown={onKeyDown}
+      className="-mx-6 flex gap-1 overflow-x-auto [scrollbar-width:none] px-6 pb-1 lg:mx-0 lg:w-[5.5rem] lg:shrink-0 lg:flex-col lg:overflow-visible lg:px-0 lg:pb-0"
+    >
+      {tools.map((t) => {
+        const active = t.id === current;
+        return (
+          <button
+            key={t.id}
+            id={toolTabId(t.id)}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            aria-controls={toolPanelId(t.id)}
+            tabIndex={active ? 0 : -1}
+            onClick={() => onSelect(t.id)}
+            className={`shrink-0 border px-3 py-2 text-left text-sm transition-colors lg:px-2 lg:py-3 lg:text-center ${
+              active ? "border-ink bg-ink font-medium text-paper" : "border-rule text-ink-soft hover:border-ink hover:text-ink"
+            }`}
+          >
+            {t.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

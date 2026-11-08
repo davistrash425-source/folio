@@ -19,7 +19,7 @@ export default function DashboardLayout({ children }: LayoutProps<"/dashboard">)
           the top of the screen on their own and the site status scrolls away
           beneath them. From md up the whole bar is pinned. */}
       <StickyBar className="contents md:sticky md:top-0 md:z-40 md:block md:border-b md:border-ink md:bg-paper">
-        <div className="contents md:mx-auto md:flex md:max-w-7xl md:flex-wrap md:items-center md:justify-between md:gap-x-6 md:px-6">
+        <div className="contents md:flex md:flex-wrap md:items-center md:justify-between md:gap-x-6 md:px-6">
           <header className="sticky top-0 z-40 flex items-center gap-x-6 border-b border-ink bg-paper px-6 md:static md:flex-wrap md:gap-x-10 md:border-0 md:bg-transparent md:px-0">
             <Link href="/dashboard/manage/photos" className="font-display text-2xl italic">Folio</Link>
             <Suspense fallback={<DashboardTabsView pathname="" />}>

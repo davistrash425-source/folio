@@ -158,116 +158,106 @@ export function DashboardTabsView({ pathname, previewLabel = DEFAULT_PREVIEW_LAB
   );
 }
 
-// The steps to a finished site, in order. Each hint is shown under its label
-// on wide screens.
-const STEPS = [
-  { href: "/dashboard/manage/upload", label: "Upload photos", hint: "Add pictures from your computer" },
-  { href: "/dashboard/manage/photos", label: "All photos", hint: "Describe each photo" },
-  { href: "/dashboard/manage/albums", label: "Albums", hint: "Group photos into collections" },
-  { href: "/dashboard/manage/design", label: "Web design", hint: "Choose how your site looks" },
-  { href: "/dashboard/manage/publish", label: "Go live", hint: "Put your site online" },
-];
+// The tabs down the left of the workspace. Design covers everything about
+// building the site (see DESIGN_SECTIONS); the rest are separate places.
+const DESIGN_HREF = "/dashboard/manage/design";
 
-const SECONDARY = [
+const TABS = [
+  { href: DESIGN_HREF, label: "Design" },
   { href: "/dashboard/manage/galleries", label: "Client galleries" },
   { href: "/dashboard/manage/messages", label: "Messages" },
   { href: "/dashboard/manage/billing", label: "Plan" },
-  { href: "/dashboard/manage/account", label: "Account" },
 ];
 
 // Only for accounts with Folio AGENTS switched on (agentsAllowed).
-const AGENT_LINKS = [
-  { href: "/dashboard/manage/agent", label: "Agent" },
+const AGENT_TABS = [
   { href: "/dashboard/manage/approvals", label: "Approvals" },
   { href: "/dashboard/manage/calendar", label: "Calendar" },
   { href: "/dashboard/manage/business", label: "Your business" },
 ];
 
+const ACCOUNT_TAB = { href: "/dashboard/manage/account", label: "Account" };
+
+// The sections inside Design, shown as a tab row at the top of each of them.
+const DESIGN_SECTIONS = [
+  { href: "/dashboard/manage/design", label: "Site design" },
+  { href: "/dashboard/manage/photos", label: "All photos" },
+  { href: "/dashboard/manage/upload", label: "Upload" },
+  { href: "/dashboard/manage/albums", label: "Albums" },
+  { href: "/dashboard/manage/publish", label: "Go live" },
+];
+
+const inSection = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`);
+const inDesign = (pathname: string) => DESIGN_SECTIONS.some((s) => inSection(pathname, s.href));
+
 export type AgentNav = { pending: number };
 
-export function SideNav({ unread, done, agents }: { unread: number; done?: boolean[]; agents?: AgentNav }) {
-  return <SideNavView unread={unread} done={done} agents={agents} pathname={usePathname()} />;
+export function SideNav({ unread, agents }: { unread: number; agents?: AgentNav }) {
+  return <SideNavView unread={unread} agents={agents} pathname={usePathname()} />;
 }
 
-export function SideNavView({
-  unread,
-  done = [],
-  agents,
-  pathname,
-}: {
-  unread: number;
-  done?: boolean[];
-  agents?: AgentNav;
-  pathname: string;
-}) {
-  const finished = done.filter(Boolean).length;
-  // Numbered like frames on a contact sheet, each in its own box so they read
-  // as steps. Finished steps tick themselves off; the boxes are all one size
-  // (tall enough for a two-line hint) rather than fitting their text.
-  const step = (s: (typeof STEPS)[number], n: number) => {
-    const active = pathname.startsWith(s.href);
-    const isDone = Boolean(done[n - 1]);
+export function SideNavView({ unread, agents, pathname }: { unread: number; agents?: AgentNav; pathname: string }) {
+  const tab = (t: { href: string; label: string }) => {
+    const active = t.href === DESIGN_HREF ? inDesign(pathname) : inSection(pathname, t.href);
     return (
-      <li key={s.href} className="shrink-0">
+      <li key={t.href} className="shrink-0">
         <Link
-          href={s.href}
+          href={t.href}
           aria-current={active ? "page" : undefined}
-          className={`flex w-40 items-baseline gap-3 border px-3 py-2 text-sm transition-colors md:h-20 md:w-auto md:py-2.5 ${
-            active
-              ? "border-accent bg-card text-ink"
-              : "border-rule text-ink-soft hover:border-ink-faint hover:bg-card hover:text-ink"
+          className={`flex items-baseline gap-3 whitespace-nowrap border-b-2 px-3 py-2 text-sm transition-colors md:border-b-0 md:border-l-2 md:py-1.5 ${
+            active ? "border-accent font-medium text-accent" : "border-transparent text-ink-soft hover:text-ink"
           }`}
         >
-          <span className={`label ${active || isDone ? "text-accent" : "text-ink-faint"}`}>
-            {isDone ? "✓" : String(n).padStart(2, "0")}
-          </span>
-          <span className="flex-1">
-            <span className={`block ${active ? "font-medium" : ""}`}>{s.label}</span>
-            <span className="mt-0.5 hidden text-xs leading-snug text-ink-faint md:block">{s.hint}</span>
-          </span>
-        </Link>
-      </li>
-    );
-  };
-  // Messages and Account aren't steps, so they're plain links without numbers.
-  const other = (s: { href: string; label: string }) => {
-    const active = pathname.startsWith(s.href);
-    return (
-      <li key={s.href} className="shrink-0">
-        <Link
-          href={s.href}
-          aria-current={active ? "page" : undefined}
-          className={`flex items-baseline gap-3 px-3 py-2 text-sm transition-colors md:py-1.5 ${
-            active ? "font-medium text-accent" : "text-ink-soft hover:text-ink"
-          }`}
-        >
-          <span className="flex-1">{s.label}</span>
-          {s.label === "Messages" && unread > 0 && (
-            <span className="label bg-accent px-1.5 text-paper">{unread} new</span>
-          )}
-          {s.label === "Approvals" && agents && agents.pending > 0 && (
+          <span className="flex-1">{t.label}</span>
+          {t.label === "Messages" && unread > 0 && <span className="label bg-accent px-1.5 text-paper">{unread} new</span>}
+          {t.label === "Approvals" && agents && agents.pending > 0 && (
             <span className="label bg-accent px-1.5 text-paper">{agents.pending} new</span>
           )}
         </Link>
       </li>
     );
   };
+  const divider = <li aria-hidden="true" className="hidden md:my-3 md:block md:border-t md:border-rule" />;
   return (
-    <nav aria-label="Manage website" className="md:sticky md:top-[calc(var(--dash-bar,4rem)+2rem)]">
-      {/* A sidebar on wide screens; a wrapping row of steps on phones. */}
-      <p className="mb-3 hidden text-xs text-ink-faint md:block">
-        {finished} of {STEPS.length} done
-      </p>
-      <ul className="flex flex-wrap gap-2 md:flex-col md:gap-0">
-        {STEPS.map((s, i) => step(s, i + 1))}
-        <li aria-hidden="true" className="hidden md:my-3 md:block md:border-t md:border-rule" />
-        {SECONDARY.map(other)}
-        {agents && (
-          <>
-            <li aria-hidden="true" className="hidden md:my-3 md:block md:border-t md:border-rule" />
-            {AGENT_LINKS.map(other)}
-          </>
-        )}
+    <nav aria-label="Workspace">
+      {/* A list down the side on wide screens; one scrolling row on phones. */}
+      <ul className="flex gap-1 overflow-x-auto [scrollbar-width:none] md:flex-col md:gap-0 md:overflow-visible">
+        {TABS.map(tab)}
+        {agents && AGENT_TABS.map(tab)}
+        {divider}
+        {tab(ACCOUNT_TAB)}
+      </ul>
+    </nav>
+  );
+}
+
+// The row of sections at the top of the Design workspace. Renders nothing on
+// any other page.
+export function DesignTabs() {
+  return <DesignTabsView pathname={usePathname()} />;
+}
+
+export function DesignTabsView({ pathname }: { pathname: string }) {
+  if (!inDesign(pathname)) return null;
+  return (
+    <nav aria-label="Design sections" className="-mx-6 overflow-x-auto [scrollbar-width:none] border-b border-rule px-6 md:mx-0 md:px-0">
+      <ul className="flex items-center gap-6">
+        {DESIGN_SECTIONS.map((s) => {
+          const active = inSection(pathname, s.href);
+          return (
+            <li key={s.href} className="shrink-0">
+              <Link
+                href={s.href}
+                aria-current={active ? "page" : undefined}
+                className={`block whitespace-nowrap border-b-2 py-3 text-sm font-medium transition-colors ${
+                  active ? "border-accent text-ink" : "border-transparent text-ink-soft hover:text-ink"
+                }`}
+              >
+                {s.label}
+              </Link>
+            </li>
+          );
+        })}
       </ul>
     </nav>
   );

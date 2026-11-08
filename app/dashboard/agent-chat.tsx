@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { stopTask } from "@/app/actions/agents";
 import { Button, SecondaryButton, inputClass } from "@/app/ui/form";
 
@@ -25,6 +25,13 @@ export function AgentChat({ initial }: { initial: Message[] }) {
   const [error, setError] = useState("");
   const taskId = useRef<string | null>(null);
   const abort = useRef<AbortController | null>(null);
+  const list = useRef<HTMLDivElement>(null);
+
+  // Keep the newest message in view.
+  useEffect(() => {
+    const el = list.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages, running, steps, error]);
 
   function handle(line: string) {
     if (!line.trim()) return;
@@ -98,30 +105,32 @@ export function AgentChat({ initial }: { initial: Message[] }) {
   }
 
   return (
-    <div className="space-y-4">
-      <ul className="space-y-3" aria-live="polite">
-        {messages.length === 0 && <li className="text-sm text-ink-faint">No messages yet. Say hello.</li>}
-        {messages.map((m) => (
-          <li
-            key={m.id}
-            className={`max-w-2xl whitespace-pre-wrap border px-4 py-3 text-sm ${m.role === "user" ? "ml-auto border-rule bg-card" : "border-ink"}`}
-          >
-            <span className="label mb-1 block text-ink-faint">{m.role === "user" ? "You" : "Assistant"}</span>
-            {m.text}
-          </li>
-        ))}
-      </ul>
-      {running && (
-        <p className="text-sm text-ink-soft" role="status">
-          {steps.length ? `${steps[steps.length - 1]}…` : "Thinking…"}
-        </p>
-      )}
-      {error && (
-        <p className="text-sm text-accent" role="alert">
-          {error}
-        </p>
-      )}
-      <form onSubmit={send} className="grid gap-3">
+    <div className="flex h-full min-h-0 flex-col">
+      <div ref={list} className="min-h-0 flex-1 space-y-3 overflow-y-auto pb-3">
+        <ul className="space-y-3" aria-live="polite">
+          {messages.length === 0 && <li className="text-sm text-ink-faint">No messages yet. Say hello.</li>}
+          {messages.map((m) => (
+            <li
+              key={m.id}
+              className={`max-w-full whitespace-pre-wrap break-words border px-3 py-2 text-sm ${m.role === "user" ? "ml-6 border-rule bg-card" : "mr-6 border-ink"}`}
+            >
+              <span className="label mb-1 block text-ink-faint">{m.role === "user" ? "You" : "Assistant"}</span>
+              {m.text}
+            </li>
+          ))}
+        </ul>
+        {running && (
+          <p className="text-sm text-ink-soft" role="status">
+            {steps.length ? `${steps[steps.length - 1]}…` : "Thinking…"}
+          </p>
+        )}
+        {error && (
+          <p className="text-sm text-accent" role="alert">
+            {error}
+          </p>
+        )}
+      </div>
+      <form onSubmit={send} className="grid gap-3 border-t border-rule pt-3">
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}

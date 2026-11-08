@@ -12,7 +12,7 @@ import { DevicePreview, DeviceButtons, type Device } from "./device-preview";
 import { countChanges } from "./design/changes";
 import { ProfileForm } from "./profile-form";
 import type { User } from "@/lib/db";
-import { swap, Step, AddMenu, Choice, IconButton, ToolbarButton } from "./design/ui";
+import { swap, ToolPanel, ToolRail, AddMenu, Choice, IconButton, ToolbarButton } from "./design/ui";
 import { PhotoPicker, AlbumPicker } from "./design/pickers";
 import { ThemePicker, ThemeSettings, ThemeCard } from "./design/themes";
 import { PageSettings, SectionCard, PageHeaderPhoto } from "./design/sections";
@@ -21,6 +21,17 @@ import { type EditorPhoto, type EditorAlbum, type Profile, SECTION_LABELS, PAGE_
 export type { EditorPhoto, EditorAlbum } from "./design/types";
 import { makeId } from "./design/types";
 
+
+type ToolId = "theme" | "style" | "pages" | "captions" | "about";
+
+const TOOLS: { id: ToolId; label: string; title: string }[] = [
+  { id: "theme", label: "Theme", title: "Theme" },
+  { id: "style", label: "Style", title: "Colors and layout" },
+  { id: "pages", label: "Pages", title: "Pages" },
+  { id: "captions", label: "Captions", title: "Captions and albums" },
+  { id: "about", label: "About", title: "About you" },
+];
+const toolTitle = (id: ToolId) => TOOLS.find((t) => t.id === id)!.title;
 
 // Edits save as a draft this long after the last change.
 const AUTOSAVE_DELAY = 1000;
@@ -50,8 +61,8 @@ export function DesignEditor(props: {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const [showPreview, setShowPreview] = useState(true); // below the large breakpoint
-  // The open step (1–5), or none. A new visit starts on the theme.
-  const [step, setStep] = useState<number | null>(1);
+  // The tool whose panel is showing. A new visit starts on the theme.
+  const [tool, setTool] = useState<ToolId>("theme");
   // A Pro theme a Free account is trying out: shown in the preview only, never saved.
   const [previewTheme, setPreviewTheme] = useState<ThemeId | null>(null);
   const lastSent = useRef<SiteDesign | null>(null);
@@ -151,35 +162,12 @@ export function DesignEditor(props: {
     setPageId(created.id);
   }
 
-  // Opening a step closes the others; its button saves now and opens the next.
-  function stepProps(n: number) {
-    return {
-      number: n,
-      open: step === n,
-      onToggle: () => setStep((s) => (s === n ? null : n)),
-      onNext: () => {
-        if (unsaved && !problem) saveDraft(design);
-        const next = n < 5 ? n + 1 : null;
-        setStep(next);
-        if (next) setTimeout(() => document.getElementById(`design-step-${next}`)?.parentElement?.scrollIntoView({ behavior: "smooth", block: "start" }));
-      },
-    };
-  }
-
   function startPreview(theme: ThemeId) {
     setPreviewTheme(theme);
     setShowPreview(true);
   }
 
   const previewDesign = previewTheme ? applyTheme(design, previewTheme) : design;
-  const styleSummary =
-    design.theme === "classic"
-      ? `${FONT_LABELS[design.fonts]} fonts · ${GALLERY_LABELS[design.gallery.layout]} gallery`
-      : `${THEME_INFO[design.theme].name} settings`;
-  const captionSummary = `Captions: ${{ none: "off", chosen: "chosen photos", all: "all photos" }[design.captions.show]} · ${
-    design.albums.show === "all" ? "all albums" : `${design.albums.albumIds.length} album${design.albums.albumIds.length === 1 ? "" : "s"}`
-  }`;
-
   // At least one: the count is rough, and "unpublished" is exact.
   const changeTotal = Math.max(1, changes);
   const changeCount = `${changeTotal} unpublished change${changeTotal === 1 ? "" : "s"}`;
@@ -193,7 +181,7 @@ export function DesignEditor(props: {
   const status = unpublished ? `${saveState} · ${changeCount}` : saving || unsaved ? saveState : "Live: everything is published";
 
   return (
-    <div className="space-y-4">
+    <div data-wide className="space-y-4">
       {/* Sits under the dashboard's top bar, which is pinned too (--dash-bar is its height). */}
       <div className="sticky top-[var(--dash-bar,55px)] z-30 -mx-6 flex flex-wrap items-center gap-3 border-b border-rule bg-paper/95 px-6 py-3 backdrop-blur md:mx-0 md:border md:bg-paper/95">
         <span className={`flex items-center gap-2 text-sm ${saveError || unpublished ? "text-accent" : "text-ink"}`} aria-live="polite">
@@ -224,14 +212,16 @@ export function DesignEditor(props: {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)] xl:grid-cols-[26rem_minmax(0,1fr)]">
+      <div className="grid gap-6 lg:grid-cols-[27rem_minmax(0,1fr)] xl:grid-cols-[31rem_minmax(0,1fr)]">
         {/* Room below for the pinned preview on smaller screens. */}
-        <div className={`space-y-4 ${showPreview ? "max-lg:pb-[48vh]" : ""}`}>
+        <div className={`flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start ${showPreview ? "max-lg:pb-[48vh]" : "max-lg:pb-16"}`}>
+          <ToolRail tools={TOOLS} current={tool} onSelect={(id) => setTool(id as ToolId)} />
+          <div className="min-w-0 flex-1 space-y-4">
           <p className="text-sm text-ink-soft">
-            Work through the steps below. Everything saves as a draft as you go; visitors see the changes only after you press Publish.
+            Everything saves as a draft as you go; visitors see the changes only after you press Publish.
           </p>
           {SHOW_AI_BOX && <AiPlaceholder />}
-          <Step {...stepProps(1)} title="Choose a theme" summary={THEME_INFO[design.theme].name}>
+          <ToolPanel id="theme" title={toolTitle("theme")} current={tool === "theme"}>
             <ThemePicker
               theme={design.theme}
               photos={props.photos}
@@ -248,9 +238,9 @@ export function DesignEditor(props: {
             ) : (
               <p className="text-sm text-ink-soft">{THEME_INFO[design.theme].description}</p>
             )}
-          </Step>
+          </ToolPanel>
 
-          <Step {...stepProps(2)} title="Colors and layout" summary={styleSummary}>
+          <ToolPanel id="style" title={toolTitle("style")} current={tool === "style"}>
             {design.theme === "classic" ? (
               <>
                 <p className="label text-ink-soft">Look</p>
@@ -358,9 +348,9 @@ export function DesignEditor(props: {
             />
           </div>
           )}
-          </Step>
+          </ToolPanel>
 
-          <Step {...stepProps(3)} title="Pages" summary={design.pages.map((p) => p.title || "Untitled").join(", ")}>
+          <ToolPanel id="pages" title={toolTitle("pages")} current={tool === "pages"}>
             <ul className="space-y-1">
               {design.pages.map((p, i) => (
                 <li
@@ -444,9 +434,9 @@ export function DesignEditor(props: {
               disabled={page.sections.length >= 30}
             />
           </div>
-          </Step>
+          </ToolPanel>
 
-          <Step {...stepProps(4)} title="Captions and albums" summary={captionSummary}>
+          <ToolPanel id="captions" title={toolTitle("captions")} current={tool === "captions"}>
             <p className="font-display text-lg">Captions</p>
             {design.theme === "index" && (
               <p className="text-xs text-ink-soft">Index always lists each photo’s description and location in its rows. This setting controls the captions in the full-screen viewer.</p>
@@ -504,69 +494,64 @@ export function DesignEditor(props: {
             </label>
             <p className="text-xs text-ink-soft">Each album has its own page. Link to them with an “Album links” section, or show one album with a Gallery section.</p>
             </div>
-          </Step>
+          </ToolPanel>
 
           {/* Saved on its own (not part of the draft design), so it shows on the live site once saved. */}
-          <Step {...stepProps(5)} title="About you" summary={props.profile.name} nextLabel="Done">
+          <ToolPanel id="about" title={toolTitle("about")} current={tool === "about"}>
             <p className="text-sm text-ink-soft">
               Your name, bio and contact details. Saving here updates your site straight away; it isn’t part of the draft below.
             </p>
             <ProfileForm profile={props.fullProfile} compact />
-          </Step>
-          {step === null && (
-            <p className="border-l-2 border-accent bg-card px-4 py-3 text-sm text-ink-soft">
-              {unpublished ? "All set. Check the preview, then press Publish at the top to put your changes live." : "Everything is live. Open any step to change it."}
-            </p>
-          )}
+          </ToolPanel>
+          </div>
         </div>
 
-        {/* Beside the controls on large screens; pinned to the bottom below that, and can be hidden. */}
+        {/* Beside the controls on large screens; pinned to the bottom below that, where it collapses to a slim bar. */}
         <div
-          className={`min-w-0 lg:sticky lg:top-[calc(var(--dash-bar,4rem)+5rem)] lg:block lg:self-start ${
-            showPreview ? "max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-30 max-lg:flex max-lg:h-[45vh] max-lg:flex-col max-lg:border-t max-lg:border-ink max-lg:bg-paper max-lg:px-3 max-lg:pb-2 max-lg:pt-2" : "hidden"
+          className={`min-w-0 lg:sticky lg:top-[calc(var(--dash-bar,4rem)+5rem)] lg:block lg:self-start max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-30 max-lg:flex max-lg:flex-col max-lg:border-t max-lg:border-ink max-lg:bg-paper max-lg:px-3 ${
+            showPreview ? "max-lg:h-[45vh] max-lg:pb-2 max-lg:pt-2" : "max-lg:py-2"
           }`}
         >
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 lg:mb-3">
+          <div className={`mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 lg:mb-3 ${showPreview ? "" : "max-lg:mb-0"}`}>
             <p className="text-sm text-ink-soft">
               Preview: <span className="font-medium text-ink">{page.title}</span>
               {previewTheme ? ` in ${THEME_INFO[previewTheme].name} (Pro preview)` : unpublished ? " (draft)" : ""}
             </p>
             <div className="flex items-center gap-3">
-              <DeviceButtons device={device} onChange={setDevice} />
-              <button type="button" onClick={() => setShowPreview(false)} className="label text-ink-soft hover:text-ink lg:hidden">
-                Hide
+              <div className={showPreview ? "" : "max-lg:hidden"}>
+                <DeviceButtons device={device} onChange={setDevice} />
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPreview(!showPreview)}
+                aria-expanded={showPreview}
+                aria-controls="editor-preview"
+                className="label flex h-8 items-center gap-2 border border-ink px-2 text-ink hover:bg-ink hover:text-paper lg:hidden"
+              >
+                <span aria-hidden="true">{showPreview ? "▾" : "▴"}</span>
+                {showPreview ? "Collapse" : "Show preview"}
               </button>
             </div>
           </div>
           {previewTheme && (
-            <div className="mb-2">
+            <div className={`mb-2 ${showPreview ? "" : "max-lg:hidden"}`}>
               <ProPreviewNotice theme={previewTheme} onStop={() => setPreviewTheme(null)} />
             </div>
           )}
-          <DevicePreview
-            src="/site-preview"
-            device={device}
-            design={previewDesign}
-            path={page.slug}
-            className="max-lg:min-h-0 max-lg:flex-1 lg:h-[70vh] lg:min-h-[28rem]"
-          />
+          <div id="editor-preview" className={`contents ${showPreview ? "" : "max-lg:hidden"}`}>
+            <DevicePreview
+              src="/site-preview"
+              device={device}
+              design={previewDesign}
+              path={page.slug}
+              className="max-lg:min-h-0 max-lg:flex-1 lg:h-[70vh] lg:min-h-[28rem]"
+            />
+          </div>
         </div>
-        {!showPreview && (
-          <button
-            type="button"
-            onClick={() => setShowPreview(true)}
-            className="fixed bottom-4 right-4 z-30 border border-ink bg-ink px-4 py-2 text-sm font-medium text-paper shadow-lg lg:hidden"
-          >
-            Show preview
-          </button>
-        )}
       </div>
     </div>
   );
 }
-
-const FONT_LABELS: Record<SiteDesign["fonts"], string> = { sans: "Sans-serif", serif: "Serif", mixed: "Serif heading", mono: "Mono" };
-const GALLERY_LABELS: Record<SiteDesign["gallery"]["layout"], string> = { grid: "Grid", masonry: "Masonry", column: "Single-column", editorial: "Editorial" };
 
 // Shown while a Free account previews a Pro theme: what it is, how to keep it,
 // and how to go back.

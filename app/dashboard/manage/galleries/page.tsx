@@ -33,8 +33,7 @@ async function GalleryList() {
           <div className="max-w-xl space-y-2 py-4">
             <h2 className="font-display text-2xl">Part of Folio Pro</h2>
             <p className="text-ink-soft">
-              Client galleries are included with Folio Pro, which isn’t open yet. Your portfolio and its four themes stay
-              free.
+              Client galleries are included with Folio Pro. Your portfolio and its four themes stay free.
             </p>
           </div>
         </Card>
