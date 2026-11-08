@@ -157,7 +157,10 @@ export async function databaseText() {
   const db = await database();
   const users = await db.query("select * from users order by id");
   const tokens = await db.query("select * from tokens order by hash");
-  return JSON.stringify([users.rows, tokens.rows]);
+  const agents = await Promise.all(
+    ["agent_tasks", "approvals", "agent_runs", "agent_chat"].map((t) => db.query(`select * from ${t} order by id`)),
+  );
+  return JSON.stringify([users.rows, tokens.rows, ...agents.map((a) => a.rows)]);
 }
 
 // A user's stored photo files, by name.

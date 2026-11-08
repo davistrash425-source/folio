@@ -73,6 +73,66 @@ const SCHEMA = `
     user_id text primary key,
     queued_at timestamptz not null default now()
   );
+  -- Folio's AI agents (lib/db.ts). Additive only: preview deployments share
+  -- production's database and run this on connect.
+  create table if not exists agent_tasks (
+    id text primary key,
+    user_id text not null,
+    agent text not null,
+    status text not null default 'queued', -- queued | running | done | failed | stopped
+    input jsonb not null,
+    result jsonb,
+    error text,
+    attempts int not null default 0,
+    parent_task_id text,
+    created_at timestamptz not null default now(),
+    claimed_at timestamptz,
+    finished_at timestamptz
+  );
+  create index if not exists agent_tasks_user on agent_tasks (user_id, created_at desc);
+  create index if not exists agent_tasks_queue on agent_tasks (status, created_at);
+  create table if not exists approvals (
+    id text primary key,
+    user_id text not null,
+    task_id text,
+    kind text not null,
+    summary text not null,
+    action jsonb not null,
+    action_hash text not null,
+    status text not null default 'pending', -- pending | approved | rejected | used
+    created_at timestamptz not null default now(),
+    decided_at timestamptz,
+    decided_by text,
+    used_at timestamptz
+  );
+  create index if not exists approvals_user on approvals (user_id, status, created_at desc);
+  alter table approvals add column if not exists outcome text; -- done | failed, once it has run
+  -- A retried task can't queue the same proposal twice.
+  create unique index if not exists approvals_one_pending on approvals (task_id, action_hash) where status = 'pending';
+  create table if not exists agent_runs (
+    id text primary key,
+    user_id text not null,
+    task_id text,
+    agent text not null,
+    model text not null,
+    input_tokens int not null default 0,
+    output_tokens int not null default 0,
+    cache_read_tokens int not null default 0,
+    cache_write_tokens int not null default 0,
+    cost_micros bigint not null default 0,
+    stop_reason text,
+    created_at timestamptz not null default now()
+  );
+  create index if not exists agent_runs_user on agent_runs (user_id, created_at);
+  create table if not exists agent_chat (
+    id text primary key,
+    user_id text not null,
+    role text not null, -- user | assistant
+    text text not null,
+    task_id text,
+    created_at timestamptz not null default now()
+  );
+  create index if not exists agent_chat_user on agent_chat (user_id, created_at);
 `;
 
 async function connectPostgres(url: string): Promise<Database> {

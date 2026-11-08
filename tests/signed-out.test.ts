@@ -3,11 +3,14 @@
 // action without deciding who may call it fails the tests.
 import { beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
+import * as agentActions from "../app/actions/agents.ts";
 import * as billingActions from "../app/actions/billing.ts";
 import * as authActions from "../app/actions/auth.ts";
+import * as businessActions from "../app/actions/business.ts";
 import * as designActions from "../app/actions/design.ts";
 import * as siteActions from "../app/actions/site.ts";
 import * as sitesActions from "../app/actions/sites.ts";
+import { proposeAction } from "../lib/agents/approvals.ts";
 import { deleteUser } from "../lib/db.ts";
 import { presetDesign } from "../lib/design.ts";
 import { databaseText, filesOf, formOf, formWith, jpegFile, makeUser, redirectedTo, resetRequest, signInAs, signOut } from "./helpers.ts";
@@ -47,10 +50,16 @@ const needSignIn: Record<string, () => Promise<unknown>> = {
   switchSite: () => sitesActions.switchSite("some-id"),
   startCheckout: () => billingActions.startCheckout("month"),
   openBillingPortal: () => billingActions.openBillingPortal(),
+  reviseNote: () => agentActions.reviseNote("some-id", "hacked"),
+  stopTask: () => agentActions.stopTask("some-id"),
+  saveBusiness: () => businessActions.saveBusiness({}, formOf({ rates: "hacked" })),
 };
 
 // Actions anyone may call: visitors leaving a message, and the sign-in forms.
 const open = ["sendInquiry", "signup", "login", "logout", "requestPasswordReset", "resetPassword", "completeGoogleSignup", "confirmEmail"];
+
+// Agent approval actions that answer { error } instead of redirecting; see the test below.
+const noRedirect = ["approve", "reject"];
 
 test("every server action is listed here as needing a login or as open to everyone", () => {
   const exported = [
@@ -59,8 +68,21 @@ test("every server action is listed here as needing a login or as open to everyo
     ...Object.keys(designActions),
     ...Object.keys(authActions),
     ...Object.keys(billingActions),
+    ...Object.keys(agentActions),
+    ...Object.keys(businessActions),
   ];
-  assert.deepEqual(exported.sort(), [...Object.keys(needSignIn), ...open].sort());
+  assert.deepEqual(exported.sort(), [...Object.keys(needSignIn), ...open, ...noRedirect].sort());
+});
+
+test("approve and reject refuse signed-out visitors with an error and change nothing", async () => {
+  const someone = await makeUser("Someone");
+  const approval = await proposeAction({ userId: someone.id, kind: "save_note", summary: "x", action: { text: "y" } });
+  signOut();
+  const before = await databaseText();
+
+  assert.ok((await agentActions.approve(approval.id)).error);
+  assert.ok((await agentActions.reject(approval.id)).error);
+  assert.equal(await databaseText(), before);
 });
 
 for (const [name, call] of Object.entries(needSignIn)) {

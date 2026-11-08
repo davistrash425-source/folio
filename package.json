@@ -16,6 +16,7 @@
     "seed-examples": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./tests/setup.ts scripts/seed-examples.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "1.6.0",
     "@electric-sql/pglite": "0.5.8",
     "@sentry/nextjs": "11.8.0",
     "@vercel/analytics": "^2.0.1",

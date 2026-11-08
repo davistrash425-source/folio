@@ -173,6 +173,11 @@ export type User = {
   // the storage limit (app/api/photos/start). Each lasts as long as its
   // upload address; finishing the upload removes it.
   pendingUploads?: { file: string; bytes: number; expires: number }[];
+  // Folio AGENTS switched on for this account by a Folio admin (agentsAllowed
+  // in lib/plans.ts). Missing means off.
+  agents?: { enabled: boolean; at: string; by: string };
+  // What the agents may use in replies: rates, tone and rules. Written by the photographer on the Your business page.
+  business?: { rates: string; tone: string; rules: string; updatedAt: string };
 };
 
 // One-time links for password resets and email verification. Only a hash of
@@ -323,6 +328,11 @@ export async function deleteUsers(ids: string[]) {
       // Remember the address, so it stays unavailable for a while
       // (subdomainOnHold). An admin's extra site leaves it free for that admin.
       if (rows[0]) {
+        // The agents' records go with the account (a legal hold, which skips
+        // this block, keeps them).
+        for (const table of ["agent_tasks", "approvals", "agent_runs", "agent_chat"]) {
+          await query(`delete from ${table} where user_id = $1`, [id]);
+        }
         await query("insert into storage_cleanup (user_id) values ($1) on conflict do nothing", [id]);
         await query(
           "insert into released_subdomains (subdomain, user_id) values ($1, $2) on conflict (subdomain) do update set released_at = now(), user_id = $2",
@@ -916,4 +926,456 @@ export async function logAdminView(entry: { adminEmail: string; userId: string; 
      )`,
     [randomUUID(), entry.adminEmail, entry.userId, entry.subdomain],
   );
+}
+
+// ---- Agents ----
+// Every function below that concerns one account takes its id and puts
+// `user_id = $n` in the SQL, so a row id from another account finds nothing.
+
+const iso = (d: Date | string) => new Date(d).toISOString();
+const isoOrNull = (d: Date | string | null) => (d ? iso(d) : null);
+
+export type AgentTask = {
+  id: string;
+  userId: string;
+  agent: string;
+  status: "queued" | "running" | "done" | "failed" | "stopped";
+  input: unknown;
+  result: unknown | null;
+  error: string | null;
+  attempts: number;
+  parentTaskId: string | null;
+  createdAt: string;
+  claimedAt: string | null;
+  finishedAt: string | null;
+};
+
+type AgentTaskRow = {
+  id: string;
+  user_id: string;
+  agent: string;
+  status: AgentTask["status"];
+  input: unknown;
+  result: unknown | null;
+  error: string | null;
+  attempts: number;
+  parent_task_id: string | null;
+  created_at: Date | string;
+  claimed_at: Date | string | null;
+  finished_at: Date | string | null;
+};
+const toAgentTask = (r: AgentTaskRow): AgentTask => ({
+  id: r.id,
+  userId: r.user_id,
+  agent: r.agent,
+  status: r.status,
+  input: r.input,
+  result: r.result ?? null,
+  error: r.error,
+  attempts: r.attempts,
+  parentTaskId: r.parent_task_id,
+  createdAt: iso(r.created_at),
+  claimedAt: isoOrNull(r.claimed_at),
+  finishedAt: isoOrNull(r.finished_at),
+});
+
+export async function createAgentTask(input: { userId: string; agent: string; input: unknown; parentTaskId?: string }) {
+  const db = await database();
+  const { rows } = await db.query<AgentTaskRow>(
+    "insert into agent_tasks (id, user_id, agent, input, parent_task_id) values ($1, $2, $3, $4, $5) returning *",
+    [randomUUID(), input.userId, input.agent, JSON.stringify(input.input), input.parentTaskId ?? null],
+  );
+  return toAgentTask(rows[0]);
+}
+
+export async function findAgentTask(userId: string, id: string) {
+  const db = await database();
+  const { rows } = await db.query<AgentTaskRow>("select * from agent_tasks where id = $1 and user_id = $2", [id, userId]);
+  return rows[0] ? toAgentTask(rows[0]) : null;
+}
+
+export async function listAgentTasks(userId: string, limit = 50) {
+  const db = await database();
+  const { rows } = await db.query<AgentTaskRow>(
+    "select * from agent_tasks where user_id = $1 order by created_at desc, id limit $2",
+    [userId, limit],
+  );
+  return rows.map(toAgentTask);
+}
+
+// Only a queued or running task changes, so a stopped task stays stopped even
+// if the agent finishes after the stop. Returns whether anything changed.
+export async function finishAgentTask(
+  userId: string,
+  id: string,
+  outcome: { status: "done" | "failed"; result?: unknown; error?: string },
+) {
+  const db = await database();
+  const { rows } = await db.query(
+    `update agent_tasks set status = $3, result = $4, error = $5, finished_at = now()
+     where id = $1 and user_id = $2 and status in ('queued', 'running') returning id`,
+    [id, userId, outcome.status, outcome.result === undefined ? null : JSON.stringify(outcome.result), outcome.error ?? null],
+  );
+  return rows.length > 0;
+}
+
+// How many tasks this one has queued for other agents (the manager's cap).
+export async function countChildAgentTasks(userId: string, parentTaskId: string) {
+  const db = await database();
+  const { rows } = await db.query<{ n: string | number }>(
+    "select count(*) as n from agent_tasks where user_id = $1 and parent_task_id = $2",
+    [userId, parentTaskId],
+  );
+  return Number(rows[0].n);
+}
+
+export async function stopAgentTask(userId: string, id: string) {
+  const db = await database();
+  const { rows } = await db.query(
+    `update agent_tasks set status = 'stopped', finished_at = now()
+     where id = $1 and user_id = $2 and status in ('queued', 'running') returning id`,
+    [id, userId],
+  );
+  return rows.length > 0;
+}
+
+// The one agent-task function deliberately not scoped to one account: the
+// background worker serves every account's queue, so it takes the oldest ready
+// task of anyone. It then acts only through the task's own user_id. A queued
+// task is ready when claimed_at is null or has passed (see requeueAgentTask).
+// `skip locked` means two workers never take the same row.
+export async function claimNextAgentTask() {
+  const db = await database();
+  const { rows } = await db.query<AgentTaskRow>(
+    `update agent_tasks set status = 'running', claimed_at = now(), attempts = attempts + 1
+     where id = (
+       select id from agent_tasks
+       where status = 'queued' and (claimed_at is null or claimed_at <= now())
+       order by created_at, id limit 1 for update skip locked
+     ) returning *`,
+  );
+  return rows[0] ? toAgentTask(rows[0]) : null;
+}
+
+// Takes one named queued task for a caller that runs it right away (chat).
+// The guarded update means chat and the worker can't both take a task.
+export async function claimAgentTask(userId: string, id: string) {
+  const db = await database();
+  const { rows } = await db.query(
+    `update agent_tasks set status = 'running', claimed_at = now(), attempts = attempts + 1
+     where id = $1 and user_id = $2 and status = 'queued' returning id`,
+    [id, userId],
+  );
+  return rows.length > 0;
+}
+
+// Running back to queued, to try again later. A queued task isn't claimable
+// until claimed_at has passed, so the column doubles as "not before".
+export async function requeueAgentTask(userId: string, id: string, notBefore: Date) {
+  const db = await database();
+  const { rows } = await db.query(
+    `update agent_tasks set status = 'queued', claimed_at = $3
+     where id = $1 and user_id = $2 and status = 'running' returning id`,
+    [id, userId, notBefore],
+  );
+  return rows.length > 0;
+}
+
+// Running tasks claimed before `olderThan` were abandoned (the function was
+// killed): back to the queue, or failed as 'stuck' after maxAttempts tries.
+export async function recoverStuckAgentTasks(olderThan: Date, maxAttempts: number) {
+  const db = await database();
+  const { rows } = await db.query(
+    `update agent_tasks set
+       status = case when attempts < $2 then 'queued' else 'failed' end,
+       error = case when attempts < $2 then error else 'stuck' end,
+       finished_at = case when attempts < $2 then null else now() end
+     where status = 'running' and claimed_at < $1 returning id`,
+    [olderThan, maxAttempts],
+  );
+  return rows.length;
+}
+
+// A cheap read, made before every model call so a stop takes effect quickly.
+export async function isAgentTaskStopped(userId: string, id: string) {
+  const db = await database();
+  const { rows } = await db.query("select 1 from agent_tasks where id = $1 and user_id = $2 and status = 'stopped'", [
+    id,
+    userId,
+  ]);
+  return rows.length > 0;
+}
+
+export type Approval = {
+  id: string;
+  userId: string;
+  taskId: string | null;
+  kind: string;
+  summary: string;
+  action: unknown;
+  actionHash: string;
+  status: "pending" | "approved" | "rejected" | "used";
+  createdAt: string;
+  decidedAt: string | null;
+  decidedBy: string | null;
+  usedAt: string | null;
+  outcome: "done" | "failed" | null;
+};
+
+type ApprovalRow = {
+  id: string;
+  user_id: string;
+  task_id: string | null;
+  kind: string;
+  summary: string;
+  action: unknown;
+  action_hash: string;
+  status: Approval["status"];
+  created_at: Date | string;
+  decided_at: Date | string | null;
+  decided_by: string | null;
+  used_at: Date | string | null;
+  outcome: Approval["outcome"];
+};
+const toApproval = (r: ApprovalRow): Approval => ({
+  id: r.id,
+  userId: r.user_id,
+  taskId: r.task_id,
+  kind: r.kind,
+  summary: r.summary,
+  action: r.action,
+  actionHash: r.action_hash,
+  status: r.status,
+  createdAt: iso(r.created_at),
+  decidedAt: isoOrNull(r.decided_at),
+  decidedBy: r.decided_by,
+  usedAt: isoOrNull(r.used_at),
+  outcome: r.outcome ?? null,
+});
+
+export async function createApproval(input: {
+  userId: string;
+  taskId?: string;
+  kind: string;
+  summary: string;
+  action: unknown;
+  actionHash: string;
+}) {
+  const db = await database();
+  const { rows } = await db.query<ApprovalRow>(
+    `insert into approvals (id, user_id, task_id, kind, summary, action, action_hash)
+     values ($1, $2, $3, $4, $5, $6, $7)
+     on conflict (task_id, action_hash) where status = 'pending' do nothing returning *`,
+    [
+      randomUUID(),
+      input.userId,
+      input.taskId ?? null,
+      input.kind,
+      input.summary,
+      JSON.stringify(input.action),
+      input.actionHash,
+    ],
+  );
+  if (rows[0]) return toApproval(rows[0]);
+  // The same task already proposed this (it was retried): that request stands.
+  const existing = await db.query<ApprovalRow>(
+    "select * from approvals where user_id = $1 and task_id = $2 and action_hash = $3 and status = 'pending'",
+    [input.userId, input.taskId ?? null, input.actionHash],
+  );
+  return toApproval(existing.rows[0]);
+}
+
+export async function findApproval(userId: string, id: string) {
+  const db = await database();
+  const { rows } = await db.query<ApprovalRow>("select * from approvals where id = $1 and user_id = $2", [id, userId]);
+  return rows[0] ? toApproval(rows[0]) : null;
+}
+
+export async function listApprovals(userId: string, status?: Approval["status"], limit = 50) {
+  const db = await database();
+  const { rows } = await db.query<ApprovalRow>(
+    `select * from approvals where user_id = $1 and ($2::text is null or status = $2)
+     order by created_at desc, id limit $3`,
+    [userId, status ?? null, limit],
+  );
+  return rows.map(toApproval);
+}
+
+// The only two ways an approval changes state; only lib/agents/approvals.ts
+// calls them (tests/agent-approvals.test.ts checks that). Each is one update
+// guarded by the status it expects, so two requests at once can't both win.
+export async function decideApproval(userId: string, id: string, decision: "approved" | "rejected", decidedBy: string) {
+  const db = await database();
+  const { rows } = await db.query<ApprovalRow>(
+    `update approvals set status = $3, decided_at = now(), decided_by = $4
+     where id = $1 and user_id = $2 and status = 'pending' returning *`,
+    [id, userId, decision, decidedBy],
+  );
+  return rows[0] ? toApproval(rows[0]) : null;
+}
+
+export async function consumeApproval(userId: string, id: string) {
+  const db = await database();
+  const { rows } = await db.query<ApprovalRow>(
+    `update approvals set status = 'used', used_at = now()
+     where id = $1 and user_id = $2 and status = 'approved' returning *`,
+    [id, userId],
+  );
+  return rows[0] ? toApproval(rows[0]) : null;
+}
+
+export async function setApprovalOutcome(userId: string, id: string, outcome: "done" | "failed") {
+  const db = await database();
+  await db.query("update approvals set outcome = $3 where id = $1 and user_id = $2", [id, userId, outcome]);
+}
+
+// A run still going when its account is deleted can write after the deletion.
+// The daily job removes those leftovers, so nothing outlives the account.
+export async function deleteOrphanedAgentRows() {
+  const db = await database();
+  let removed = 0;
+  for (const table of ["agent_tasks", "approvals", "agent_runs", "agent_chat"]) {
+    const { rows } = await db.query(`delete from ${table} t where not exists (select 1 from users u where u.id = t.user_id) returning 1`);
+    removed += rows.length;
+  }
+  return removed;
+}
+
+export type AgentRun = {
+  id: string;
+  userId: string;
+  taskId: string | null;
+  agent: string;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  costMicros: number;
+  stopReason: string | null;
+  createdAt: string;
+};
+
+type AgentRunRow = {
+  id: string;
+  user_id: string;
+  task_id: string | null;
+  agent: string;
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+  cost_micros: number | string; // bigint arrives as a string from pg
+  stop_reason: string | null;
+  created_at: Date | string;
+};
+const toAgentRun = (r: AgentRunRow): AgentRun => ({
+  id: r.id,
+  userId: r.user_id,
+  taskId: r.task_id,
+  agent: r.agent,
+  model: r.model,
+  inputTokens: r.input_tokens,
+  outputTokens: r.output_tokens,
+  cacheReadTokens: r.cache_read_tokens,
+  cacheWriteTokens: r.cache_write_tokens,
+  costMicros: Number(r.cost_micros),
+  stopReason: r.stop_reason,
+  createdAt: iso(r.created_at),
+});
+
+export async function recordAgentRun(input: {
+  userId: string;
+  taskId?: string;
+  agent: string;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  costMicros: number;
+  stopReason: string | null;
+}) {
+  const db = await database();
+  const { rows } = await db.query<AgentRunRow>(
+    `insert into agent_runs (id, user_id, task_id, agent, model, input_tokens, output_tokens,
+       cache_read_tokens, cache_write_tokens, cost_micros, stop_reason)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) returning *`,
+    [
+      randomUUID(),
+      input.userId,
+      input.taskId ?? null,
+      input.agent,
+      input.model,
+      input.inputTokens,
+      input.outputTokens,
+      input.cacheReadTokens,
+      input.cacheWriteTokens,
+      input.costMicros,
+      input.stopReason,
+    ],
+  );
+  return toAgentRun(rows[0]);
+}
+
+// What this account's agents have cost since `since`, in millionths of a dollar.
+export async function agentCostSince(userId: string, since: Date) {
+  const db = await database();
+  const { rows } = await db.query<{ total: string | number | null }>(
+    "select sum(cost_micros) as total from agent_runs where user_id = $1 and created_at >= $2",
+    [userId, since.toISOString()],
+  );
+  return Number(rows[0]?.total ?? 0);
+}
+
+export type AgentChatMessage = {
+  id: string;
+  userId: string;
+  role: "user" | "assistant";
+  text: string;
+  taskId: string | null;
+  createdAt: string;
+};
+
+type AgentChatRow = {
+  id: string;
+  user_id: string;
+  role: AgentChatMessage["role"];
+  text: string;
+  task_id: string | null;
+  created_at: Date | string;
+};
+const toAgentChat = (r: AgentChatRow): AgentChatMessage => ({
+  id: r.id,
+  userId: r.user_id,
+  role: r.role,
+  text: r.text,
+  taskId: r.task_id,
+  createdAt: iso(r.created_at),
+});
+
+export async function addAgentChatMessage(input: {
+  userId: string;
+  role: AgentChatMessage["role"];
+  text: string;
+  taskId?: string;
+}) {
+  const db = await database();
+  const { rows } = await db.query<AgentChatRow>(
+    "insert into agent_chat (id, user_id, role, text, task_id) values ($1, $2, $3, $4, $5) returning *",
+    [randomUUID(), input.userId, input.role, input.text, input.taskId ?? null],
+  );
+  return toAgentChat(rows[0]);
+}
+
+// The newest `limit` messages, oldest first.
+export async function listAgentChat(userId: string, limit = 100) {
+  const db = await database();
+  const { rows } = await db.query<AgentChatRow>(
+    `select * from (select * from agent_chat where user_id = $1 order by created_at desc, id desc limit $2) newest
+     order by created_at, id`,
+    [userId, limit],
+  );
+  return rows.map(toAgentChat);
 }

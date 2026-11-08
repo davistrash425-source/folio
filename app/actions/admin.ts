@@ -293,6 +293,24 @@ export async function letPaymentsDecide(formData: FormData) {
   backTo(user, `Payments decide this account's plan again. It is on ${name}.`);
 }
 
+// Turns Folio AGENTS on or off for one account. Anything but "on" turns them off.
+export async function setAgentsAccess(formData: FormData) {
+  const admin = await requireFullAdmin();
+  const user = await accountFrom(formData);
+  const enabled = str(formData, "enabled", 10) === "on";
+  await updateUser(user.id, (u) => {
+    u.agents = { enabled, at: new Date().toISOString(), by: admin.email };
+  }, { publicChange: false });
+  await logAdminAction({
+    adminEmail: admin.email,
+    userId: user.id,
+    subdomain: user.subdomain,
+    action: "agents-access",
+    detail: enabled ? "Agents on" : "Agents off",
+  });
+  backTo(user, `Agents are now ${enabled ? "on" : "off"} for this account.`);
+}
+
 export async function releaseLegalHold(formData: FormData) {
   const admin = await requireFullAdmin();
   const user = await accountFrom(formData);

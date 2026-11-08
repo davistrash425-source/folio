@@ -175,11 +175,30 @@ const SECONDARY = [
   { href: "/dashboard/manage/account", label: "Account" },
 ];
 
-export function SideNav({ unread, done }: { unread: number; done?: boolean[] }) {
-  return <SideNavView unread={unread} done={done} pathname={usePathname()} />;
+// Only for accounts with Folio AGENTS switched on (agentsAllowed).
+const AGENT_LINKS = [
+  { href: "/dashboard/manage/agent", label: "Agent" },
+  { href: "/dashboard/manage/approvals", label: "Approvals" },
+  { href: "/dashboard/manage/business", label: "Your business" },
+];
+
+export type AgentNav = { pending: number };
+
+export function SideNav({ unread, done, agents }: { unread: number; done?: boolean[]; agents?: AgentNav }) {
+  return <SideNavView unread={unread} done={done} agents={agents} pathname={usePathname()} />;
 }
 
-export function SideNavView({ unread, done = [], pathname }: { unread: number; done?: boolean[]; pathname: string }) {
+export function SideNavView({
+  unread,
+  done = [],
+  agents,
+  pathname,
+}: {
+  unread: number;
+  done?: boolean[];
+  agents?: AgentNav;
+  pathname: string;
+}) {
   const finished = done.filter(Boolean).length;
   // Numbered like frames on a contact sheet, each in its own box so they read
   // as steps. Finished steps tick themselves off; the boxes are all one size
@@ -210,7 +229,7 @@ export function SideNavView({ unread, done = [], pathname }: { unread: number; d
     );
   };
   // Messages and Account aren't steps, so they're plain links without numbers.
-  const other = (s: (typeof SECONDARY)[number]) => {
+  const other = (s: { href: string; label: string }) => {
     const active = pathname.startsWith(s.href);
     return (
       <li key={s.href} className="shrink-0">
@@ -224,6 +243,9 @@ export function SideNavView({ unread, done = [], pathname }: { unread: number; d
           <span className="flex-1">{s.label}</span>
           {s.label === "Messages" && unread > 0 && (
             <span className="label bg-accent px-1.5 text-paper">{unread} new</span>
+          )}
+          {s.label === "Approvals" && agents && agents.pending > 0 && (
+            <span className="label bg-accent px-1.5 text-paper">{agents.pending} new</span>
           )}
         </Link>
       </li>
@@ -239,6 +261,12 @@ export function SideNavView({ unread, done = [], pathname }: { unread: number; d
         {STEPS.map((s, i) => step(s, i + 1))}
         <li aria-hidden="true" className="hidden md:my-3 md:block md:border-t md:border-rule" />
         {SECONDARY.map(other)}
+        {agents && (
+          <>
+            <li aria-hidden="true" className="hidden md:my-3 md:block md:border-t md:border-rule" />
+            {AGENT_LINKS.map(other)}
+          </>
+        )}
       </ul>
     </nav>
   );

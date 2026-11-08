@@ -7,6 +7,7 @@ import {
   deleteAccountAsAdmin,
   letPaymentsDecide,
   placeLegalHold,
+  setAgentsAccess,
   setPlan,
   releaseLegalHold,
   resendAccountVerification,
@@ -258,6 +259,17 @@ async function SiteView({ params, searchParams }: PageProps<"/admin/sites/[subdo
                   <SecondaryButton type="submit">Let payments decide</SecondaryButton>
                 </form>
               )}
+            </div>
+          </Card>
+
+          <Card title="Folio AGENTS" subtitle="Lets this account use the agents. Off for everyone until you turn it on.">
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-sm">Agents: {user.agents?.enabled ? "on" : "off"}</p>
+              <form action={setAgentsAccess}>
+                <UserId id={user.id} />
+                <input type="hidden" name="enabled" value={user.agents?.enabled ? "off" : "on"} />
+                <SecondaryButton type="submit">{user.agents?.enabled ? "Turn agents off" : "Turn agents on"}</SecondaryButton>
+              </form>
             </div>
           </Card>
 

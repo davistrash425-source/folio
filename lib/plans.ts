@@ -60,6 +60,17 @@ export function galleriesOpen(user: Pick<User, "plan">) {
   return galleryLimit(user) > 0;
 }
 
+// The emergency off switch for all of Folio AGENTS (takes effect on the next deploy).
+export function agentsPaused() {
+  return process.env.AGENTS_PAUSED === "1";
+}
+
+// Whether this account may use the agents. Off unless a Folio admin turned it
+// on (setAgentsAccess in app/actions/admin.ts); a suspended account never can.
+export function agentsAllowed(user: Pick<User, "agents" | "suspended">) {
+  return !agentsPaused() && user.agents?.enabled === true && !user.suspended;
+}
+
 export function photoLimitMessage(user: Pick<User, "plan">) {
   return `You've reached the limit of ${photoLimit(user).toLocaleString("en-US")} photos. Delete some to make room.`;
 }

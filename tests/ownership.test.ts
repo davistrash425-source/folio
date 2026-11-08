@@ -20,7 +20,9 @@ import {
   updatePhotos,
 } from "../app/actions/site.ts";
 import { discardDraftDesign, publishDesign, saveDraftDesign, undoDesign } from "../app/actions/design.ts";
-import { findUserById, updateUser } from "../lib/db.ts";
+import { approve, reject, reviseNote, stopTask } from "../app/actions/agents.ts";
+import { proposeAction } from "../lib/agents/approvals.ts";
+import { createAgentTask, findAgentTask, findApproval, findUserById, updateUser } from "../lib/db.ts";
 import { galleryPhotos, presetDesign, visibleAlbums, type GallerySection } from "../lib/design.ts";
 import { loadSite, siteData } from "../lib/public-site.ts";
 import {
@@ -108,6 +110,31 @@ test("Bob's design changes, going live and undoing never touch Alice's site", as
   assert.equal((await findUserById(w.bob.id))!.profile.name, "Bob Renamed");
   assert.ok(siteData((await findUserById(w.alice.id))!), "Alice's site is still online");
   assert.equal(siteData((await findUserById(w.bob.id))!), null, "Bob's site is offline");
+});
+
+// ── The agents: Alice's approvals and tasks, seen from Bob's login ──────
+
+test("Bob can't approve, reject, edit or stop Alice's agent requests and tasks", async () => {
+  const w = await world();
+  for (const id of [w.alice.id, w.bob.id]) {
+    await updateUser(id, (u) => {
+      u.agents = { enabled: true, at: new Date().toISOString(), by: "test" };
+    });
+  }
+  const approval = await proposeAction({ userId: w.alice.id, kind: "save_note", summary: "x", action: { text: "y" } });
+  const task = await createAgentTask({ userId: w.alice.id, agent: "assistant", input: { text: "hi" } });
+  const alice = await findUserById(w.alice.id);
+  const bob = await findUserById(w.bob.id);
+
+  assert.ok((await approve(approval.id)).error);
+  assert.ok((await reject(approval.id)).error);
+  assert.ok((await reviseNote(approval.id, "changed")).error);
+  await stopTask(task.id); // answers "Stopped." even for a task it can't find, so check the row below
+
+  assert.equal((await findApproval(w.alice.id, approval.id))?.status, "pending", "Alice's request changed");
+  assert.equal((await findAgentTask(w.alice.id, task.id))?.status, "queued", "Alice's task was stopped");
+  assert.deepEqual(await findUserById(w.alice.id), alice, "Alice's account changed");
+  assert.deepEqual(await findUserById(w.bob.id), bob, "Bob's own account changed");
 });
 
 // ── Pointing Bob's own things at Alice's ────────────────────────────────

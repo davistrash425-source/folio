@@ -1,5 +1,27 @@
 # Handoff
 
+## Folio AGENTS phase 1 build (Nov 8, 2026): Status: complete, waiting on owner (worktree branch `claude/folio-agents-build-plan-fe7acb`, nothing committed yet)
+- **Result:** packages 1.1 to 1.11 done. tsc, eslint, 695 tests and the build pass. Off for every account until an admin flips "Folio AGENTS" on the admin site page.
+- **Owner next:** (1) say whether to commit and open a PR; (2) package 0.6: create an Anthropic key with a spend limit, add `ANTHROPIC_API_KEY` to Vercel Production only. The first real chat is the first real API test; the request shape matches the docs but has never been accepted by the live API.
+- **Review:** Fable 5.1 was out of credits, so a fresh Opus 5.5 session did 1.11. No critical or high findings. Fixed: empty replies, duplicate proposals on retry, approvals described from the action not the model's summary, impersonation check order, stop before tools, late-write sweep, export (`agents.json`), `outcome` column, chat ordering, per-message dates for caching, run deadlines.
+- **Left for later:** Fallback-attempt billing in `usage.iterations` isn't summed (needs a real response to confirm the shape). Phase 5's scheduler must not run rows left `approved` by a crash (it needs its own schedule marker). Privacy page should mention agent data for the lawyer.
+- **Goal:** owner said "start phase 1" of https://claude.ai/artifact/Jraesxn3c3ZSzJoB6Xaaet (packages 1.1 to 1.11, each with its named writer and a different checker).
+- **Done (not committed):** 1.1 tables (`lib/pg.ts`, `lib/db.ts`, `tests/agent-store.test.ts`, checked by Opus). 1.2 switch (`agentsAllowed` in `lib/plans.ts`, `setAgentsAccess`, admin card, `tests/agent-access.test.ts`; Sonnet is reviewing it). 1.3 gate (`lib/agents/approvals.ts`, `executors.ts`, `tests/agent-approvals.test.ts`) and 1.4 runner (`lib/agents/runner.ts`, `models.ts`, `tests/agent-runner.test.ts`, `tests/agent-helpers.ts`): 32 tests pass, tsc clean, still to be checked in 1.11. Added `@anthropic-ai/sdk` 1.6.0.
+- **Also done (not committed), reviewed:** 1.5 caps (`lib/agents/limits.ts`), 1.6 queue (`lib/agents/worker.ts`, `registry.ts`, `app/api/cron/agents`), 1.7 business page (`app/actions/business.ts`, `app/dashboard/manage/business/`).
+- **Also done (not committed):** 1.8 manager (`lib/agents/main.ts`), 1.9 pages (`app/api/agents/chat`, `app/actions/agents.ts`, `manage/agent`, `manage/approvals`, nav), 1.10 access tests. Pages checked in Chrome on a throwaway local account (data/ is git-ignored).
+- **Real-API gotcha fixed:** strict tools and structured output answer 400 to min/max length keywords; `forApi` in `runner.ts` strips them. Nothing has run against the real API yet (no key): first real chat needs package 0.6.
+- **In progress:** 1.11 Fable review plus the full checks. Then fix findings, update backlog (both places), plan doc rows, CLAUDE.md env table (`ANTHROPIC_API_KEY`, `AGENTS_PAUSED`, `AGENTS_MONTHLY_LIMIT_USD`). Gotcha: with cacheComponents, pages must call `requireUser()` inside a `<Suspense>` child, as `manage/account/page.tsx` does.
+- **Changed from the plan:** queue cron is every 10 minutes, not every minute, so Neon can sleep; update the plan doc's 1.6 row. Chat runs inline and reports step by step (not word by word).
+- **Decisions / gotchas:** table shapes are agent_tasks, approvals, agent_runs, agent_chat. Approval decide/consume SQL is added in 1.3; queue claim in 1.6. `ANTHROPIC_API_KEY` isn't set anywhere yet: tests use a fake API, real runs need owner's package 0.6.
+- **Open questions:** none blocking; see the plan doc's open questions.
+
+## Folio AGENTS build plan through phase 3 (Nov 8, 2026): Status: complete, waiting on owner's answers (worktree branch `claude/folio-agents-build-plan-fe7acb`)
+- **Goal:** owner asked for a detailed build plan up to phase 3, from the Claude Doc "Folio AGENTS — Status and Plan" (https://claude.ai/artifact/MqJkUmrjvCm4yRYyLrLNCX), saying which model writes or does each part.
+- **Done:** new Claude Doc "Folio AGENTS — Build Plan through Phase 3" (https://claude.ai/artifact/Jraesxn3c3ZSzJoB6Xaaet, doc body node `fe6e9adb-42d6`). No code written.
+- **In progress:** nothing. Next step is the owner's go-ahead, then package 1.1. The six example messages come from `Folio AGENTS.docx` in the owner's Downloads (not opened in this session).
+- **Decisions / gotchas:** 38 packages (phases 0 to 3). Writers: Opus 5.5 for approval gate, runner, inbound mail, mail-move runbook; Sonnet 5.5 for most code; Haiku 5.5 for pattern work; Fable 5.1 for two read-only reviews; DeepSeek only on packages marked Yes/Tests first. Previews share the production database and `lib/pg.ts` runs SCHEMA on connect, so new tables must be additive.
+- **Open questions:** decision 3 (name@folio.cam on the root domain or a subdomain), decisions 4 to 6, lawyer sign-off before the beta.
+
 ## Finishing the owner to-do list (Nov 4, 2026): in progress (worktree branch `claude/project-status-50d31e`)
 - **Goal:** owner wants the rest of this session spent completing: lawyer changes to legal pages, Cloudflare purge env vars, a real Google Drive upload test, the Nov 30 downgrade check, and the two backlog decisions.
 - **Decisions (owner, Nov 4):** a full refund in Polar ends Pro right away (drop to Free; nothing deleted). Photos that are in a client gallery and not placed on the public site are left out of the public "all photos" page, plus a per-photo "Hide from site" toggle. Lawyer wants changes and to see the pages again, so `LEGAL_DRAFT` stays true.

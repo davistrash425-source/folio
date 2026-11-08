@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { requireUser } from "@/lib/auth";
+import { listApprovals } from "@/lib/db";
+import { agentsAllowed } from "@/lib/plans";
 import { isPublished, SUPPORT_EMAIL } from "@/lib/site";
 import { completedSteps } from "@/lib/steps";
 import { SideNav, SideNavView } from "../nav";
@@ -26,7 +28,9 @@ export default function ManageLayout({ children }: LayoutProps<"/dashboard/manag
 
 async function SideNavWithCounts() {
   const user = await requireUser();
-  return <SideNav unread={(user.inquiries ?? []).filter((i) => !i.read).length} done={completedSteps(user)} />;
+  // Only asked for when the agents are on, so other accounts see no change.
+  const agents = agentsAllowed(user) ? { pending: (await listApprovals(user.id, "pending")).length } : undefined;
+  return <SideNav unread={(user.inquiries ?? []).filter((i) => !i.read).length} done={completedSteps(user)} agents={agents} />;
 }
 
 async function AccountNotices() {

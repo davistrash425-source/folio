@@ -67,7 +67,7 @@ test("the export is a zip of the signed-in user's account and original photos", 
   const files = readZip(Buffer.from(await res.arrayBuffer()));
   const first = `photos/001-${dunes.photo.id}.jpg`;
   const second = `photos/002-${coast.photo.id}.jpg`;
-  assert.deepEqual([...files.keys()], ["account.json", first, second]);
+  assert.deepEqual([...files.keys()], ["account.json", "agents.json", first, second]);
   assert.ok(files.get(first)!.equals(dunes.original), "photos are the originals, byte for byte");
   assert.ok(files.get(second)!.equals(coast.original));
 
@@ -151,7 +151,7 @@ test("the export still works when a photo's file is missing from the disk", asyn
   assert.equal(res.status, 200);
   const files = readZip(Buffer.from(await res.arrayBuffer()));
   // The download says what's missing, so the owner knows it's incomplete.
-  assert.deepEqual([...files.keys()], ["account.json", `photos/002-${kept.photo.id}.jpg`, "MISSING-FILES.txt"]);
+  assert.deepEqual([...files.keys()], ["account.json", "agents.json", `photos/002-${kept.photo.id}.jpg`, "MISSING-FILES.txt"]);
   assert.match(files.get("MISSING-FILES.txt")!.toString(), new RegExp(`photos/001-${lost.photo.id}\\.jpg`));
   assert.equal(JSON.parse(files.get("account.json")!.toString()).photos.length, 2, "the record is still listed");
 });

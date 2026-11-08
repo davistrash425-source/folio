@@ -115,7 +115,7 @@ test("the daily job only runs for Vercel's cron, with the secret", async (t) => 
   assert.equal((await call("Bearer wrong")).status, 404);
   const ok = await call("Bearer s3cret");
   assert.equal(ok.status, 200);
-  assert.deepEqual(Object.keys(await ok.json()), ["closedAccounts", "unfinishedUploads", "draftReminders", "orphanedWebCopies"]);
+  assert.deepEqual(Object.keys(await ok.json()), ["closedAccounts", "unfinishedUploads", "draftReminders", "orphanedWebCopies", "orphanedAgentRows"]);
 });
 
 test("two reminder runs at the same time still send one email", async (t) => {

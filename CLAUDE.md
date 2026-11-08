@@ -80,6 +80,11 @@ So server actions (`app/actions/*`) and route handlers are called directly as fu
   - Without R2, `PhotoUploader` (`app/dashboard/photo-uploader.tsx`) falls back to the `uploadPhotos` form action.
   - Visitors load web copies from the site's own host (`/_photos/…`, which `next.config.ts` rewrites to `R2_PUBLIC_URL`); `photoUrl` in `lib/uploads.ts` builds those addresses.
 
+**Folio AGENTS (phase 1 built; off for every account until an admin switches one on).** An AI manager a photographer chats with at `/dashboard/manage/agent`. Plan: the Claude Docs "Folio AGENTS — Status and Plan" and "Build Plan through Phase 3".
+- **Agents can only propose.** `lib/agents/approvals.ts` is the gate: `approveAction` reads the login cookie itself, so a background worker can't approve, and `runApproved` uses an approval up in one guarded update before running it, so it runs at most once and is never retried. The stored action must still match its hash. `tests/agent-approvals.test.ts` also fails if anything else reaches `consumeApproval`, `decideApproval` or `lib/agents/executors.ts`. Anything that sends, posts or books is added as an executor, nowhere else.
+- `lib/agents/runner.ts` is the only file that calls Anthropic: our own loop, which before each model call checks for a stop, the run's token cap and `spendingBlock` (`lib/agents/limits.ts`). Tools live with their agent (`lib/agents/main.ts`). `forApi` removes schema keywords strict mode rejects; zod still enforces them on our side.
+- Chat runs inline (`app/api/agents/chat`, reporting step by step). Other tasks wait in `agent_tasks` for `/api/cron/agents`, every 10 minutes so Neon can sleep. Tests fake the API with `fakeApi` in `tests/agent-helpers.ts`.
+
 **Swappable services.** Each production service is switched on by its env vars and has a local stand-in when they're missing:
 - `sendEmail` in `lib/email.ts` uses Resend, and otherwise logs to the console (and throws in production).
 - `rateLimit` in `lib/rate-limit.ts` is async. It uses Upstash Redis, and otherwise counts in memory. If Redis is unreachable it falls back to memory rather than locking users out.
@@ -107,6 +112,10 @@ So server actions (`app/actions/*`) and route handlers are called directly as fu
 | `GOOGLE_PICKER_API_KEY` | Browser API key (Picker API + Drive API) for "Choose from Google Drive" on the upload page (`lib/google-drive.ts`); also needs `GOOGLE_CLIENT_ID` and the `drive.file` scope on the consent screen | No Drive button |
 | `MAINTENANCE_MODE` | `1` takes everything offline (`lib/maintenance.ts`): every page of the app and of every site answers 503 with a "back soon" page (`proxy.ts`), except `/terms`, `/privacy`, `/copyright` and the `/report` forms on the app host (`openDuringMaintenance`) and `/_photos` stops loading (`next.config.ts`); `/api` (billing webhooks, cron) keeps working. Takes effect on the next deploy | Normal |
 | `NEXT_PUBLIC_SENTRY_DSN` | Error reports to Sentry (`lib/sentry.ts`, `instrumentation.ts`, `instrumentation-client.ts`, `app/global-error.tsx`) | Nothing is sent |
+
+| `ANTHROPIC_API_KEY` | Folio AGENTS' calls to Claude (`lib/agents/runner.ts`). Keep it off Preview: previews share production's database | Agent runs fail with a friendly message |
+| `AGENTS_PAUSED` | `1` turns all of Folio AGENTS off (`agentsPaused` in `lib/plans.ts`); takes effect on the next deploy | On for accounts switched on |
+| `AGENTS_MONTHLY_LIMIT_USD` | Per-account monthly spending limit (`lib/agents/limits.ts`) | $15 |
 
 `NEW_SITES_START_PUBLISHED` in `lib/site.ts` decides whether new sites start live or as drafts.
 
