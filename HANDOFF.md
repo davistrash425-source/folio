@@ -1,5 +1,11 @@
 # Handoff
 
+## Collapsible bottom preview in the design editor (Nov 9, 2026): in progress (worktree branch `claude/folio-collapsible-preview`, off main bc2c038)
+- **Goal:** owner: when the screen is narrow and the preview docks at the bottom, make it collapsible, in the real editor too.
+- **Done:** `app/dashboard/design-editor.tsx` on this branch: Collapse / Show preview button; collapsed = slim bar at the bottom; replaces the Hide link and floating button. Same markup as the Agents branch `claude/folio-agents-artifact-update-123ac4` (1b92e6e), which already has it.
+- **Next:** owner OK'd shipping. PR from this branch; squash-merge once CI is green (merging deploys it). Lint, tsc, 552 tests, build and a temporary Playwright check at 800/390/1400px passed locally.
+- **Gotchas:** Artifact https://claude.ai/artifact/42s7E2wVdkZhy9srYzKo6Y has a Code switch (Agents / main); its source was in a session scratchpad, not the repo. PR #35 (Client galleries text) is merged and deployed.
+
 ## Artifact of the Folio UI (Nov 8, 2026): Status: complete
 - **Goal:** owner wanted a clickable Claude artifact of Folio's UI matching current `main` (cf82108), no "Folio Agents" (none exist on main; the parked AI box is left out).
 - **Done:** private artifact https://claude.ai/artifact/42s7E2wVdkZhy9srYzKo6Y (landing, pricing, log in, sign up, every Manage page, Web design, Preview; sample data). Checked in Chrome at about 850px wide. Only this note changed in the repo.

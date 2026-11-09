@@ -225,7 +225,7 @@ export function DesignEditor(props: {
 
       <div className="grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)] xl:grid-cols-[26rem_minmax(0,1fr)]">
         {/* Room below for the pinned preview on smaller screens. */}
-        <div className={`space-y-4 ${showPreview ? "max-lg:pb-[48vh]" : ""}`}>
+        <div className={`space-y-4 ${showPreview ? "max-lg:pb-[48vh]" : "max-lg:pb-16"}`}>
           <p className="text-sm text-ink-soft">
             Work through the steps below. Everything saves as a draft as you go; visitors see the changes only after you press Publish.
           </p>
@@ -517,46 +517,48 @@ export function DesignEditor(props: {
           )}
         </div>
 
-        {/* Beside the controls on large screens; pinned to the bottom below that, and can be hidden. */}
+        {/* Beside the controls on large screens; pinned to the bottom below that, where it collapses to a slim bar. */}
         <div
-          className={`min-w-0 lg:sticky lg:top-[calc(var(--dash-bar,4rem)+5rem)] lg:block lg:self-start ${
-            showPreview ? "max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-30 max-lg:flex max-lg:h-[45vh] max-lg:flex-col max-lg:border-t max-lg:border-ink max-lg:bg-paper max-lg:px-3 max-lg:pb-2 max-lg:pt-2" : "hidden"
+          className={`min-w-0 lg:sticky lg:top-[calc(var(--dash-bar,4rem)+5rem)] lg:block lg:self-start max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-30 max-lg:flex max-lg:flex-col max-lg:border-t max-lg:border-ink max-lg:bg-paper max-lg:px-3 ${
+            showPreview ? "max-lg:h-[45vh] max-lg:pb-2 max-lg:pt-2" : "max-lg:py-2"
           }`}
         >
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 lg:mb-3">
+          <div className={`mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 lg:mb-3 ${showPreview ? "" : "max-lg:mb-0"}`}>
             <p className="text-sm text-ink-soft">
               Preview: <span className="font-medium text-ink">{page.title}</span>
               {previewTheme ? ` in ${THEME_INFO[previewTheme].name} (Pro preview)` : unpublished ? " (draft)" : ""}
             </p>
             <div className="flex items-center gap-3">
-              <DeviceButtons device={device} onChange={setDevice} />
-              <button type="button" onClick={() => setShowPreview(false)} className="label text-ink-soft hover:text-ink lg:hidden">
-                Hide
+              <div className={showPreview ? "" : "max-lg:hidden"}>
+                <DeviceButtons device={device} onChange={setDevice} />
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPreview(!showPreview)}
+                aria-expanded={showPreview}
+                aria-controls="editor-preview"
+                className="label flex h-8 items-center gap-2 border border-ink px-2 text-ink hover:bg-ink hover:text-paper lg:hidden"
+              >
+                <span aria-hidden="true">{showPreview ? "▾" : "▴"}</span>
+                {showPreview ? "Collapse" : "Show preview"}
               </button>
             </div>
           </div>
           {previewTheme && (
-            <div className="mb-2">
+            <div className={`mb-2 ${showPreview ? "" : "max-lg:hidden"}`}>
               <ProPreviewNotice theme={previewTheme} onStop={() => setPreviewTheme(null)} />
             </div>
           )}
-          <DevicePreview
-            src="/site-preview"
-            device={device}
-            design={previewDesign}
-            path={page.slug}
-            className="max-lg:min-h-0 max-lg:flex-1 lg:h-[70vh] lg:min-h-[28rem]"
-          />
+          <div id="editor-preview" className={`contents ${showPreview ? "" : "max-lg:hidden"}`}>
+            <DevicePreview
+              src="/site-preview"
+              device={device}
+              design={previewDesign}
+              path={page.slug}
+              className="max-lg:min-h-0 max-lg:flex-1 lg:h-[70vh] lg:min-h-[28rem]"
+            />
+          </div>
         </div>
-        {!showPreview && (
-          <button
-            type="button"
-            onClick={() => setShowPreview(true)}
-            className="fixed bottom-4 right-4 z-30 border border-ink bg-ink px-4 py-2 text-sm font-medium text-paper shadow-lg lg:hidden"
-          >
-            Show preview
-          </button>
-        )}
       </div>
     </div>
   );
