@@ -1,5 +1,22 @@
 # Handoff
 
+## First batch of audit fixes (Nov 11, 2026): on branch `security-audit-fixes`, not pushed
+- **Goal:** owner: "do what you think is best" after reading the audit summary; picked the report's day-one batch (all small, no behaviour anyone would notice).
+- **Done:** H-1 zod 4.6.5 → 4.6.7 (the memory blow-up advisory); H-3 email/name capped before the sign-up pattern runs (and on the Google sign-up); M-16 `updateGallery` checks the gallery exists before hashing; M-14 uploads cap at 100 files per request and refuse up front past the plan's remaining room; M-6 `/api/export` capped at 3 per account per hour (429 with `retry-after`); a sign-up also counts per email address (3 a day) toward M-11.
+- **Tests:** 552 → 557 (new: long-email timing, per-mailbox sign-up, file-count cap, gallery-before-hash, `tests/export-limit.test.ts`; the old "over the limit is trimmed" upload test now expects the up-front refusal). tsc, eslint, all 557 and `npm run build` pass.
+- **Gotchas:** `tsconfig.json` now excludes `audit/`, whose proof files are copied out of `tests/` and were breaking `tsc`. `lib/rate-limit.ts` gained `resetRateLimits()` for tests. In dev/tests the limiter is per process, so a per-mailbox sign-up test can only assert "refused", not which message.
+- **Next:** owner reads the diff; push and open the PR if it looks right. Remaining audit items (H-2, H-4, the rest) are untouched and still need owner decisions.
+
+## Deep bug and security audit of main @ 17c35c7 (Nov 9-10, 2026): report finished, waiting on the owner
+- **Status:** six rounds done; final report in `audit/REPORT.md` (summary, fix order, findings, rejected, could-not-test). Proofs copied to `audit/proofs/`. Throwaway worktree `.claude/worktrees/audit-sandbox` kept for the proofs until fixes are done; `audit-sandbox2` removed. **Next:** owner picks which fixes to make; nothing changed in the app yet.
+- **Goal:** owner: multi-agent audit in rounds (map, 11 Haiku specialists, verify, go deeper) until a full round finds no new confirmed high/medium. Audit only: no app code changes, commits, pushes, PRs or backlog edits until the owner has read the report and picked fixes. Then ask which fixes to make.
+- **Where:** all findings go in `audit/REPORT.md`, map in `audit/INVENTORY.md` (git-excluded via `.git/info/exclude`; never commit). **Do not write vulnerability details in this tracked file.** Exploit tests only in throwaway worktree `.claude/worktrees/audit-sandbox` (detached at 17c35c7).
+- **Limits:** production is read-only (Sentry, Vercel errors/logs/settings, a few plain GETs); no exploits, scanners, sign-ups, env decryption. Never touch the Folio Agents branch. No secret values in any output.
+- **Done:** `audit/INVENTORY.md`; 11 Haiku specialists launched from `audit/AGENT-BRIEF.md`, each saves to `audit/round2/<N>.md`.
+- **Status now:** Rounds 1-3 done for all 11 agents; verdicts are in `audit/REPORT.md` (private). Baseline checks pass.
+- **Status now (later):** Round 4 (agents A-D) verified and in the report; browser pass done. Round 5 (E, F, G) verified and in the report. Round 6 agents H, I write to `audit/round4/{H,I}.md`.
+- **Next:** verify H/I, add to the report; if they find no new confirmed high/medium, finish the report (rank, coverage) and ask the owner which fixes to make. Cleanup at the end: remove throwaway worktrees `.claude/worktrees/audit-sandbox` and `audit-sandbox2` once the owner no longer needs the proofs (keep proofs by copying `tests/audit/` into `audit/proofs/` first).
+
 ## Collapsible bottom preview in the design editor (Nov 9, 2026): in progress (worktree branch `claude/folio-collapsible-preview`, off main bc2c038)
 - **Goal:** owner: when the screen is narrow and the preview docks at the bottom, make it collapsible, in the real editor too.
 - **Done:** `app/dashboard/design-editor.tsx` on this branch: Collapse / Show preview button; collapsed = slim bar at the bottom; replaces the Hide link and floating button. Same markup as the Agents branch `claude/folio-agents-artifact-update-123ac4` (1b92e6e), which already has it.

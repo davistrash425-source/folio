@@ -23,6 +23,9 @@ import { sendVerificationEmail } from "@/lib/verify-email";
 
 const HOUR = 60 * 60 * 1000;
 const TOO_MANY = "Too many attempts. Please wait a few minutes and try again.";
+// The longest an address can be (RFC 5321). Names in every form are capped too.
+const EMAIL_MAX = 254;
+const NAME_MAX = 120;
 
 export type FormState = {
   error?: string;
@@ -35,8 +38,10 @@ export type FormState = {
 const TERMS_REQUIRED = "Please agree to the Terms and Privacy Policy to create an account.";
 
 export async function signup(_prev: FormState, formData: FormData): Promise<FormState> {
-  const name = String(formData.get("name") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  // Capped before the email check: the pattern below backtracks badly on very
+  // long input, so an uncapped value could freeze the server (audit H-3).
+  const name = String(formData.get("name") ?? "").trim().slice(0, NAME_MAX);
+  const email = String(formData.get("email") ?? "").trim().toLowerCase().slice(0, EMAIL_MAX);
   const password = String(formData.get("password") ?? "");
   const subdomain = String(formData.get("subdomain") ?? "").trim().toLowerCase();
   const fields = { name, email, subdomain };
@@ -47,6 +52,9 @@ export async function signup(_prev: FormState, formData: FormData): Promise<Form
   if (!name) return { error: "Please enter your name.", fields, field: "name" };
   if (!formData.get("terms")) return { error: TERMS_REQUIRED, fields };
   if (!/^\S+@\S+\.\S+$/.test(email)) return { error: "Please enter a valid email.", fields, field: "email" };
+  // One mailbox can't take every site address it likes: sign-ups count per
+  // address too, as well as per visitor (audit M-11, which frees stale ones).
+  if (!(await rateLimit(`signup-email:${email}`, 3, 24 * HOUR))) return { error: TOO_MANY, fields };
   if (password.length < 8) return { error: "Password must be at least 8 characters.", fields, field: "password" };
   const subError = validateSubdomain(subdomain);
   if (subError) return { error: subError, fields, field: "subdomain" };
@@ -88,12 +96,14 @@ export async function signup(_prev: FormState, formData: FormData): Promise<Form
 // they pick their name and site address. There is no password (they sign in
 // with Google), and their email is already confirmed by Google.
 export async function completeGoogleSignup(_prev: FormState, formData: FormData): Promise<FormState> {
-  const name = String(formData.get("name") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim().slice(0, NAME_MAX);
   const subdomain = String(formData.get("subdomain") ?? "").trim().toLowerCase();
   const fields = { name, subdomain };
 
   const identity = await readGoogleSignup();
   if (!identity) return { error: "That link has expired. Start again with Continue with Google.", fields };
+  // A very long address from Google gets the same answer as a bad one.
+  if (identity.email.length > EMAIL_MAX) return { error: "That email is too long.", fields };
   if (!(await rateLimit(`signup:${await clientIp()}`, 10, HOUR))) return { error: TOO_MANY, fields };
 
   if (!name) return { error: "Please enter your name.", fields, field: "name" };

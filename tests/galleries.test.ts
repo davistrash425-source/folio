@@ -22,6 +22,14 @@ async function galleryFor(userId: string) {
   return (await findUserById(userId))!.galleries![0];
 }
 
+test("updating a gallery that doesn't exist doesn't cost a password hash", async () => {
+  // scrypt is deliberately slow, so it must not run for a missing gallery
+  // (audit M-16).
+  const user = await proUser();
+  assert.match((await updateGallery("no-such-gallery", {}, formOf({ title: "X", password: "secret2" }))).error!, /no longer exists/);
+  assert.equal((await findUserById(user.id))!.galleries, undefined);
+});
+
 test("a free account can't make client galleries", async () => {
   const user = await makeUser("Fay");
   await signInAs(user);

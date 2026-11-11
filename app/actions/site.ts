@@ -6,7 +6,7 @@ import { randomUUID } from "crypto";
 import { z } from "zod";
 import { changeSubdomain, findUserBySubdomain, logAdminAction, subdomainOnHold, updateUser, type Inquiry, type Photo, type User } from "@/lib/db";
 import { currentAdmin, impersonationBlock, requireUser } from "@/lib/auth";
-import { uploadBlock } from "@/lib/plans";
+import { photoLimit, photoLimitMessage, uploadBlock } from "@/lib/plans";
 import { draftDesign, publishedDesign } from "@/lib/public-site";
 import { sitePhotos } from "@/lib/site-photos";
 import { sendEmail } from "@/lib/email";
@@ -23,6 +23,10 @@ import {
 } from "@/lib/uploads";
 
 export type ActionState = { error?: string; ok?: string };
+
+// The most photos one request may carry. The browser sends a few dozen at
+// most; a request full of thousands would tie the server up (audit M-14).
+const MAX_UPLOAD_FILES = 100;
 
 // Every action re-checks the session itself rather than trusting the page. It
 // also checks the account still exists: a login cookie outlives a deleted
@@ -43,7 +47,14 @@ export async function uploadPhotos(_prev: ActionState, formData: FormData): Prom
     .getAll("photos")
     .filter((f): f is File => f instanceof File && f.size > 0);
   if (files.length === 0) return { error: "Choose at least one photo." };
+  if (files.length > MAX_UPLOAD_FILES) return { error: `Upload up to ${MAX_UPLOAD_FILES} photos at a time.` };
   if (user.suspended) return { error: "Your site is suspended, so you can't upload photos right now." };
+  // Checked up front so a request full of files isn't all processed and then
+  // thrown away at the merge (audit M-14).
+  const remaining = photoLimit(user) - user.photos.length;
+  if (files.length > remaining) {
+    return { error: remaining > 0 ? `You have room for ${remaining} more ${remaining === 1 ? "photo" : "photos"}.` : photoLimitMessage(user) };
+  }
   const blockedAtStart = uploadBlock(user);
   if (blockedAtStart) return { error: blockedAtStart };
 

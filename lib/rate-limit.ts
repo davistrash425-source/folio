@@ -59,6 +59,11 @@ export async function rateLimit(key: string, limit: number, windowMs: number) {
   }
 }
 
+// Removes every count, as if the server had just started. For tests only.
+export function resetRateLimits() {
+  hits.clear();
+}
+
 // The visitor's address. On Vercel, x-vercel-forwarded-for and x-real-ip are
 // set by Vercel itself, so a visitor can't fake them; the first
 // x-forwarded-for value can be, so it's only the last resort (development).

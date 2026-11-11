@@ -143,7 +143,7 @@ test("an account deleted during the upload is sent to log in and leaves no files
   assert.deepEqual(filesOf(alice.id), []);
 });
 
-test("an account can't hold more than the photo limit, and nothing over it is kept", async () => {
+test("an account can't hold more than the photo limit, and nothing over it is processed", async () => {
   const alice = await makeUser("Alice");
   await signInAs(alice);
   // Fill the account up to two short of the limit, without real files.
@@ -151,10 +151,14 @@ test("an account can't hold more than the photo limit, and nothing over it is ke
     u.photos = Array.from({ length: FREE_PHOTO_LIMIT - 2 }, (_, i) => ({ id: `p${i}`, file: `p${i}.orig.jpg`, createdAt: "" }));
   });
   const result = await uploadPhotos({}, formWith(await jpegFile("a.jpg"), await jpegFile("b.jpg"), await jpegFile("c.jpg")));
-  assert.match(result.ok!, /^Uploaded 2 photos\. 1 more didn't fit: You've reached the limit of 150 photos/);
+  // Refused up front, before any file is processed (audit M-14).
+  assert.deepEqual(result, { error: "You have room for 2 more photos." });
+  assert.equal((await findUserById(alice.id))!.photos.length, FREE_PHOTO_LIMIT - 2);
+  assert.deepEqual(filesOf(alice.id), [], "nothing was saved");
+
+  // Exactly the room left is fine.
+  assert.equal((await uploadPhotos({}, formWith(await jpegFile("a.jpg"), await jpegFile("b.jpg")))).ok, "Uploaded 2 photos.");
   assert.equal((await findUserById(alice.id))!.photos.length, FREE_PHOTO_LIMIT);
-  const kept = (await findUserById(alice.id))!.photos.slice(-2);
-  assert.equal(filesOf(alice.id).length, kept.reduce((n, p) => n + 1 + p.variants!.length, 0), "the extra photo's files are gone");
 
   assert.deepEqual(await uploadPhotos({}, formWith(await jpegFile())), { error: LIMIT_MESSAGE });
   assert.deepEqual(await startUpload("image/jpeg", 1000), { error: LIMIT_MESSAGE }, "no upload address either");
@@ -165,6 +169,15 @@ test("an account can't hold more than the photo limit, and nothing over it is ke
   await storage.put(alice.id, file, jpeg);
   assert.deepEqual(await finishUpload(file), { error: LIMIT_MESSAGE });
   assert.equal(filesOf(alice.id).some((f) => f.startsWith(file.split(".")[0])), false);
+});
+
+test("one request can't carry thousands of files", async () => {
+  const alice = await makeUser("Alice");
+  await signInAs(alice);
+  const many = await Promise.all(Array.from({ length: 101 }, (_, i) => jpegFile(`p${i}.jpg`, 200, 150)));
+  assert.deepEqual(await uploadPhotos({}, formWith(...many)), { error: "Upload up to 100 photos at a time." });
+  assert.equal((await findUserById(alice.id))!.photos.length, 0);
+  assert.deepEqual(filesOf(alice.id), []);
 });
 
 test("a Pro account gets the higher photo limit", async () => {
