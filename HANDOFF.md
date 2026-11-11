@@ -1,10 +1,11 @@
 # Handoff
 
-## First batch of audit fixes (Nov 11, 2026): merged (PR #37), deploying
+## First batch of audit fixes (Nov 11, 2026): merged (PR #37); production deploy hit the known font bug
 - **Goal:** owner: "do what you think is best" after reading the audit summary; picked the report's day-one batch (all small, no behaviour anyone would notice).
 - **Done:** H-1 zod 4.6.5 → 4.6.7 (the memory blow-up advisory); H-3 email/name capped before the sign-up pattern runs (and on the Google sign-up); M-16 `updateGallery` checks the gallery exists before hashing; M-14 uploads cap at 100 files per request and refuse up front past the plan's remaining room; M-6 `/api/export` capped at 3 per account per hour (429 with `retry-after`); a sign-up also counts per email address (3 a day) toward M-11.
 - **Tests:** 552 → 557 (new: long-email timing, per-mailbox sign-up, file-count cap, gallery-before-hash, `tests/export-limit.test.ts`; the old "over the limit is trimmed" upload test now expects the up-front refusal). tsc, eslint, all 557 and `npm run build` pass. CI green on the first attempt (both `test` runs) and Vercel preview passed.
 - **Gotchas:** `tsconfig.json` now excludes `audit/`, whose proof files are copied out of `tests/` and were breaking `tsc`. `lib/rate-limit.ts` gained `resetRateLimits()` for tests. In dev/tests the limiter is per process, so a per-mailbox sign-up test can only assert "refused", not which message.
+- **Production:** the deploy of 3d200a6 failed with the known Turbopack Google Fonts bug (`next/font/google queries have exactly one entry`, dpl_J3rkJuDCSoRJTydLdHtYD38yq4rv). **Not fixed by redeploying:** Vercel reuses the cached build; the fix is to commit a no-op change so it builds afresh. The live site is still 17c35c7, so none of this batch is live yet.
 - **Next:** the rest of the audit. H-2 (separate preview database, session secret and buckets) is the next biggest exposure and is dashboard work; H-4 needs row caps and narrower public lookups. Everything else still waits on owner decisions.
 
 ## Deep bug and security audit of main @ 17c35c7 (Nov 9-10, 2026): report finished, waiting on the owner
