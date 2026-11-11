@@ -42,7 +42,8 @@ test("no rate limit lasts longer than the Privacy Policy says", () => {
   let checked = 0;
   for (const file of files) {
     for (const [, window] of source(file).matchAll(/rateLimit\([^;]*?,\s*\d+,\s*([^)]+)\)/g)) {
-      const ms = window.trim() === "HOUR" ? HOUR : window.trim() === "window" ? 15 * 60 * 1000 : Function(`return ${window}`)();
+      // Windows are written as an expression such as "HOUR" or "24 * HOUR".
+      const ms = Function("HOUR", "window", `return ${window}`)(HOUR, 15 * 60 * 1000);
       assert.ok(ms <= retention.RATE_LIMIT_MAX_HOURS * HOUR, `${file}: a rate limit lasts ${ms} ms`);
       checked++;
     }

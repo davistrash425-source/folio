@@ -1,7 +1,15 @@
 import { currentUser, impersonationBlock } from "@/lib/auth";
 import type { ClientGallery } from "@/lib/db";
+import { rateLimit } from "@/lib/rate-limit";
 import { storage } from "@/lib/uploads";
 import { zipResponse } from "@/lib/zip";
+
+// A download of the whole account can stream gigabytes, so it's capped per
+// account (audit M-6). Someone exporting again after deleting it by mistake
+// waits a little while.
+const HOUR = 60 * 60 * 1000;
+export const EXPORTS_PER_HOUR = 3;
+const NOT_NOW = "You can download your account a few times an hour. Please try again shortly.";
 
 // Downloads everything in the account: profile, albums, inquiries and the
 // original photo files.
@@ -10,6 +18,10 @@ export async function GET() {
   if (!user) return new Response("Not signed in", { status: 401 });
   // An admin viewing the account as its owner can't download its data.
   if (await impersonationBlock()) return new Response("Not available while viewing this account as an admin", { status: 403 });
+  // Per account, so signing in as several accounts can't add up to more.
+  if (!(await rateLimit(`export:${user.id}`, EXPORTS_PER_HOUR, HOUR))) {
+    return new Response(NOT_NOW, { status: 429, headers: { "retry-after": "600" } });
+  }
 
   const account: Omit<Partial<typeof user>, "galleries"> & { galleries?: Omit<ClientGallery, "passwordHash">[] } = { ...user };
   delete account.passwordHash;

@@ -2,6 +2,7 @@
 // new site goes live.
 import { beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
+import { resetRateLimits } from "../lib/rate-limit.ts";
 import { confirmEmail, signup } from "../app/actions/auth.ts";
 import { sendInquiry } from "../app/actions/site.ts";
 import { deleteUser, findUserByEmail, findUserById, updateUser } from "../lib/db.ts";
@@ -74,4 +75,35 @@ test("signing up needs the Terms box ticked, and the time is saved", async () =>
   assert.equal(await findUserByEmail(full.email), null);
   assert.equal(await redirectedTo(signup({}, formOf({ ...unticked, terms: "on" }))), "/dashboard");
   assert.match((await findUserByEmail(full.email))!.termsAcceptedAt!, /^\d{4}-/);
+});
+
+test("a very long email or name is refused quickly instead of freezing the server", async () => {
+  const fields = newcomer();
+  // The sign-up pattern backtracks badly on long input, so both are cut off
+  // before it runs (audit H-3).
+  const started = Date.now();
+  const longEmail = await signup({}, formOf({ ...fields, email: "@".repeat(200_000) }));
+  assert.match(longEmail.error!, /valid email|Too many/);
+  assert.ok(Date.now() - started < 2_000, `took ${Date.now() - started} ms`);
+
+  // Two sign-ups try to share the address above, so this one gets its own.
+  const capped = newcomer();
+  assert.equal(await redirectedTo(signup({}, formOf({ ...capped, name: "N".repeat(5_000) }))), "/dashboard");
+  const saved = await findUserByEmail(capped.email);
+  assert.ok(saved, "the sign-up itself went through");
+  assert.equal(saved.profile.name.length, 120, "the name is capped");
+});
+
+test("one mailbox can't create several accounts within an hour", async () => {
+  const first = newcomer();
+  const email = first.email;
+  assert.equal(await redirectedTo(signup({}, formOf(first))), "/dashboard");
+  // Even from a fresh visitor address (and with the account now taken), a
+  // repeat is refused at once. (Tests count in memory, so either refusal is
+  // fine here; production's shared count gives the limit message.)
+  resetRateLimits();
+  fromIp("198.51.100.250");
+  const again = await signup({}, formOf({ ...newcomer(), email }));
+  assert.ok(again.error, "the second try is refused");
+  assert.match(again.error, /Too many attempts|already exists/);
 });

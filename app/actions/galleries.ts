@@ -60,6 +60,10 @@ export async function updateGallery(id: string, _prev: GalleryState, formData: F
   if (!title) return { error: "Give the gallery a name." };
   if (password && password.length < MIN_GALLERY_PASSWORD) return { error: PASSWORD_TOO_SHORT };
   if (expires && !validExpiryDate(expires)) return { error: "That expiry date isn't valid." };
+  // The gallery must exist before a password is hashed: scrypt is slow on
+  // purpose, and hashing for a missing gallery would let anyone spend it
+  // freely (audit M-16).
+  if (!findGallery(user, id)) return { error: "That gallery no longer exists." };
   const passwordHash = password ? await hashPassword(password) : "";
   let found = false;
   await updateUser(
